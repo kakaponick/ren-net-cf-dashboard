@@ -110,8 +110,8 @@ export default function AccountsPage() {
       lines.forEach((line, index) => {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 2) {
-          const apiToken = parts[0];
-          const email = parts[1];
+          const apiToken = parts[1];
+          const email = parts[0];
           
           const newAccount: CloudflareAccount = {
             id: crypto.randomUUID(),

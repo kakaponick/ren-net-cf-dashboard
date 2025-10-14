@@ -333,9 +333,10 @@ export default function DomainsPage() {
     }
   }, [enrichedZones]);
   
-  // Track initial render complete
+  // Track initial render complete (once)
+  const hasRendered = useRef(false);
   useEffect(() => {
-    if (filteredZones.length > 0 && !isLoading.zones) {
+    if (filteredZones.length > 0 && !isLoading.zones && !hasRendered.current) {
       requestAnimationFrame(() => {
         const renderComplete = performance.now();
         const totalTime = renderComplete - mountTime.current;
@@ -347,11 +348,13 @@ export default function DomainsPage() {
           totalRenderTime: totalTime,
         });
         
-        console.log(`🎨 Render Metrics:
+        console.log(`🎨 Initial Render Complete:
   - Mount to Data: ${(dataReadyTime.current - mountTime.current).toFixed(2)}ms
   - Data to Render: ${dataToRender.toFixed(2)}ms
   - Total Time: ${totalTime.toFixed(2)}ms
   - Zones: ${filteredZones.length}`);
+        
+        hasRendered.current = true;
       });
     }
   }, [filteredZones, isLoading.zones]);
@@ -413,6 +416,7 @@ export default function DomainsPage() {
     if (forceRefresh) {
       mountTime.current = performance.now();
       dataReadyTime.current = 0;
+      hasRendered.current = false;
       console.log('🔄 Starting refresh timer...');
     }
 
