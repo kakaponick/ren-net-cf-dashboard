@@ -18,6 +18,11 @@ export default function DomainsPage() {
 		const { enrichedZones, isLoading, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
 		const { zones, isCacheValid } = useCloudflareCache();
 		
+		// Log cache info to console
+		if (isCacheValid('zones') && zones.length > 0) {
+				console.log(`Cache: ${enrichedZones.length} of ${zones.length} domains loaded`);
+		}
+		
 		const [searchTerm, setSearchTerm] = useState('');
 		const [sortField, setSortField] = useState<SortField>('name');
 		const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -90,17 +95,12 @@ export default function DomainsPage() {
 		return (
 				<div className="space-y-6">
 						<div className="flex items-center justify-between">
-								<div>
-										<h1 className="text-2xl font-bold">Domains</h1>
-										<p className="text-muted-foreground">
-												Manage your Cloudflare zones and domains from all accounts
-												{isCacheValid('zones') && zones.length > 0 && (
-														<span className="ml-2 text-green-600 text-sm">
-																• Cached ({sortedZones.length} of {zones.length} domains)
-														</span>
-												)}
-										</p>
-								</div>
+				<div>
+						<h1 className="text-2xl font-bold">Domains</h1>
+						<p className="text-muted-foreground">
+								Manage your Cloudflare zones and domains from all accounts
+						</p>
+				</div>
 								
 								<div className="flex items-center space-x-2">
 										<AddDomainDialog accounts={accounts} onDomainCreated={handleRefresh} />
@@ -108,7 +108,7 @@ export default function DomainsPage() {
 										<div className="relative">
 												<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
 												<Input
-														placeholder="Search domains or accounts..."
+														placeholder="Search domain, IP, account"
 														value={searchTerm}
 														onChange={(e) => setSearchTerm(e.target.value)}
 														className="pl-10 w-64"
