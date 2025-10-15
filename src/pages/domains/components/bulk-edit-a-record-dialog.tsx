@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit } from 'lucide-react';
+import { Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
 		Dialog,
@@ -120,7 +120,7 @@ export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARe
 				<Dialog open={open} onOpenChange={setOpen}>
 					<DialogTrigger asChild>
 						<Button size="sm" variant="default">
-							<Edit className="mr-2 h-4 w-4" />
+							<Edit2 className="h-4 w-4" />
 							Edit A Records
 						</Button>
 					</DialogTrigger>

@@ -39,7 +39,7 @@ export const ARecordsCell = memo(function ARecordsCell({ rootARecords, isLoading
 					<Button
 						size="sm"
 						variant="ghost"
-						className="h-12 hover:bg-muted cursor-pointer"
+						className="h-8 hover:bg-muted cursor-pointer"
 						onClick={() => handleCopyIP(record.content)}
 					>
 						<span className="text-sm font-mono text-blue-600 dark:text-blue-400">

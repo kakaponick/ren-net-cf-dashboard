@@ -1,14 +1,25 @@
 import { memo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Settings, RefreshCw } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Copy } from 'lucide-react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 import { ARecordsCell, ProxiedCell } from './dns-cell';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { Zone } from '@/types/cloudflare';
+
+const handleCopyDomain = async (domain: string) => {
+	try {
+		await navigator.clipboard.writeText(domain);
+		toast.success(`Copied ${domain} to clipboard`);
+	} catch (error) {
+		console.error('Failed to copy domain:', error);
+		toast.error('Failed to copy domain name');
+	}
+};
 
 type DomainRowProps = {
 	item: ZoneWithDNS;
@@ -32,12 +43,26 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 
 			<TableCell className="font-medium">
 
-				<div className="flex flex-col">
-					<div className="flex items-center gap-2">
+				<div className="flex gap-2">
+					<div className="flex flex-col">
+						<span className="font-semibold">
+							{item.zone.name}
+						</span>
+						{item.dnsLoading ? (
+							<Skeleton className="h-3 w-24 mt-1" />
+						) : (
+							<span className="text-xs text-muted-foreground">
+								{item.zone.name_servers?.length || 0} name servers
+							</span>
+						)}
+
+					</div>
+
+					<div className="flex items-center gap-1">
 						<Button
 							asChild
 							variant="ghost"
-							className="h-12 gap-4"
+							className="h-8 w-8"
 							title={`Open ${item.zone.name} in new tab`}
 						>
 							<a
@@ -45,21 +70,18 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								<div className="flex flex-col">
-									<span className="font-semibold">
-										{item.zone.name}
-									</span>
-									{item.dnsLoading ? (
-										<Skeleton className="h-3 w-24 mt-1" />
-									) : (
-										<span className="text-xs text-muted-foreground">
-											{item.zone.name_servers?.length || 0} name servers
-										</span>
-									)}
 
-								</div>
 								<ExternalLink className="h-3 w-3 opacity-50" />
 							</a>
+						</Button>
+						<Button
+							size="icon"
+							variant="ghost"
+							className="h-8 w-8"
+							title="Copy domain name"
+							onClick={() => handleCopyDomain(item.zone.name)}
+						>
+							<Copy className="h-4 w-4 opacity-50" />
 						</Button>
 					</div>
 
