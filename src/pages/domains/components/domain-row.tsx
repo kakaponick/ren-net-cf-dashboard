@@ -37,7 +37,7 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 						<Button
 							asChild
 							variant="ghost"
-							className="h-12 gap-5"
+							className="h-12 gap-4"
 							title={`Open ${item.zone.name} in new tab`}
 						>
 							<a
@@ -58,7 +58,7 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 									)}
 
 								</div>
-								<ExternalLink className="h-3 w-3" />
+								<ExternalLink className="h-3 w-3 opacity-50" />
 							</a>
 						</Button>
 					</div>

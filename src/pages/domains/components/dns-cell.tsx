@@ -35,16 +35,17 @@ export const ARecordsCell = memo(function ARecordsCell({ rootARecords, isLoading
 		<div className="space-y-1">
 			{rootARecords.map((record, index) => (
 				<div key={index} className="flex items-center space-x-2">
-					<span className="text-sm font-mono text-blue-600 dark:text-blue-400">
-						{record.content}
-					</span>
+					
 					<Button
 						size="sm"
 						variant="ghost"
-						className="h-6 w-6 p-0 hover:bg-muted"
+						className="h-12 hover:bg-muted cursor-pointer"
 						onClick={() => handleCopyIP(record.content)}
 					>
-						<Copy className="h-3 w-3" />
+						<span className="text-sm font-mono text-blue-600 dark:text-blue-400">
+						{record.content}
+					</span>
+						<Copy className="h-3 w-3 opacity-50" />
 					</Button>
 				</div>
 			))}

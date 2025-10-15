@@ -26,9 +26,10 @@ import type { CloudflareAccount } from '@/types/cloudflare';
 type AddDomainDialogProps = {
 		accounts: CloudflareAccount[];
 		onDomainCreated: () => void;
+		title: string;
 };
 
-export function AddDomainDialog({ accounts, onDomainCreated }: AddDomainDialogProps) {
+export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainDialogProps) {
 		const [isOpen, setIsOpen] = useState(false);
 		const [newDomainName, setNewDomainName] = useState('');
 		const [selectedAccountId, setSelectedAccountId] = useState('');
@@ -80,7 +81,7 @@ export function AddDomainDialog({ accounts, onDomainCreated }: AddDomainDialogPr
 
 		return (
 				<Dialog open={isOpen} onOpenChange={setIsOpen}>
-						<DialogTrigger asChild>
+						<DialogTrigger asChild title={title}>
 								<Button>
 										<Plus className="mr-2 h-4 w-4" />
 										Add Domain
