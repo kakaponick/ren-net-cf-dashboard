@@ -17,6 +17,7 @@ import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface BulkEditARecordDialogProps {
 		selectedZones: ZoneWithDNS[];
@@ -124,7 +125,7 @@ export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARe
 							Edit A Records
 						</Button>
 					</DialogTrigger>
-					<DialogContent>
+					<DialogContent className="max-w-4xl">
 						<DialogHeader>
 							<DialogTitle>Bulk Edit A Records</DialogTitle>
 							<DialogDescription>
@@ -133,7 +134,7 @@ export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARe
 						</DialogHeader>
 
 						<div className="space-y-4 py-4">
-							<div className="space-y-2">
+							<div className="grid w-full max-w-sm items-center gap-3">
 								<Label htmlFor="ip-address">IP Address</Label>
 								<Input
 										id="ip-address"
@@ -154,16 +155,27 @@ export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARe
 								/>
 							</div>
 
-							<div className="rounded-md bg-muted p-4">
-								<h4 className="text-sm font-medium mb-2">Selected Domains:</h4>
-								<div className="max-h-48 overflow-y-auto space-y-1">
+						<div className="rounded-lg border bg-muted/50 p-4">
+							<h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+								<span className="text-muted-foreground">Selected Domains</span>
+								<span className="text-xs font-normal bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+									{selectedZones.length}
+								</span>
+							</h4>
+							<ScrollArea className="h-[500px]">
+
+								<div className="pr-4 grid grid-cols-3 gap-1">
 									{selectedZones.map((zone) => (
-										<div key={`${zone.accountId}-${zone.zone.id}`} className="text-sm text-muted-foreground">
-											• {zone.zone.name}
+										<div
+											key={`${zone.accountId}-${zone.zone.id}`}
+											className="text-sm text-foreground bg-background/60 px-2 py-1 rounded-md border border-border/50"
+										>
+											<span className="font-mono">{zone.zone.name}</span>
 										</div>
 									))}
 								</div>
-							</div>
+							</ScrollArea>
+						</div>
 						</div>
 
 						<DialogFooter>
