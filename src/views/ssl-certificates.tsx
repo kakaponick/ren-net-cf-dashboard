@@ -59,6 +59,7 @@ export default function SSLCertificatesPage() {
         loadData();
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, zoneId, accountId, accountsLoading]);
 
   const loadData = async (forceRefresh = false) => {
@@ -290,7 +291,7 @@ export default function SSLCertificatesPage() {
             <Shield className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No SSL certificates found</h3>
             <p className="text-muted-foreground text-center">
-              This zone doesn't have any SSL certificates yet
+              This zone doesn&apos;t have any SSL certificates yet
             </p>
           </CardContent>
         </Card>

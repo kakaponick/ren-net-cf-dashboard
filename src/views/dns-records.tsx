@@ -72,6 +72,7 @@ export default function DNSRecordsPage() {
         loadRecords();
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, zoneId, accountId, accountsLoading]);
 
   const loadZone = async () => {
@@ -402,7 +403,7 @@ export default function DNSRecordsPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <h3 className="text-lg font-medium mb-2">No DNS records found</h3>
             <p className="text-muted-foreground mb-4">
-              This zone doesn't have any DNS records yet
+              This zone doesn&apos;t have any DNS records yet
             </p>
             <Button onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
