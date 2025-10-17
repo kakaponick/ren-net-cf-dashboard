@@ -50,12 +50,7 @@ async function handleCloudflareProxy(
 				
 				const cloudflareUrl = url.toString();
 				const method = request.method;
-
-				console.log(`[${method}] ${cloudflareUrl}`);
 				const authHeader = request.headers.get('authorization');
-				console.log('Authorization header:', authHeader ? `${authHeader.substring(0, 20)}...` : 'MISSING');
-				console.log('Query params received:', Object.fromEntries(request.nextUrl.searchParams));
-				console.log('Final URL with params:', cloudflareUrl);
 
 				const fetchOptions: RequestInit = {
 						method,
@@ -67,7 +62,6 @@ async function handleCloudflareProxy(
 
 				if (['POST', 'PATCH', 'PUT'].includes(method)) {
 						const body = await request.json();
-						console.log('Request body:', body);
 						fetchOptions.body = JSON.stringify(body);
 				}
 
@@ -78,8 +72,6 @@ async function handleCloudflareProxy(
 						console.log(`✅ Success: ${response.status}`);
 				} else {
 						console.log(`❌ Error: ${response.status}`, data.errors?.[0]?.message || '');
-						console.log('Full error response:', JSON.stringify(data, null, 2));
-						console.log('Headers sent to Cloudflare:', JSON.stringify(fetchOptions.headers, null, 2));
 				}
 
 				return NextResponse.json(data, { status: response.status });

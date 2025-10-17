@@ -1,4 +1,43 @@
-import { paginateCloudflareAPI } from './utils';
+
+/**
+ * Generic pagination helper for Cloudflare API endpoints
+ * @param makeRequest Function to make API requests
+ * @param endpoint The API endpoint to paginate
+ * @param perPage Number of items per page (max 100 for most endpoints)
+ * @returns Promise resolving to all items from all pages
+ */
+
+export async function paginateCloudflareAPI(
+  makeRequest: (url: string) => Promise<any>,
+  endpoint: string,
+  perPage: number = 50
+): Promise<any[]> {
+  const allItems: any[] = [];
+  let page = 1;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const url = `${endpoint}?page=${page}&per_page=${perPage}`;
+    const response = await makeRequest(url);
+    const items = response.result || [];
+    
+    if (items.length === 0) {
+      hasMorePages = false;
+    } else {
+      allItems.push(...items);
+      
+      // Check if we have more pages
+      const resultInfo = response.result_info;
+      if (resultInfo && resultInfo.page < resultInfo.total_pages) {
+        page++;
+      } else {
+        hasMorePages = false;
+      }
+    }
+  }
+
+  return allItems;
+}
 
 export class CloudflareAPI {
   private apiToken: string;
@@ -24,7 +63,13 @@ export class CloudflareAPI {
         : JSON.stringify(options.body);
     }
 
-    const response = await fetch(`http://localhost:3000/api/cloudflare${endpoint}`, fetchOptions);
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : window.location.origin
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/cloudflare${endpoint}`, fetchOptions);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
