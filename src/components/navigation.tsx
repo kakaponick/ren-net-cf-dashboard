@@ -53,12 +53,7 @@ export function Navigation({ children }: NavigationProps) {
                 );
               })}
             </nav>
-            <h2 className="w-96 text-lg font-semibold">
-              {pathname === '/accounts' && 'Account Management'}
-              {pathname === '/' && 'Domain Management'}
-              {pathname?.startsWith('/dns/') && 'DNS Records'}
-              {pathname?.startsWith('/ssl/') && 'SSL Certificates'}
-            </h2>
+
             <ThemeToggle />
           </div>
         </header>
