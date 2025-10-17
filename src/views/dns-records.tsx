@@ -245,7 +245,7 @@ export default function DNSRecordsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button asChild variant="outline" size="sm">
-            <Link href="/domains">
+            <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Domains
             </Link>
