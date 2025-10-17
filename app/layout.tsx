@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import '@/index.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from 'sonner';
+import { Navigation } from '@/components/navigation';
 
 const geistSans = Geist({
 	subsets: ['latin'],
@@ -17,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: 'Cloudflare Dashboard',
 	description: 'Manage your Cloudflare domains and DNS records',
+	icons: {
+		icon: '/favicon.svg',
+	},
 };
 
 export default function RootLayout({
@@ -33,7 +37,9 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange
 				>
-					{children}
+					<Navigation>
+						{children}
+					</Navigation>
 					<Toaster />
 				</ThemeProvider>
 			</body>

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
-interface LayoutProps {
+interface NavigationProps {
   children: ReactNode;
 }
 
@@ -20,12 +20,11 @@ const navigation = [
   { name: 'Accounts', href: '/accounts', icon: Key },
 ];
 
-export default function Layout({ children }: LayoutProps) {
+export function Navigation({ children }: NavigationProps) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-screen bg-background">
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="border-b bg-card px-6 py-2">
@@ -56,7 +55,7 @@ export default function Layout({ children }: LayoutProps) {
             </nav>
             <h2 className="w-96 text-lg font-semibold">
               {pathname === '/accounts' && 'Account Management'}
-              {pathname === '/  ' && 'Domain Management'}
+              {pathname === '/' && 'Domain Management'}
               {pathname?.startsWith('/dns/') && 'DNS Records'}
               {pathname?.startsWith('/ssl/') && 'SSL Certificates'}
             </h2>
