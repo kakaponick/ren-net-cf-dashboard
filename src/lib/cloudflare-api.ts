@@ -24,7 +24,7 @@ export class CloudflareAPI {
         : JSON.stringify(options.body);
     }
 
-    const response = await fetch(`http://localhost:3001/api/cloudflare${endpoint}`, fetchOptions);
+    const response = await fetch(`http://localhost:3000/api/cloudflare${endpoint}`, fetchOptions);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

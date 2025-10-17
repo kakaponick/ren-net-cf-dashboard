@@ -22,9 +22,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface BulkEditARecordDialogProps {
 		selectedZones: ZoneWithDNS[];
 		onComplete: () => void;
+		onRefreshDNS?: (zoneId: string, accountId: string) => void;
 }
 
-export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARecordDialogProps) {
+export function BulkEditARecordDialog({ selectedZones, onComplete, onRefreshDNS }: BulkEditARecordDialogProps) {
 		const [open, setOpen] = useState(false);
 		const [ipAddress, setIpAddress] = useState('');
 		const [proxied, setProxied] = useState(false);
@@ -78,7 +79,6 @@ export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARe
 									ttl: 1,
 									proxied: proxied,
 								});
-								successCount++;
 							} else {
 								// Update all root A records
 								for (const record of rootARecords) {
@@ -90,8 +90,11 @@ export function BulkEditARecordDialog({ selectedZones, onComplete }: BulkEditARe
 										proxied: proxied,
 									});
 								}
-								successCount++;
 							}
+							
+							// Refresh DNS records to update both local and global cache
+							onRefreshDNS?.(zone.zone.id, zone.accountId);
+							successCount++;
 						} catch (error) {
 							console.error(`Error updating ${zone.zone.name}:`, error);
 							failCount++;

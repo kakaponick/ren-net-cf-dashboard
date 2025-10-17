@@ -1,5 +1,7 @@
+'use client';
+
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Globe, Search, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +16,7 @@ import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 
 export default function DomainsPage() {
-	const navigate = useNavigate();
+	const router = useRouter();
 	const { enrichedZones, isLoading, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
 	const { zones, isCacheValid } = useCloudflareCache();
 
@@ -79,13 +81,13 @@ export default function DomainsPage() {
 			<div className="flex items-center justify-center h-64">
 				<Card>
 					<CardContent className="text-center py-8">
-						<h3 className="text-lg font-medium mb-2">No Accounts Added</h3>
-						<p className="text-muted-foreground mb-4">
-							Please add Cloudflare accounts to view domains
-						</p>
-						<Button onClick={() => navigate('/accounts')}>
-							Go to Accounts
-						</Button>
+					<h3 className="text-lg font-medium mb-2">No Accounts Added</h3>
+					<p className="text-muted-foreground mb-4">
+						Please add Cloudflare accounts to view domains
+					</p>
+					<Button onClick={() => router.push('/accounts')}>
+						Go to Accounts
+					</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -140,10 +142,8 @@ export default function DomainsPage() {
 							<div className="flex items-center space-x-2">
 								<BulkEditARecordDialog
 									selectedZones={selectedZones}
-									onComplete={() => {
-										handleRefresh();
-										clear();
-									}}
+									onComplete={() => clear()}
+									onRefreshDNS={handleRefreshDNS}
 								/>
 								<Button
 									size="sm"

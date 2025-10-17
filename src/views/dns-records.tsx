@@ -1,5 +1,8 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -17,8 +20,9 @@ import { toast } from 'sonner';
 import type { DNSRecord } from '@/types/cloudflare';
 
 export default function DNSRecordsPage() {
-  const { zoneId } = useParams<{ zoneId: string }>();
-  const [searchParams] = useSearchParams();
+  const params = useParams();
+  const zoneId = params.zoneId as string;
+  const searchParams = useSearchParams();
   const accountId = searchParams.get('account');
   const { accounts, isLoading: accountsLoading } = useAccountStore();
   const { 
@@ -227,7 +231,7 @@ export default function DNSRecordsPage() {
               Please go back to domains and select a valid account
             </p>
             <Button asChild>
-              <Link to="/domains">Go to Domains</Link>
+              <Link href="/domains">Go to Domains</Link>
             </Button>
           </CardContent>
         </Card>
@@ -240,7 +244,7 @@ export default function DNSRecordsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button asChild variant="outline" size="sm">
-            <Link to="/domains">
+            <Link href="/domains">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Domains
             </Link>

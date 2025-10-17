@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { ExternalLink, Settings, RefreshCw, Copy } from 'lucide-react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -125,7 +125,7 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 						<RefreshCw className={`h-4 w-4 ${item.dnsLoading ? 'animate-spin' : ''}`} />
 					</Button>
 					<Button asChild size="sm" variant="outline">
-						<Link to={`/dns/${item.zone.id}?account=${item.accountId}`}>
+						<Link href={`/dns/${item.zone.id}?account=${item.accountId}`}>
 							<Settings className="mr-1 h-3 w-3" />
 							DNS
 						</Link>
