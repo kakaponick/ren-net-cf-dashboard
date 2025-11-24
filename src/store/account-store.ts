@@ -47,10 +47,9 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   domainNameservers: loadNameservers(),
 
   loadAccounts: () => {
-    set({ isLoading: true, error: null });
     try {
       const accounts = storage.getAccounts();
-      set({ accounts, isLoading: false });
+      set({ accounts, isLoading: false, error: null });
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to load accounts',
