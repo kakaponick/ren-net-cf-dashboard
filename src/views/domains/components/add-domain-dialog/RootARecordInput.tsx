@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Toggle } from '@/components/ui/toggle';
+import { CloudCheck, CloudOff } from 'lucide-react';
 
 interface RootARecordInputProps {
 	ipAddress: string;
@@ -42,9 +43,10 @@ export function RootARecordInput({
 					onPressedChange={onProxiedChange}
 					disabled={disabled}
 					variant='outline'
+					size='lg'
 					title={proxied ? 'Proxied' : 'DNS Only'}
 				>
-					{proxied ? '🟢' : '⚪'}
+					{proxied ? <CloudCheck className="text-green-500" /> : <CloudOff className="text-white" />}
 				</Toggle>
 			</div>
 			<p className="text-sm text-muted-foreground">

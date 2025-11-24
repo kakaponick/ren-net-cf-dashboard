@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Copy } from 'lucide-react';
+import { Cloud, CloudCheck, CloudOff, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -65,7 +65,7 @@ export const ProxiedCell = memo(function ProxiedCell({ rootARecords, isLoading }
 					className={cn(record.proxied ? 'shadow-green-500' : 'shadow-white text-white', "shadow shrink-0 text-sm")}
 					title={record.proxied ? 'Proxied' : 'DNS Only'}
 				>
-					{record.proxied ? '🟢' : '⚪'}
+					{record.proxied ? <CloudCheck className="h-4 w-4 text-green-500" /> : <CloudOff className="h-4 w-4 text-gray-500" />}
 				</Badge>
 			))}
 		</div>

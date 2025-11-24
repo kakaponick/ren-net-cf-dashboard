@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -75,8 +74,7 @@ export function BulkDeleteDomainsDialog({ selectedZones, onComplete }: BulkDelet
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button size="sm" variant="destructive">
-					<Trash2 className="h-4 w-4 mr-2" />
+				<Button size="sm" variant="outline" className="text-destructive">
 					Delete Domains
 				</Button>
 			</DialogTrigger>

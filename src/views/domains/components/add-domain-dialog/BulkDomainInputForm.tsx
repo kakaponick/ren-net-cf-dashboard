@@ -16,7 +16,7 @@ export function BulkDomainInputForm({ value, onChange, disabled }: BulkDomainInp
 			<Label htmlFor="bulk-domains">Domain Names (one per line)</Label>
 			<Textarea
 				id="bulk-domains"
-				placeholder="example.com&#10;example.org&#10;example.net"
+				placeholder="example.com"
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				className="min-h-[120px] font-mono text-sm"
