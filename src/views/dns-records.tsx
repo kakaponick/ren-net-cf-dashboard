@@ -62,10 +62,9 @@ export default function DNSRecordsPage() {
     // Only proceed if accounts are loaded and not loading
     if (!accountsLoading && account && zoneId && accountId) {
       const cacheKey = `${zoneId}-${accountId}`;
-      const cachedZone = getZoneDetails(zoneId, accountId);
-      const cachedRecords = getDNSRecords(zoneId, accountId);
       
-      // Set cached zone if valid
+      // Load zone details
+      const cachedZone = getZoneDetails(zoneId, accountId);
       if (cachedZone && isCacheValid('zoneDetails', cacheKey)) {
         setZone(cachedZone);
         // Save nameservers to store if available
@@ -76,7 +75,8 @@ export default function DNSRecordsPage() {
         loadZone();
       }
       
-      // Set cached records if valid
+      // Load DNS records
+      const cachedRecords = getDNSRecords(zoneId, accountId);
       if (cachedRecords.length > 0 && isCacheValid('dnsRecords', cacheKey)) {
         setRecords(cachedRecords);
       } else {

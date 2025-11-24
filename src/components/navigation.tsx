@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
-  Cloud,
   Globe,
-  Key
+  KeyRound
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -17,7 +16,7 @@ interface NavigationProps {
 
 const navigation = [
   { name: 'Domains', href: '/', icon: Globe },
-  { name: 'Accounts', href: '/accounts', icon: Key },
+  { name: 'Accounts', href: '/accounts', icon: KeyRound },
 ];
 
 export function Navigation({ children }: NavigationProps) {
@@ -29,30 +28,31 @@ export function Navigation({ children }: NavigationProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="border-b bg-card px-6 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex gap-2 items-center">
-              <Cloud />
+            <div className="flex gap-6 items-center">
               <h1 className="font-bold">Cloudflare Dashboard</h1>
-            </div>
-            <nav className="flex gap-2">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
 
-                return (
-                  <Button
-                    key={item.name}
-                    asChild
-                    size="sm"
-                    variant={isActive ? "default" : "ghost"}
-                  >
-                    <Link href={item.href}>
-                      <Icon />
-                      {item.name}
-                    </Link>
-                  </Button>
-                );
-              })}
-            </nav>
+              <nav className="flex gap-2">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+
+                  return (
+                    <Button
+                      key={item.name}
+                      asChild
+                      size="sm"
+                      variant={isActive ? "default" : "ghost"}
+                    >
+                      <Link href={item.href}>
+                        <Icon />
+                        {item.name}
+                      </Link>
+                    </Button>
+                  );
+                })}
+              </nav>
+            </div>
+            
 
             <ThemeToggle />
           </div>
