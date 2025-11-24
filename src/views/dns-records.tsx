@@ -16,6 +16,7 @@ import { Plus, Edit, Trash2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
+import { NameserversSection } from '@/components/nameservers-section';
 import { toast } from 'sonner';
 import type { DNSRecord } from '@/types/cloudflare';
 
@@ -50,6 +51,12 @@ export default function DNSRecordsPage() {
   });
 
   const account = accounts.find((acc: any) => acc.id === accountId);
+  const { getDomainNameservers, setDomainNameservers } = useAccountStore();
+  
+  // Get nameservers from zone or store
+  const nameservers = zone?.name_servers && Array.isArray(zone.name_servers) && zone.name_servers.length > 0
+    ? zone.name_servers
+    : (zone?.name ? getDomainNameservers(zone.name) : []);
 
   useEffect(() => {
     // Only proceed if accounts are loaded and not loading
@@ -60,6 +67,10 @@ export default function DNSRecordsPage() {
       const cachedZone = getZoneDetails(zoneId, accountId);
       if (cachedZone && isCacheValid('zoneDetails', cacheKey)) {
         setZone(cachedZone);
+        // Save nameservers to store if available
+        if (cachedZone?.name_servers && Array.isArray(cachedZone.name_servers) && cachedZone.name_servers.length > 0 && cachedZone?.name) {
+          setDomainNameservers(cachedZone.name, cachedZone.name_servers);
+        }
       } else {
         loadZone();
       }
@@ -86,6 +97,11 @@ export default function DNSRecordsPage() {
       const zoneData = await api.getZone(zoneId);
       setZone(zoneData);
       setZoneDetails(zoneId, accountId, zoneData);
+      
+      // Save nameservers to store
+      if (zoneData?.name_servers && Array.isArray(zoneData.name_servers) && zoneData.name_servers.length > 0 && zoneData?.name) {
+        setDomainNameservers(zoneData.name, zoneData.name_servers);
+      }
     } catch (error) {
       console.error('Error loading zone:', error);
       toast.error('Failed to load zone information');
@@ -244,10 +260,9 @@ export default function DNSRecordsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="icon" className='aspect-square w-12'>
             <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Domains
+              <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
           <div>
@@ -388,6 +403,17 @@ export default function DNSRecordsPage() {
           </Dialog>
         </div>
       </div>
+
+      {zone && nameservers && nameservers.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <NameserversSection 
+              nameservers={nameservers}
+              description="Use these Cloudflare nameservers to configure your domain's DNS settings:"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading.dnsRecords[`${zoneId}-${accountId}`] ? (
         <Card>

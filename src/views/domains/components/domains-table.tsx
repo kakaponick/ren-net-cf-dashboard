@@ -18,6 +18,7 @@ type DomainsTableProps = {
 		allSelected: boolean;
 		selectedCount: number;
 		onRefreshDNS?: (zoneId: string, accountId: string) => void;
+		onDomainDeleted?: () => void;
 };
 
 export const DomainsTable = memo(function DomainsTable({
@@ -30,7 +31,8 @@ export const DomainsTable = memo(function DomainsTable({
 		onToggleAll,
 		allSelected,
 		selectedCount,
-		onRefreshDNS
+		onRefreshDNS,
+		onDomainDeleted
 }: DomainsTableProps) {
 		const getStatusBadgeVariant = useCallback((status: Zone['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
 				switch (status) {
@@ -130,6 +132,7 @@ export const DomainsTable = memo(function DomainsTable({
 														isSelected={isSelected(rowId)}
 														onToggle={onToggle}
 														onRefreshDNS={onRefreshDNS}
+														onDomainDeleted={onDomainDeleted}
 														getStatusBadgeVariant={getStatusBadgeVariant}
 												/>
 										);

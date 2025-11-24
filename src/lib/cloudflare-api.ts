@@ -39,6 +39,27 @@ export async function paginateCloudflareAPI(
   return allItems;
 }
 
+/**
+ * Result of configuring zone settings
+ */
+export interface ZoneSettingsConfigResult {
+  success: boolean;
+  successCount: number;
+  failureCount: number;
+  totalCount: number;
+  errors: string[];
+  hasAuthError: boolean;
+}
+
+/**
+ * Progress callback for zone settings configuration
+ */
+export type ZoneSettingsProgressCallback = (step: {
+  name: string;
+  status: 'pending' | 'processing' | 'success' | 'error';
+  error?: string;
+}) => void;
+
 export class CloudflareAPI {
   private apiToken: string;
 
@@ -73,7 +94,11 @@ export class CloudflareAPI {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+      const error = new Error(`API request failed: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`) as any;
+      error.status = response.status;
+      error.statusText = response.statusText;
+      error.errorData = errorData;
+      throw error;
     }
 
     return response.json();
@@ -138,6 +163,17 @@ export class CloudflareAPI {
     } catch (error) {
       console.error('Error creating zone:', error);
       throw error;
+    }
+  }
+
+  async deleteZone(zoneId: string) {
+    try {
+      await this.makeRequest(`/zones/${zoneId}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Error deleting zone:', error);
+      throw new Error('Failed to delete zone');
     }
   }
 
@@ -234,13 +270,312 @@ export class CloudflareAPI {
     try {
       const response = await this.makeRequest(`/zones/${zoneId}/settings/ssl`, {
         method: 'PATCH',
-        body: JSON.stringify({ value }),
+        body: { value },
       });
       return response.result;
     } catch (error) {
       console.error('Error updating SSL setting:', error);
       throw new Error('Failed to update SSL setting');
     }
+  }
+
+  // Zone Settings Management
+  private async updateZoneSetting(zoneId: string, setting: string, value: any) {
+    try {
+      const response = await this.makeRequest(`/zones/${zoneId}/settings/${setting}`, {
+        method: 'PATCH',
+        body: { value },
+      });
+      return response.result;
+    } catch (error) {
+      console.error(`Error updating ${setting}:`, error);
+      throw new Error(`Failed to update ${setting}`);
+    }
+  }
+
+  // SSL/TLS Overview: Set to full (strict)
+  async setSSLMode(zoneId: string, mode: 'off' | 'flexible' | 'full' | 'strict' = 'strict') {
+    return this.updateZoneSetting(zoneId, 'ssl', mode);
+  }
+
+  // Edge Certificates: Always use HTTPS
+  async setAlwaysUseHTTPS(zoneId: string, enabled: boolean = true) {
+    return this.updateZoneSetting(zoneId, 'always_use_https', enabled ? 'on' : 'off');
+  }
+
+  // Edge Certificates: HTTP Strict Transport Security (HSTS)
+  async setHSTS(zoneId: string, enabled: boolean = true) {
+    const hstsValue = enabled
+      ? {
+          enabled: true,
+          max_age: 31536000, // 1 year
+          include_subdomains: true,
+          preload: true,
+        }
+      : {
+          enabled: false,
+        };
+    try {
+      const response = await this.makeRequest(`/zones/${zoneId}/settings/security_header`, {
+        method: 'PATCH',
+        body: {
+          value: {
+            strict_transport_security: hstsValue,
+          },
+        },
+      });
+      return response.result;
+    } catch (error) {
+      console.error('Error updating HSTS:', error);
+      throw new Error('Failed to update HSTS');
+    }
+  }
+
+  // Edge Certificates: TLS 1.3
+  async setTLS13(zoneId: string, enabled: boolean = false) {
+    return this.updateZoneSetting(zoneId, 'tls_1_3', enabled ? 'on' : 'off');
+  }
+
+  // Origin Server: Authenticated Origin Pulls
+  // Reference: PATCH /zones/{zone_id}/settings/authenticated_origin_pulls
+  async setAuthenticatedOriginPulls(zoneId: string, enabled: boolean = true) {
+    try {
+      const response = await this.makeRequest(`/zones/${zoneId}/origin_tls_client_auth/settings`, {
+        method: 'PUT',
+        body: { enabled },
+      });
+      return response.result;
+    } catch (error) {
+      console.error('Error updating Authenticated Origin Pulls:', error);
+      throw new Error('Failed to update Authenticated Origin Pulls');
+    }
+  }
+
+  // Security: Bot Fight Mode
+  // Reference: https://developers.cloudflare.com/bots/get-started/bot-fight-mode/
+  // PUT /zones/{zone_id}/bot_management
+  // Note: enable_js must be true when fight_mode is enabled
+  async setBotFightMode(zoneId: string, enabled: boolean = true) {
+    try {
+      const response = await this.makeRequest(`/zones/${zoneId}/bot_management`, {
+        method: 'PUT',
+        body: {
+          enable_js: enabled, // Required: JavaScript detection must be enabled for Bot Fight Mode
+          fight_mode: enabled,
+        },
+      });
+      return response.result;
+    } catch (error: any) {
+      console.error('Error updating Bot Fight Mode:', error);
+      throw new Error('Failed to update Bot Fight Mode');
+    }
+  }
+
+  // WAF: Create custom rule to skip known bots
+  // Reference: https://developers.cloudflare.com/waf/custom-rules/create-api/
+  async createSkipBotsWAFRule(zoneId: string) {
+    try {
+      // Step 1: Get the entry point ruleset for http_request_firewall_custom phase
+      const phaseResponse = await this.makeRequest(
+        `/zones/${zoneId}/rulesets/phases/http_request_firewall_custom/entrypoint`,
+        { method: 'GET' }
+      );
+
+      const rulesetId = phaseResponse.result?.id;
+      
+      if (rulesetId) {
+        // Step 2: Entry point ruleset exists, add rule to it
+        // POST to /zones/{zone_id}/rulesets/{ruleset_id}/rules
+        const ruleData = {
+          description: 'Skip known bots',
+          expression: '(cf.client.bot)',
+          action: 'skip',
+          action_parameters: {
+            ruleset: 'current',
+              phases: [
+              "http_ratelimit",
+              "http_request_firewall_managed",
+              "http_request_sbfm"
+            ]
+          },
+          enabled: true,
+        };
+
+        const response = await this.makeRequest(
+          `/zones/${zoneId}/rulesets/${rulesetId}/rules`,
+          {
+            method: 'POST',
+            body: ruleData,
+          }
+        );
+        
+        return response.result;
+      } else {
+        throw new Error('Ruleset ID not found in response');
+      }
+    } catch (error: any) {
+      // If entry point ruleset doesn't exist (404), create it with the rule
+      if (error?.status === 404 || error?.message?.includes('404')) {
+        try {
+          // Create the entry point ruleset with the rule included
+          const response = await this.makeRequest(`/zones/${zoneId}/rulesets`, {
+            method: 'POST',
+            body: {
+              name: 'Custom Rules',
+              kind: 'zone',
+              phase: 'http_request_firewall_custom',
+              rules: [
+                {
+                  description: 'Skip known bots',
+                  expression: '(cf.client.bot)',
+                  action: 'skip',
+                  action_parameters: {
+                    ruleset: 'current',
+                    phases: [
+                      "http_ratelimit",
+                      "http_request_firewall_managed",
+                      "http_request_sbfm"
+                    ]
+                  },
+                  enabled: true,
+                },
+              ],
+            },
+          });
+          
+          return response.result;
+        } catch (createError) {
+          console.error('Error creating WAF custom ruleset:', createError);
+          throw createError;
+        }
+      } else {
+        console.error('Error creating WAF custom rule:', error);
+        throw error;
+      }
+    }
+  }
+
+  // Speed Optimization: Early Hints
+  async setEarlyHints(zoneId: string, enabled: boolean = true) {
+    return this.updateZoneSetting(zoneId, 'early_hints', enabled ? 'on' : 'off');
+  }
+
+  // Speed Optimization: 0-RTT Connection Resumption
+  async set0RTT(zoneId: string, enabled: boolean = true) {
+    return this.updateZoneSetting(zoneId, '0rtt', enabled ? 'on' : 'off');
+  }
+
+  // Network: Pseudo IPv4 - Overwrite Headers
+  async setPseudoIPv4(zoneId: string, mode: 'off' | 'add_header' | 'overwrite_header' = 'overwrite_header') {
+    return this.updateZoneSetting(zoneId, 'pseudo_ipv4', mode);
+  }
+
+  // Scrape Shield: Email Address Obfuscation - off
+  async setEmailObfuscation(zoneId: string, enabled: boolean = false) {
+    return this.updateZoneSetting(zoneId, 'email_obfuscation', enabled ? 'on' : 'off');
+  }
+
+  /**
+   * Configure default zone settings for a newly created domain
+   * Applies all recommended security and performance settings
+   * 
+   * Required API Token Permissions:
+   * - Zone > Zone > Edit (for zone creation)
+   * - Zone > Zone Settings > Edit (for SSL, HTTPS, HSTS, TLS, etc.)
+   * - Zone > WAF > Edit (for WAF custom rules - available on free plans)
+   * 
+   * Reference: https://developers.cloudflare.com/waf/custom-rules/create-api/
+   */
+  async configureDefaultZoneSettings(
+    zoneId: string,
+    onProgress?: ZoneSettingsProgressCallback
+  ): Promise<ZoneSettingsConfigResult> {
+    const errors: string[] = [];
+    let successCount = 0;
+    let hasAuthError = false;
+
+    const settings = [
+      { name: 'SSL mode', fn: () => this.setSSLMode(zoneId, 'strict') },
+      { name: 'Always use HTTPS', fn: () => this.setAlwaysUseHTTPS(zoneId, true) },
+      { name: 'HSTS', fn: () => this.setHSTS(zoneId, true) },
+      { name: 'TLS 1.3', fn: () => this.setTLS13(zoneId, false) },
+      { name: 'Authenticated Origin Pulls', fn: () => this.setAuthenticatedOriginPulls(zoneId, true) },
+      { name: 'Bot Fight Mode', fn: () => this.setBotFightMode(zoneId, true) },
+      { name: 'WAF Custom Rule', fn: () => this.createSkipBotsWAFRule(zoneId) },
+      { name: 'Early Hints', fn: () => this.setEarlyHints(zoneId, true) },
+      { name: '0-RTT', fn: () => this.set0RTT(zoneId, true) },
+      { name: 'Pseudo IPv4', fn: () => this.setPseudoIPv4(zoneId, 'overwrite_header') },
+      { name: 'Email Obfuscation', fn: () => this.setEmailObfuscation(zoneId, false) },
+    ];
+
+    // Initialize all settings as pending
+    if (onProgress) {
+      settings.forEach(setting => {
+        onProgress({ name: setting.name, status: 'pending' });
+      });
+    }
+
+    for (const setting of settings) {
+      // Mark as processing
+      if (onProgress) {
+        onProgress({ name: setting.name, status: 'processing' });
+      }
+
+      try {
+        await setting.fn();
+        successCount++;
+        // Mark as success
+        if (onProgress) {
+          onProgress({ name: setting.name, status: 'success' });
+        }
+      } catch (error: any) {
+        // Check for authentication errors (401, 403 status codes)
+        const isAuthError = 
+          error?.status === 401 || 
+          error?.status === 403 ||
+          (error?.message && (
+            error.message.includes('401') || 
+            error.message.includes('403') ||
+            error.message.toLowerCase().includes('authentication') ||
+            error.message.toLowerCase().includes('unauthorized') ||
+            error.message.toLowerCase().includes('forbidden')
+          ));
+
+        if (isAuthError) {
+          hasAuthError = true;
+        }
+
+        const errorMessage = error?.message || String(error);
+        errors.push(setting.name);
+        console.error(`Failed to set ${setting.name}:`, error);
+        
+        // Mark as error
+        if (onProgress) {
+          onProgress({ 
+            name: setting.name, 
+            status: 'error',
+            error: errorMessage
+          });
+        }
+      }
+    }
+
+    const result: ZoneSettingsConfigResult = {
+      success: successCount > 0 && !hasAuthError,
+      successCount,
+      failureCount: errors.length,
+      totalCount: settings.length,
+      errors,
+      hasAuthError,
+    };
+
+    if (hasAuthError) {
+      console.error('Authentication error detected. Check API token permissions.');
+    } else if (errors.length > 0) {
+      console.warn(`Some settings failed to apply: ${errors.join(', ')}`);
+    }
+
+    return result;
   }
 
   // Test API connection

@@ -3,6 +3,10 @@ export interface CloudflareAccount {
   name: string;
   email: string;
   apiToken: string;
+  cloudflareAccounts?: {
+    id: string;
+    name: string;
+  }[];
 }
 
 export interface Zone {

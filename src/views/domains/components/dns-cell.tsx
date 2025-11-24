@@ -3,19 +3,8 @@ import { Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import type { DNSRecord } from '@/types/cloudflare';
-import { cn } from '@/lib/utils';
-
-const handleCopyIP = async (ip: string) => {
-	try {
-		await navigator.clipboard.writeText(ip);
-		toast.success(`Copied ${ip} to clipboard`);
-	} catch (error) {
-		console.error('Failed to copy IP:', error);
-		toast.error('Failed to copy IP address');
-	}
-};
+import { cn, copyToClipboard } from '@/lib/utils';
 
 type ARecordsCellProps = {
 	rootARecords?: DNSRecord[];
@@ -40,7 +29,7 @@ export const ARecordsCell = memo(function ARecordsCell({ rootARecords, isLoading
 						size="sm"
 						variant="ghost"
 						className="h-8 hover:bg-muted cursor-pointer"
-						onClick={() => handleCopyIP(record.content)}
+						onClick={() => copyToClipboard(record.content, `Copied ${record.content} to clipboard`, 'Failed to copy IP address')}
 					>
 						<span className="text-sm font-mono text-blue-600 dark:text-blue-400">
 						{record.content}

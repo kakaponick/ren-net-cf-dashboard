@@ -13,6 +13,7 @@ import { useDomainsSort, type SortField, type SortDirection } from './hooks/use-
 import { DomainsTable } from './components/domains-table';
 import { AddDomainDialog } from './components/add-domain-dialog';
 import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
+import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 
 export default function DomainsPage() {
@@ -145,6 +146,13 @@ export default function DomainsPage() {
 									onComplete={() => clear()}
 									onRefreshDNS={handleRefreshDNS}
 								/>
+								<BulkDeleteDomainsDialog
+									selectedZones={selectedZones}
+									onComplete={() => {
+										clear();
+										handleRefresh();
+									}}
+								/>
 								<Button
 									size="sm"
 									variant="outline"
@@ -199,6 +207,7 @@ export default function DomainsPage() {
 							allSelected={allSelected}
 							selectedCount={selectedCount}
 							onRefreshDNS={handleRefreshDNS}
+							onDomainDeleted={handleRefresh}
 						/>
 					</div>
 				</Card>

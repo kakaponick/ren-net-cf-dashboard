@@ -26,9 +26,10 @@ export function useDomainsData() {
 				getDNSRecords
 		} = useCloudflareCache();
 
-		const [dnsRecordsCache, setDnsRecordsCache] = useState<Record<string, DNSRecord[]>>({});
-		const [dnsLoadingStates, setDnsLoadingStates] = useState<Record<string, boolean>>({});
-		const hasLoadedZones = useRef(false);
+	const [dnsRecordsCache, setDnsRecordsCache] = useState<Record<string, DNSRecord[]>>({});
+	const [dnsLoadingStates, setDnsLoadingStates] = useState<Record<string, boolean>>({});
+	const loadingZonesRef = useRef<Set<string>>(new Set()); // Track zones currently being loaded
+	const hasLoadedZones = useRef(false);
 
 		const getRootARecordsFromDNS = useCallback((records: DNSRecord[], domainName: string): DNSRecord[] => {
 				if (!records || records.length === 0) return [];
@@ -58,54 +59,75 @@ export function useDomainsData() {
 				});
 		}, [zones, accounts, dnsRecordsCache, dnsLoadingStates, getDNSRecords, getRootARecordsFromDNS]);
 
-		const loadDNSForZone = useCallback(async (zoneId: string, accountId: string) => {
-				const cacheKey = `${zoneId}-${accountId}`;
-				const account = accounts.find(acc => acc.id === accountId);
-				if (!account) return;
+	const loadDNSForZone = useCallback(async (zoneId: string, accountId: string) => {
+		const cacheKey = `${zoneId}-${accountId}`;
+		const account = accounts.find(acc => acc.id === accountId);
+		if (!account) return;
 
-				setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
+		// Prevent duplicate concurrent requests
+		if (loadingZonesRef.current.has(cacheKey)) {
+			return;
+		}
 
-				try {
-						const api = new CloudflareAPI(account.apiToken);
-						const records = await api.getDNSRecords(zoneId);
-						
-						setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: records }));
-						
-						const { setDNSRecords } = useCloudflareCache.getState();
-						setDNSRecords(zoneId, accountId, records);
-				} catch (error) {
-						console.error(`Error loading DNS records for zone ${zoneId}:`, error);
-						setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: [] }));
-				} finally {
-						setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
-				}
-		}, [accounts]);
+		loadingZonesRef.current.add(cacheKey);
+		setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
 
-		const loadDNSRecordsProgressively = useCallback(async () => {
-				if (zones.length === 0 || accounts.length === 0) return;
+		try {
+			const api = new CloudflareAPI(account.apiToken);
+			const records = await api.getDNSRecords(zoneId);
+			
+			setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: records }));
+			
+			const { setDNSRecords } = useCloudflareCache.getState();
+			setDNSRecords(zoneId, accountId, records);
+		} catch (error) {
+			console.error(`Error loading DNS records for zone ${zoneId}:`, error);
+			// Cache empty array to prevent retrying failed requests
+			setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: [] }));
+			const { setDNSRecords } = useCloudflareCache.getState();
+			setDNSRecords(zoneId, accountId, []);
+		} finally {
+			setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
+			loadingZonesRef.current.delete(cacheKey);
+		}
+	}, [accounts]);
 
-				// First populate with cached records
-				const recordsCache: Record<string, DNSRecord[]> = {};
-				const zonesToLoad: Array<{ zoneId: string; accountId: string }> = [];
+	const loadDNSRecordsProgressively = useCallback(async () => {
+		if (zones.length === 0 || accounts.length === 0) return;
 
-				zones.forEach((item) => {
-						const cacheKey = `${item.zone.id}-${item.accountId}`;
-						const cachedRecords = getDNSRecords(item.zone.id, item.accountId);
-						
-						if (cachedRecords.length > 0 && isCacheValid('dnsRecords', cacheKey)) {
-								recordsCache[cacheKey] = cachedRecords;
-						} else {
-								zonesToLoad.push({ zoneId: item.zone.id, accountId: item.accountId });
-						}
-				});
+		// First populate with cached records
+		const recordsCache: Record<string, DNSRecord[]> = {};
+		const zonesToLoad: Array<{ zoneId: string; accountId: string; zone: Zone }> = [];
 
-				setDnsRecordsCache(recordsCache);
+		zones.forEach((item) => {
+			const cacheKey = `${item.zone.id}-${item.accountId}`;
+			const cachedRecords = getDNSRecords(item.zone.id, item.accountId);
+			const cacheState = useCloudflareCache.getState();
+			const hasCachedData = cacheState.dnsRecords[cacheKey] !== undefined;
+			const isCacheValidForZone = isCacheValid('dnsRecords', cacheKey);
+			
+			// Skip pending domains - they typically don't have DNS records yet
+			// Only load if zone is active or if we have valid cached data
+			if (isCacheValidForZone || (hasCachedData && item.zone.status === 'pending')) {
+				// Use cached data (even if empty for pending zones)
+				recordsCache[cacheKey] = cachedRecords;
+			} else if (item.zone.status !== 'pending') {
+				// Only queue non-pending zones for loading
+				zonesToLoad.push({ zoneId: item.zone.id, accountId: item.accountId, zone: item.zone });
+			} else {
+				// For pending zones without cache, cache empty array to prevent future requests
+				recordsCache[cacheKey] = [];
+				cacheState.setDNSRecords(item.zone.id, item.accountId, []);
+			}
+		});
 
-				// Load remaining zones progressively
-				for (const { zoneId, accountId } of zonesToLoad) {
-						await loadDNSForZone(zoneId, accountId);
-				}
-		}, [zones, accounts, getDNSRecords, isCacheValid, loadDNSForZone]);
+		setDnsRecordsCache(recordsCache);
+
+		// Load remaining zones progressively (only active zones)
+		for (const { zoneId, accountId } of zonesToLoad) {
+			await loadDNSForZone(zoneId, accountId);
+		}
+	}, [zones, accounts, getDNSRecords, isCacheValid, loadDNSForZone]);
 
 		const loadZones = useCallback(async (forceRefresh = false) => {
 				if (accounts.length === 0) return;

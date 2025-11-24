@@ -18,6 +18,7 @@ import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { validateIPAddress } from '@/lib/utils';
 
 interface BulkEditARecordDialogProps {
 		selectedZones: ZoneWithDNS[];
@@ -38,9 +39,7 @@ export function BulkEditARecordDialog({ selectedZones, onComplete, onRefreshDNS 
 					return;
 				}
 
-				// Basic IP validation
-				const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-				if (!ipRegex.test(ipAddress.trim())) {
+				if (!validateIPAddress(ipAddress)) {
 					toast.error('Please enter a valid IP address');
 					return;
 				}
