@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2 } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2, Globe, Loader2 } from 'lucide-react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,7 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 	const { getDomainNameservers, accounts } = useAccountStore();
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [isCreatingCNAME, setIsCreatingCNAME] = useState(false);
 	
 	const handleToggle = useCallback(() => onToggle(rowId), [onToggle, rowId]);
 	const handleRefreshDNS = useCallback(() => onRefreshDNS?.(item.zone.id, item.accountId), [onRefreshDNS, item.zone.id, item.accountId]);
@@ -72,6 +73,66 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 			setIsDeleting(false);
 		}
 	}, [item.zone.id, item.zone.name, item.accountId, accounts, onDomainDeleted]);
+
+	const handleCreateWWWCNAME = useCallback(async () => {
+		const account = accounts.find(acc => acc.id === item.accountId);
+		if (!account) {
+			toast.error('Account not found');
+			return;
+		}
+
+		setIsCreatingCNAME(true);
+		const loadingToast = toast.loading('Creating www CNAME record...', {
+			description: `Domain: ${item.zone.name}`,
+		});
+
+		try {
+			const api = new CloudflareAPI(account.apiToken);
+			
+			// Check if www CNAME already exists
+			const dnsRecords = await api.getDNSRecords(item.zone.id);
+			const existingWWWCNAME = dnsRecords.find(
+				(record: any) => record.type === 'CNAME' && record.name === 'www'
+			);
+
+			if (existingWWWCNAME) {
+				toast.dismiss(loadingToast);
+				toast.info('www CNAME record already exists', {
+					description: `Domain: ${item.zone.name}`,
+				});
+				setIsCreatingCNAME(false);
+				return;
+			}
+
+			// Determine proxied status from root A record if it exists, otherwise default to false
+			const rootARecord = item.rootARecords?.[0];
+			const proxied = rootARecord?.proxied ?? false;
+
+			// Create www CNAME record
+			await api.createDNSRecord(item.zone.id, {
+				type: 'CNAME',
+				name: 'www',
+				content: '@',
+				ttl: 1,
+				proxied: proxied,
+			});
+
+			toast.dismiss(loadingToast);
+			toast.success('www CNAME record created successfully', {
+				description: `Domain: ${item.zone.name}`,
+			});
+			handleRefreshDNS();
+		} catch (error) {
+			console.error('Error creating www CNAME record:', error);
+			const errorMessage = error instanceof Error ? error.message : 'Failed to create www CNAME record';
+			toast.dismiss(loadingToast);
+			toast.error(errorMessage, {
+				description: `Domain: ${item.zone.name}`,
+			});
+		} finally {
+			setIsCreatingCNAME(false);
+		}
+	}, [item.zone.id, item.zone.name, item.accountId, item.rootARecords, accounts, handleRefreshDNS]);
 
 	// Get nameservers from zone or store
 	const nameservers = useMemo(() => {
@@ -240,8 +301,24 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
 							<DropdownMenuItem
+								onClick={handleCreateWWWCNAME}
+								disabled={isCreatingCNAME}
+								className={cn(
+									"cursor-pointer",
+									isCreatingCNAME && "opacity-50 cursor-not-allowed"
+								)}
+							>
+								{isCreatingCNAME ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Globe className="mr-2 h-4 w-4" />
+								)}
+								{isCreatingCNAME ? 'Creating www CNAME...' : 'Create www CNAME'}
+							</DropdownMenuItem>
+							<DropdownMenuItem
 								className="text-destructive"
 								onClick={() => setIsDeleteDialogOpen(true)}
+								disabled={isCreatingCNAME}
 							>
 								<Trash2 className="mr-2 h-4 w-4" />
 								Delete Domain 
