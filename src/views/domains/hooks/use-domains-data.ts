@@ -92,7 +92,7 @@ export function useDomainsData() {
 		}
 	}, [accounts]);
 
-	const loadDNSRecordsProgressively = useCallback(async () => {
+	const loadDNSRecordsProgressively = useCallback(async (forceRefresh = false) => {
 		if (zones.length === 0 || accounts.length === 0) return;
 
 		// First populate with cached records
@@ -104,11 +104,12 @@ export function useDomainsData() {
 			const cachedRecords = getDNSRecords(item.zone.id, item.accountId);
 			const cacheState = useCloudflareCache.getState();
 			const hasCachedData = cacheState.dnsRecords[cacheKey] !== undefined;
-			const isCacheValidForZone = isCacheValid('dnsRecords', cacheKey);
+			const isCacheValidForZone = forceRefresh ? false : isCacheValid('dnsRecords', cacheKey);
 			
-			// Skip pending domains - they typically don't have DNS records yet
-			// Only load if zone is active or if we have valid cached data
-			if (isCacheValidForZone || (hasCachedData && item.zone.status === 'pending')) {
+			// When force refreshing, reload DNS for all zones (including pending, in case status changed)
+			if (forceRefresh) {
+				zonesToLoad.push({ zoneId: item.zone.id, accountId: item.accountId, zone: item.zone });
+			} else if (isCacheValidForZone || (hasCachedData && item.zone.status === 'pending')) {
 				// Use cached data (even if empty for pending zones)
 				recordsCache[cacheKey] = cachedRecords;
 			} else if (item.zone.status !== 'pending') {
@@ -166,7 +167,8 @@ export function useDomainsData() {
 						toast.success(`Loaded ${allZones.length} domains from ${accounts.length} accounts`);
 						
 						// Trigger progressive DNS loading after zones are set
-						setTimeout(() => loadDNSRecordsProgressively(), 0);
+						// Pass forceRefresh to also refresh DNS records when zones are refreshed
+						setTimeout(() => loadDNSRecordsProgressively(forceRefresh), 0);
 				} catch (error) {
 						toast.error('Failed to load domains');
 						console.error('Error loading zones:', error);
