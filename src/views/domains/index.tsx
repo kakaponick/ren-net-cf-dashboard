@@ -19,7 +19,7 @@ import { useCloudflareCache } from '@/store/cloudflare-cache';
 export default function DomainsPage() {
 	const router = useRouter();
 	const { enrichedZones, isLoading, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
-	const { zones, isCacheValid } = useCloudflareCache();
+	const { zones, isCacheValid, clearCache } = useCloudflareCache();
 
 	// Log cache info to console
 	if (isCacheValid('zones') && zones.length > 0) {
@@ -54,8 +54,9 @@ export default function DomainsPage() {
 	}, [sortField, sortDirection]);
 
 	const handleRefresh = useCallback(() => {
-		loadZones(true);
-	}, [loadZones]);
+		clearCache();
+		loadZones();
+	}, [clearCache, loadZones]);
 
 	const handleRefreshDNS = useCallback((zoneId: string, accountId: string) => {
 		loadDNSForZone(zoneId, accountId);
