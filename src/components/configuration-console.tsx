@@ -13,6 +13,7 @@ export interface ConfigurationStep {
   name: string;
   status: StepStatus;
   error?: string;
+  variable?: string; // The setting value being applied (e.g., "strict", "on", "off")
 }
 
 export interface DomainQueueItem {
@@ -247,13 +248,20 @@ export function ConfigurationConsole({
                               {getStatusIcon(step.status)}
                             </span>
                             <div className="flex-1 min-w-0">
-                              <span className={cn(
-                                'break-words',
-                                step.status === 'error' && 'text-red-600 dark:text-red-400 font-medium',
-                                step.status === 'success' && 'text-green-600 dark:text-green-400'
-                              )}>
-                                {step.name}
-                              </span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={cn(
+                                  'break-words',
+                                  step.status === 'error' && 'text-red-600 dark:text-red-400 font-medium',
+                                  step.status === 'success' && 'text-green-600 dark:text-green-400'
+                                )}>
+                                  {step.name}
+                                </span>
+                                {step.variable && (
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    {step.variable}
+                                  </Badge>
+                                )}
+                              </div>
                               {step.error && (
                                 <div className="mt-1 text-red-600 dark:text-red-500 break-words text-xs bg-red-50 dark:bg-red-950/30 p-1.5 rounded">
                                   {step.error}
@@ -298,6 +306,11 @@ export function ConfigurationConsole({
                         )}>
                           {step.name}
                         </span>
+                        {step.variable && (
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {step.variable}
+                          </Badge>
+                        )}
                       </div>
                       {step.error && (
                         <div className="mt-2 ml-6 text-xs text-red-600 dark:text-red-500 break-words bg-red-50 dark:bg-red-950/30 p-2 rounded border border-red-200 dark:border-red-900/50">

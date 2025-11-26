@@ -88,6 +88,7 @@ export function useDomainCreation({ account, cloudflareAccountId, onSuccess }: U
 								name: step.name,
 								status: step.status,
 								error: step.error,
+								variable: step.variable,
 							};
 							return updated;
 						} else {
@@ -95,6 +96,7 @@ export function useDomainCreation({ account, cloudflareAccountId, onSuccess }: U
 								name: step.name,
 								status: step.status,
 								error: step.error,
+								variable: step.variable,
 							}];
 						}
 					});

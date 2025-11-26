@@ -58,6 +58,7 @@ export type ZoneSettingsProgressCallback = (step: {
   name: string;
   status: 'pending' | 'processing' | 'success' | 'error';
   error?: string;
+  variable?: string; // The setting value being applied (e.g., "strict", "on", "off")
 }) => void;
 
 export class CloudflareAPI {
@@ -351,18 +352,10 @@ export class CloudflareAPI {
   }
 
   // Origin Server: Authenticated Origin Pulls
-  // Reference: PATCH /zones/{zone_id}/settings/authenticated_origin_pulls
+  // Reference: https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/set-up/zone-level/
+  // PATCH /zones/{zone_id}/settings/tls_client_auth
   async setAuthenticatedOriginPulls(zoneId: string, enabled: boolean = true) {
-    try {
-      const response = await this.makeRequest(`/zones/${zoneId}/origin_tls_client_auth/settings`, {
-        method: 'PUT',
-        body: { enabled },
-      });
-      return response.result;
-    } catch (error) {
-      console.error('Error updating Authenticated Origin Pulls:', error);
-      throw new Error('Failed to update Authenticated Origin Pulls');
-    }
+    return this.updateZoneSetting(zoneId, 'tls_client_auth', enabled ? 'on' : 'off');
   }
 
   // Security: Bot Fight Mode
@@ -407,10 +400,10 @@ export class CloudflareAPI {
           action_parameters: {
             ruleset: 'current',
               phases: [
-              "http_ratelimit",
-              "http_request_firewall_managed",
-              "http_request_sbfm"
-            ]
+                "http_ratelimit",
+                "http_request_firewall_managed",
+                "http_request_sbfm"
+              ],
           },
           enabled: true,
         };
@@ -449,7 +442,16 @@ export class CloudflareAPI {
                       "http_ratelimit",
                       "http_request_firewall_managed",
                       "http_request_sbfm"
-                    ]
+                    ],
+                    products: [
+                      "zoneLockdown",
+                      "bic",
+                      "uaBlock",
+                      "hot",
+                      "securityLevel",
+                      "rateLimit",
+                      "waf"
+                    ],
                   },
                   enabled: true,
                 },
@@ -509,30 +511,30 @@ export class CloudflareAPI {
     let hasAuthError = false;
 
     const settings = [
-      { name: 'SSL mode', fn: () => this.setSSLMode(zoneId, 'strict') },
-      { name: 'Always use HTTPS', fn: () => this.setAlwaysUseHTTPS(zoneId, true) },
-      { name: 'HSTS', fn: () => this.setHSTS(zoneId, true) },
-      { name: 'TLS 1.3', fn: () => this.setTLS13(zoneId, false) },
-      { name: 'Authenticated Origin Pulls', fn: () => this.setAuthenticatedOriginPulls(zoneId, true) },
-      { name: 'Bot Fight Mode', fn: () => this.setBotFightMode(zoneId, true) },
-      { name: 'WAF Custom Rule', fn: () => this.createSkipBotsWAFRule(zoneId) },
-      { name: 'Early Hints', fn: () => this.setEarlyHints(zoneId, true) },
-      { name: '0-RTT', fn: () => this.set0RTT(zoneId, true) },
-      { name: 'Pseudo IPv4', fn: () => this.setPseudoIPv4(zoneId, 'overwrite_header') },
-      { name: 'Email Obfuscation', fn: () => this.setEmailObfuscation(zoneId, false) },
+      { name: 'SSL mode', variable: 'strict', fn: () => this.setSSLMode(zoneId, 'strict') },
+      { name: 'Always use HTTPS', variable: 'on', fn: () => this.setAlwaysUseHTTPS(zoneId, true) },
+      { name: 'HSTS', variable: 'on', fn: () => this.setHSTS(zoneId, true) },
+      { name: 'TLS 1.3', variable: 'off', fn: () => this.setTLS13(zoneId, false) },
+      { name: 'Authenticated Origin Pulls', variable: 'on', fn: () => this.setAuthenticatedOriginPulls(zoneId, true) },
+      { name: 'Bot Fight Mode', variable: 'on', fn: () => this.setBotFightMode(zoneId, true) },
+      { name: 'WAF Custom Rule', variable: 'skip_bots', fn: () => this.createSkipBotsWAFRule(zoneId) },
+      { name: 'Early Hints', variable: 'on', fn: () => this.setEarlyHints(zoneId, true) },
+      { name: '0-RTT', variable: 'on', fn: () => this.set0RTT(zoneId, true) },
+      { name: 'Pseudo IPv4', variable: 'overwrite_header', fn: () => this.setPseudoIPv4(zoneId, 'overwrite_header') },
+      { name: 'Email Obfuscation', variable: 'off', fn: () => this.setEmailObfuscation(zoneId, false) },
     ];
 
     // Initialize all settings as pending
     if (onProgress) {
       settings.forEach(setting => {
-        onProgress({ name: setting.name, status: 'pending' });
+        onProgress({ name: setting.name, status: 'pending', variable: setting.variable });
       });
     }
 
     for (const setting of settings) {
       // Mark as processing
       if (onProgress) {
-        onProgress({ name: setting.name, status: 'processing' });
+        onProgress({ name: setting.name, status: 'processing', variable: setting.variable });
       }
 
       try {
@@ -540,7 +542,7 @@ export class CloudflareAPI {
         successCount++;
         // Mark as success
         if (onProgress) {
-          onProgress({ name: setting.name, status: 'success' });
+          onProgress({ name: setting.name, status: 'success', variable: setting.variable });
         }
       } catch (error: any) {
         // Check for authentication errors (401, 403 status codes)
@@ -568,7 +570,8 @@ export class CloudflareAPI {
           onProgress({ 
             name: setting.name, 
             status: 'error',
-            error: errorMessage
+            error: errorMessage,
+            variable: setting.variable
           });
         }
       }

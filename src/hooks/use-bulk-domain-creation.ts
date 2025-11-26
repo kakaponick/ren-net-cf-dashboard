@@ -150,12 +150,14 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 									name: step.name,
 									status: step.status,
 									error: step.error,
+									variable: step.variable,
 								};
 							} else {
 								updatedSteps = [...existingSteps, {
 									name: step.name,
 									status: step.status,
 									error: step.error,
+									variable: step.variable,
 								}];
 							}
 
