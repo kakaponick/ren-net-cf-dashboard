@@ -203,7 +203,7 @@ export function BulkEditARecordDialog({ selectedZones, onComplete, onRefreshDNS 
 											</p>
 										</div>
 										<p className="text-muted-foreground text-sm">
-											Enable Cloudflare's proxy and DDoS protection
+											Enable Cloudflare&apos;s proxy and DDoS protection
 										</p>
 									</div>
 									<Switch

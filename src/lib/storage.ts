@@ -5,6 +5,9 @@ const STORAGE_KEY = 'cloudflare-accounts';
 export const storage = {
   // Account management
   getAccounts(): CloudflareAccount[] {
+    if (typeof window === 'undefined') {
+      return [];
+    }
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
@@ -15,6 +18,9 @@ export const storage = {
   },
 
   saveAccounts(accounts: CloudflareAccount[]): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
     } catch (error) {

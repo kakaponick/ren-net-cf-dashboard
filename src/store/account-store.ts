@@ -23,6 +23,9 @@ interface AccountStore {
 const NAMESERVERS_STORAGE_KEY = 'cloudflare-domain-nameservers';
 
 const loadNameservers = (): Record<string, string[]> => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
   try {
     const stored = localStorage.getItem(NAMESERVERS_STORAGE_KEY);
     return stored ? JSON.parse(stored) : {};
@@ -33,6 +36,9 @@ const loadNameservers = (): Record<string, string[]> => {
 };
 
 const saveNameservers = (nameservers: Record<string, string[]>) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
   try {
     localStorage.setItem(NAMESERVERS_STORAGE_KEY, JSON.stringify(nameservers));
   } catch (error) {
