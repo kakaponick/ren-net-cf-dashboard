@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CloudflareAPI, type ZoneSettingsProgressCallback } from '@/lib/cloudflare-api';
 import { useAccountStore } from '@/store/account-store';
 import { toast } from 'sonner';
+import { formatCloudflareError } from '@/lib/utils';
 import type { ConfigurationStep } from '@/components/configuration-console';
 import type { CloudflareAccount } from '@/types/cloudflare';
 
@@ -60,9 +61,10 @@ export function useDomainCreation({ account, cloudflareAccountId, onSuccess }: U
 					));
 				} catch (error) {
 					console.error('Error creating root A record:', error);
+					const errorMessage = formatCloudflareError(error);
 					setConfigurationSteps(prev => prev.map(s =>
 						s.name === 'Creating root A record...'
-							? { ...s, status: 'error', error: error instanceof Error ? error.message : 'Failed to create root A record' }
+							? { ...s, status: 'error', error: errorMessage }
 							: s
 					));
 					toast.warning('Domain created but failed to create root A record. You can add it manually.');
@@ -104,33 +106,32 @@ export function useDomainCreation({ account, cloudflareAccountId, onSuccess }: U
 
 					const domainNameTrimmed = domainName.trim();
 					if (configResult.hasAuthError) {
-						toast.success(`Domain "${domainNameTrimmed}" created successfully!`, { duration: Infinity });
-						toast.error('Failed to configure settings: Authentication error. Please check API token permissions.', { duration: Infinity });
+						toast.success(`Domain "${domainNameTrimmed}" created successfully!`);
+						toast.error('Failed to configure settings: Authentication error. Please check API token permissions.');
 					} else if (configResult.failureCount === configResult.totalCount) {
-						toast.success(`Domain "${domainNameTrimmed}" created successfully!`, { duration: Infinity });
-						toast.warning('Failed to configure default settings. Please configure them manually.', { duration: Infinity });
+						toast.success(`Domain "${domainNameTrimmed}" created successfully!`);
+						toast.warning('Failed to configure default settings. Please configure them manually.');
 					} else if (configResult.failureCount > 0) {
-						toast.success(`Domain "${domainNameTrimmed}" created successfully!`, { duration: Infinity });
+						toast.success(`Domain "${domainNameTrimmed}" created successfully!`);
 						toast.warning(
 							`Configured ${configResult.successCount}/${configResult.totalCount} settings. ` +
-							`Failed: ${configResult.errors.join(', ')}`,
-							{ duration: Infinity }
+							`Failed: ${configResult.errors.join(', ')}`
 						);
 					} else {
-						toast.success(`Domain "${domainNameTrimmed}" created and configured successfully!`, { duration: Infinity });
+						toast.success(`Domain "${domainNameTrimmed}" created and configured successfully!`);
 					}
 				} catch (configError) {
 					setIsConfiguring(false);
 					console.error('Error configuring default settings:', configError);
-					toast.success(`Domain "${domainName.trim()}" created successfully!`, { duration: Infinity });
-					toast.error('Failed to configure default settings. Please configure them manually.', { duration: Infinity });
+					toast.success(`Domain "${domainName.trim()}" created successfully!`);
+					toast.error('Failed to configure default settings. Please configure them manually.');
 				}
 			} else {
 				toast.success(`Domain "${domainName.trim()}" created successfully!`);
 			}
 		} catch (error) {
 			console.error('Error creating domain:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Failed to create domain';
+			const errorMessage = formatCloudflareError(error);
 			toast.error(errorMessage);
 			setCreatedNameservers([]);
 			setConfigurationSteps(prev => prev.map(s =>

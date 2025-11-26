@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 import {
 	Dialog,
 	DialogContent,
@@ -13,7 +14,7 @@ import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { SelectedDomainsList } from './selected-domains-list';
 
 interface BulkDeleteDomainsDialogProps {
 	selectedZones: ZoneWithDNS[];
@@ -74,7 +75,8 @@ export function BulkDeleteDomainsDialog({ selectedZones, onComplete }: BulkDelet
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger asChild>
-				<Button size="sm" variant="outline" className="text-destructive">
+				<Button size="sm" variant="outline" className="text-destructive gap-2">
+					<Trash2 className="h-3.5 w-3.5" />
 					Delete Domains
 				</Button>
 			</DialogTrigger>
@@ -87,26 +89,10 @@ export function BulkDeleteDomainsDialog({ selectedZones, onComplete }: BulkDelet
 				</DialogHeader>
 
 				<div className="space-y-4 py-4">
-					<div className="rounded-lg border bg-muted/50 p-4">
-						<h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-							<span className="text-muted-foreground">Selected Domains</span>
-							<span className="text-xs font-normal bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">
-								{selectedZones.length}
-							</span>
-						</h4>
-						<ScrollArea className="h-[400px]">
-							<div className="pr-4 grid grid-cols-3 gap-1">
-								{selectedZones.map((zone) => (
-									<div
-										key={`${zone.accountId}-${zone.zone.id}`}
-										className="text-sm text-foreground bg-background/60 px-2 py-1 rounded-md border border-border/50"
-									>
-										<span className="font-mono">{zone.zone.name}</span>
-									</div>
-								))}
-							</div>
-						</ScrollArea>
-					</div>
+					<SelectedDomainsList 
+						selectedZones={selectedZones}
+						badgeVariant="destructive"
+					/>
 				</div>
 
 				<DialogFooter>

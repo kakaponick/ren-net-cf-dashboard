@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Pencil, Network, CloudCheck, Loader2, Globe } from 'lucide-react';
 import {
 		Dialog,
 		DialogContent,
@@ -16,8 +17,9 @@ import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateIPAddress } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
+import { SelectedDomainsList } from './selected-domains-list';
 
 interface BulkEditARecordDialogProps {
 		selectedZones: ZoneWithDNS[];
@@ -28,8 +30,9 @@ interface BulkEditARecordDialogProps {
 export function BulkEditARecordDialog({ selectedZones, onComplete, onRefreshDNS }: BulkEditARecordDialogProps) {
 		const [open, setOpen] = useState(false);
 		const [ipAddress, setIpAddress] = useState('');
-		const [proxied, setProxied] = useState(false);
+		const [proxied, setProxied] = useState(true);
 		const [isProcessing, setIsProcessing] = useState(false);
+		const [processedCount, setProcessedCount] = useState(0);
 		const { accounts } = useAccountStore();
 
 		const handleBulkUpdate = async () => {
@@ -44,11 +47,14 @@ export function BulkEditARecordDialog({ selectedZones, onComplete, onRefreshDNS 
 				}
 
 				setIsProcessing(true);
+				setProcessedCount(0);
 				let successCount = 0;
 				let failCount = 0;
 
 				try {
-					for (const zone of selectedZones) {
+					for (let i = 0; i < selectedZones.length; i++) {
+						const zone = selectedZones[i];
+						setProcessedCount(i + 1);
 						const account = accounts.find(acc => acc.id === zone.accountId);
 						if (!account) {
 							console.error(`Account not found for zone ${zone.zone.name}`);
@@ -109,81 +115,141 @@ export function BulkEditARecordDialog({ selectedZones, onComplete, onRefreshDNS 
 					setOpen(false);
 					setIpAddress('');
 					setProxied(false);
+					setProcessedCount(0);
 					onComplete();
 				} catch (error) {
 					toast.error('Failed to complete bulk update');
 					console.error('Bulk update error:', error);
 				} finally {
 					setIsProcessing(false);
+					setProcessedCount(0);
 				}
 		};
 
+		const progressPercentage = selectedZones.length > 0 
+			? (processedCount / selectedZones.length) * 100 
+			: 0;
+
+		const handleOpenChange = (newOpen: boolean) => {
+			setOpen(newOpen);
+			if (!newOpen) {
+				// Reset form when dialog closes
+				setIpAddress('');
+				setProxied(false);
+				setProcessedCount(0);
+			}
+		};
+
 		return (
-				<Dialog open={open} onOpenChange={setOpen}>
+				<Dialog open={open} onOpenChange={handleOpenChange}>
 					<DialogTrigger asChild>
-						<Button size="sm" variant="outline">
+						<Button size="sm" variant="outline" className="gap-2">
+							<Pencil className="h-3.5 w-3.5" />
 							Edit A Records
 						</Button>
 					</DialogTrigger>
-					<DialogContent className="max-w-4xl">
-						<DialogHeader>
-							<DialogTitle>Bulk Edit A Records</DialogTitle>
+					<DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 w-[95vw] sm:w-full">
+						<DialogHeader className="px-4 sm:px-6 pt-6 pb-4 flex-shrink-0 border-b">
+							<DialogTitle>
+								Bulk Edit A Records
+							</DialogTitle>
 							<DialogDescription>
 								Update A records for {selectedZones.length} selected domain{selectedZones.length > 1 ? 's' : ''}
 							</DialogDescription>
 						</DialogHeader>
 
-						<div className="space-y-4 py-4">
-							<div className="grid w-full max-w-sm items-center gap-3">
-								<Label htmlFor="ip-address">IP Address</Label>
-								<Input
+						<div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6 min-h-0">
+							{isProcessing && (
+								<div className="space-y-2">
+									<div className="flex items-center justify-between text-sm">
+										<span className="text-muted-foreground">Processing domains...</span>
+										<span className="font-medium">
+											{processedCount} / {selectedZones.length}
+										</span>
+									</div>
+									<Progress value={progressPercentage} className="h-2" />
+								</div>
+							)}
+
+							<div className="space-y-4">
+								<div className="space-y-2">
+									<Label htmlFor="ip-address" className="flex items-center gap-2">
+										<Network className="h-4 w-4 text-muted-foreground" />
+										IP Address
+									</Label>
+									<Input
 										id="ip-address"
 										placeholder="192.168.1.1"
 										value={ipAddress}
 										onChange={(e) => setIpAddress(e.target.value)}
 										disabled={isProcessing}
-								/>
-							</div>
+										className="w-full"
+									/>
+									<p className="text-xs text-muted-foreground">
+										Enter the IPv4 address for the root A record
+									</p>
+								</div>
 
-							<div className="flex items-center justify-between">
-								<Label htmlFor="proxied">Cloudflare Proxy</Label>
-								<Switch
+								<Label 
+									htmlFor="proxied" 
+									className="hover:bg-accent/50 flex items-center gap-3 rounded-lg border p-4 cursor-pointer has-[[aria-checked=true]]:border-primary has-[[aria-checked=true]]:bg-primary/10"
+								>
+									
+									<div className="grid gap-1.5 font-normal flex-1">
+										<div className="flex items-center gap-2">
+											<CloudCheck className="h-4 w-4 text-muted-foreground" />
+											<p className="text-sm leading-none font-medium">
+												Cloudflare Proxy
+											</p>
+										</div>
+										<p className="text-muted-foreground text-sm">
+											Enable Cloudflare's proxy and DDoS protection
+										</p>
+									</div>
+									<Switch
 										id="proxied"
 										checked={proxied}
 										onCheckedChange={setProxied}
 										disabled={isProcessing}
-								/>
+										className="mt-0.5"
+									/>
+								</Label>
 							</div>
 
-						<div className="rounded-lg border bg-muted/50 p-4">
-							<h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-								<span className="text-muted-foreground">Selected Domains</span>
-								<span className="text-xs font-normal bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-									{selectedZones.length}
-								</span>
-							</h4>
-							<ScrollArea className="h-[500px]">
-
-								<div className="pr-4 grid grid-cols-3 gap-1">
-									{selectedZones.map((zone) => (
-										<div
-											key={`${zone.accountId}-${zone.zone.id}`}
-											className="text-sm text-foreground bg-background/60 px-2 py-1 rounded-md border border-border/50"
-										>
-											<span className="font-mono">{zone.zone.name}</span>
-										</div>
-									))}
-								</div>
-							</ScrollArea>
-						</div>
+							<SelectedDomainsList 
+								selectedZones={selectedZones}
+								icon={Globe}
+								showAccount={true}
+							/>
 						</div>
 
-						<DialogFooter>
-							<Button variant="outline" onClick={() => setOpen(false)} disabled={isProcessing}>
+						<DialogFooter className="px-4 sm:px-6 py-4 border-t flex-shrink-0 gap-2">
+							<Button 
+								variant="outline" 
+								onClick={() => {
+									setOpen(false);
+									setIpAddress('');
+									setProxied(false);
+									setProcessedCount(0);
+								}} 
+								disabled={isProcessing}
+								className="w-full sm:w-auto"
+							>
 								Cancel
 							</Button>
-							<Button onClick={handleBulkUpdate} disabled={isProcessing}>
-								{isProcessing ? 'Updating...' : 'Update A Records'}
+							<Button 
+								onClick={handleBulkUpdate} 
+								disabled={isProcessing || !ipAddress.trim()}
+								className="w-full sm:w-auto gap-2"
+							>
+								{isProcessing ? (
+									<>
+										<Loader2 className="h-4 w-4 animate-spin" />
+										Updating...
+									</>
+								) : (
+									'Update A Records'
+								)}
 							</Button>
 						</DialogFooter>
 					</DialogContent>

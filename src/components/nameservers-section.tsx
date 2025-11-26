@@ -1,8 +1,5 @@
-import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { copyToClipboard } from '@/lib/utils';
+import { CopyButton } from '@/components/ui/copy-button';
 
 type NameserversSectionProps = {
 	nameservers: string[];
@@ -15,8 +12,6 @@ export function NameserversSection({
 	title = 'Cloudflare Nameservers',
 	description = 'Replace your current nameservers with these Cloudflare nameservers:'
 }: NameserversSectionProps) {
-	const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
 	if (!nameservers || nameservers.length === 0) {
 		return null;
 	}
@@ -36,23 +31,16 @@ export function NameserversSection({
 						className="flex items-center justify-between gap-2 rounded-md bg-background px-3 py-2 border"
 					>
 						<code className="text-sm font-mono flex-1">{nameserver}</code>
-						<Button
+						<CopyButton
+							text={nameserver}
+							successMessage={`Copied ${nameserver} to clipboard`}
+							errorMessage="Failed to copy nameserver"
 							size="sm"
-							variant="ghost"
 							className="h-8 w-8 p-0"
-							onClick={async () => {
-								await copyToClipboard(nameserver, `Copied ${nameserver} to clipboard`, 'Failed to copy nameserver');
-								setCopiedIndex(index);
-								setTimeout(() => setCopiedIndex(null), 2000);
-							}}
 							title="Copy nameserver"
-						>
-							{copiedIndex === index ? (
-								<Check className="h-4 w-4 text-green-600" />
-							) : (
-								<Copy className="h-4 w-4 opacity-50" />
-							)}
-						</Button>
+							copyIconClassName="h-4 w-4"
+							checkIconClassName="h-4 w-4"
+						/>
 					</div>
 				))}
 			</div>

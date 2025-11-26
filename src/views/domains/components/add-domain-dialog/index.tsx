@@ -119,52 +119,57 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 					Add Domain
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-				<DialogHeader>
+			<DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
+				<DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
 					<DialogTitle>Add Domain</DialogTitle>
 					<DialogDescription>
 						Add one or multiple domains to your Cloudflare account. Enter domain names one per line.
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-4 py-4">
-					<BulkDomainInputForm
-						value={domains}
-						onChange={setDomains}
-						disabled={isProcessing}
-					/>
+				<div className="flex-1 overflow-y-auto px-6 space-y-4 min-h-0">
+					{!showProgress && (
+						<>
+							<BulkDomainInputForm
+								value={domains}
+								onChange={setDomains}
+								disabled={isProcessing}
+							/>
 
-					<RootARecordInput
-						ipAddress={rootIPAddress}
-						proxied={proxied}
-						onIPChange={setRootIPAddress}
-						onProxiedChange={setProxied}
-						onSubmit={handleCreateDomains}
-						disabled={isProcessing}
-					/>
+							<RootARecordInput
+								ipAddress={rootIPAddress}
+								proxied={proxied}
+								onIPChange={setRootIPAddress}
+								onProxiedChange={setProxied}
+								onSubmit={handleCreateDomains}
+								disabled={isProcessing}
+							/>
 
-					<AccountSelectors
-						accounts={accountsToUse}
-						cloudflareAccounts={cloudflareAccounts}
-						selectedAccountId={selectedAccountId}
-						selectedCloudflareAccountId={selectedCloudflareAccountId}
-						isLoadingAccounts={isLoadingAccounts}
-						onAccountChange={setSelectedAccountId}
-						onCloudflareAccountChange={setSelectedCloudflareAccountId}
-						disabled={isProcessing}
-					/>
+							<AccountSelectors
+								accounts={accountsToUse}
+								cloudflareAccounts={cloudflareAccounts}
+								selectedAccountId={selectedAccountId}
+								selectedCloudflareAccountId={selectedCloudflareAccountId}
+								isLoadingAccounts={isLoadingAccounts}
+								onAccountChange={setSelectedAccountId}
+								onCloudflareAccountChange={setSelectedCloudflareAccountId}
+								disabled={isProcessing}
+							/>
+						</>
+					)}
 
 					{showProgress && (
-						<div className="space-y-2">
+						<div className="pb-4 flex-1 min-h-0 flex flex-col">
 							<ConfigurationConsole
 								domainQueue={bulkDomainCreation.domainQueue}
 								title="Domain Creation Queue"
+								className="flex-1 min-h-0"
 							/>
 						</div>
 					)}
 				</div>
 
-				<DialogFooter>
+				<DialogFooter className="px-6 py-4 border-t flex-shrink-0">
 					<Button
 						variant="outline"
 						onClick={handleClose}

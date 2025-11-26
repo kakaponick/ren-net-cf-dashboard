@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { CloudflareAPI, type ZoneSettingsProgressCallback } from '@/lib/cloudflare-api';
 import { useAccountStore } from '@/store/account-store';
 import { toast } from 'sonner';
+import { formatCloudflareError } from '@/lib/utils';
 import type { DomainQueueItem, ConfigurationStep } from '@/components/configuration-console';
 import type { CloudflareAccount } from '@/types/cloudflare';
 
@@ -112,6 +113,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 						));
 					} catch (error) {
 						console.error(`Error creating root A record for ${domain}:`, error);
+						const errorMessage = formatCloudflareError(error);
 						setDomainQueue(prev => prev.map(item =>
 							item.domain === domain
 								? {
@@ -121,7 +123,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 										{
 											name: 'Creating root A record...',
 											status: 'error',
-											error: error instanceof Error ? error.message : 'Failed to create root A record'
+											error: errorMessage
 										}
 									]
 								}
@@ -178,14 +180,15 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 
 			} catch (error) {
 				console.error(`Error creating domain ${domain}:`, error);
-				const errorMessage = error instanceof Error ? error.message : 'Failed to create domain';
+				const errorMessage = formatCloudflareError(error);
 
 				setDomainQueue(prev => prev.map(item =>
 					item.domain === domain
 						? {
 							...item,
 							status: 'error',
-							error: errorMessage,
+							// Only set domain-level error if there are no steps, otherwise error is shown at step level
+							error: (item.steps?.length ?? 0) === 0 ? errorMessage : undefined,
 							steps: item.steps?.map(s =>
 								s.status === 'processing'
 									? { ...s, status: 'error', error: errorMessage }
@@ -211,11 +214,11 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 
 		// Show summary toast
 		if (successCount > 0 && errorCount === 0) {
-			toast.success(`Successfully created ${successCount} domain${successCount > 1 ? 's' : ''}!`, { duration: Infinity });
+			toast.success(`Successfully created ${successCount} domain${successCount > 1 ? 's' : ''}!`);
 		} else if (successCount > 0 && errorCount > 0) {
-			toast.warning(`Created ${successCount} domain${successCount > 1 ? 's' : ''}, ${errorCount} failed`, { duration: Infinity });
+			toast.warning(`Created ${successCount} domain${successCount > 1 ? 's' : ''}, ${errorCount} failed`);
 		} else {
-			toast.error(`Failed to create ${errorCount} domain${errorCount > 1 ? 's' : ''}`, { duration: Infinity });
+			toast.error(`Failed to create ${errorCount} domain${errorCount > 1 ? 's' : ''}`);
 		}
 	};
 

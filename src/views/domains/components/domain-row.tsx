@@ -1,12 +1,13 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ExternalLink, Settings, RefreshCw, Copy, Check, Info, ChevronDown, MoreVertical, Trash2 } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2 } from 'lucide-react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CopyButton } from '@/components/ui/copy-button';
+import { cn } from '@/lib/utils';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -24,7 +25,7 @@ import {
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ARecordsCell, ProxiedCell } from './dns-cell';
-import { copyToClipboard } from '@/lib/utils';
+import { DNSDrawer } from '@/components/dns-drawer';
 import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
@@ -84,30 +85,26 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 	const hasNameservers = nameservers.length > 0;
 
 	return (
-		<TableRow>
-
-			<TableCell>
-				<Checkbox checked={isSelected} onCheckedChange={handleToggle} />
+		<TableRow 
+			data-state={isSelected ? 'selected' : undefined}
+			className={cn(
+				"transition-colors",
+				isSelected && "bg-muted/30"
+			)}
+		>
+			<TableCell className="w-14">
+				<label className="flex items-center justify-center p-2 rounded-sm hover:bg-muted/50 transition-colors cursor-pointer">
+					<Checkbox 
+						checked={isSelected} 
+						onCheckedChange={handleToggle}
+					/>
+				</label>
 			</TableCell>
 
 			<TableCell className="font-medium">
 
 				<div className="flex gap-2">
-					<div className="flex flex-col">
-						<span className="font-semibold">
-							{item.zone.name}
-						</span>
-						{item.dnsLoading ? (
-							<Skeleton className="h-3 w-24 mt-1" />
-						) : (
-							<span className="text-xs text-muted-foreground">
-								{item.zone.name_servers?.length || 0} name servers
-							</span>
-						)}
-
-					</div>
-
-					<div className="flex items-center gap-1">
+					<div className="flex items-center gap-1 mr-2">
 						<Button
 							asChild
 							variant="ghost"
@@ -123,19 +120,31 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 								<ExternalLink className="h-3 w-3 opacity-50" />
 							</a>
 						</Button>
-						<Button
+						<CopyButton
+							text={item.zone.name}
+							successMessage={`Copied ${item.zone.name} to clipboard`}
+							errorMessage="Failed to copy domain name"
 							size="icon"
-							variant="ghost"
 							className="h-8 w-8"
 							title="Copy domain name"
-							onClick={() => copyToClipboard(item.zone.name, `Copied ${item.zone.name} to clipboard`, 'Failed to copy domain name')}
-						>
-							<Copy className="h-4 w-4 opacity-50" />
-						</Button>
+							copyIconClassName="h-4 w-4"
+							checkIconClassName="h-4 w-4"
+						/>
 					</div>
 
+					<div className="flex flex-col">
+						<span className="font-semibold">
+							{item.zone.name}
+						</span>
+						{item.dnsLoading ? (
+							<Skeleton className="h-3 w-24 mt-1" />
+						) : (
+							<span className="text-xs text-muted-foreground">
+								{item.dnsRecords?.length || 0} dns records
+							</span>
+						)}
 
-
+					</div>
 				</div>
 			</TableCell>
 
@@ -178,7 +187,14 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 				<ProxiedCell rootARecords={item.rootARecords} isLoading={item.dnsLoading} />
 			</TableCell>
 			<TableCell>
-				<ARecordsCell rootARecords={item.rootARecords} isLoading={item.dnsLoading} />
+				<ARecordsCell 
+					rootARecords={item.rootARecords} 
+					isLoading={item.dnsLoading}
+					zoneId={item.zone.id}
+					accountId={item.accountId}
+					zoneName={item.zone.name}
+					onRefreshDNS={onRefreshDNS}
+				/>
 			</TableCell>
 			<TableCell>
 				<span className="text-sm">{item.accountEmail}</span>
@@ -193,18 +209,24 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 					<Button
 						size="icon"
 						variant="ghost"
+						className="h-8 w-8"
 						onClick={handleRefreshDNS}
 						disabled={item.dnsLoading}
 						title="Refresh DNS records"
 					>
 						<RefreshCw className={`h-4 w-4 ${item.dnsLoading ? 'animate-spin' : ''}`} />
 					</Button>
-					<Button asChild size="sm" variant="outline">
-						<Link href={`/dns/${item.zone.id}?account=${item.accountId}`}>
-							<Settings className="mr-1 h-3 w-3" />
-							DNS
-						</Link>
-					</Button>
+					<DNSDrawer
+						zoneId={item.zone.id}
+						accountId={item.accountId}
+						zoneName={item.zone.name}
+						trigger={
+							<Button size="sm" variant="outline">
+								<Settings className="mr-1 h-3 w-3" />
+								DNS
+							</Button>
+						}
+					/>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
@@ -257,30 +279,19 @@ type NameserverItemProps = {
 };
 
 const NameserverItem = memo(function NameserverItem({ nameserver }: NameserverItemProps) {
-	const [copied, setCopied] = useState(false);
-
-	const handleCopy = async () => {
-		await copyToClipboard(nameserver, `Copied ${nameserver} to clipboard`, 'Failed to copy nameserver');
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
-	};
-
 	return (
 		<div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 border">
 			<code className="text-xs font-mono flex-1">{nameserver}</code>
-			<Button
+			<CopyButton
+				text={nameserver}
+				successMessage={`Copied ${nameserver} to clipboard`}
+				errorMessage="Failed to copy nameserver"
 				size="sm"
-				variant="ghost"
 				className="h-7 w-7 p-0"
-				onClick={handleCopy}
 				title="Copy nameserver"
-			>
-				{copied ? (
-					<Check className="h-3 w-3 text-green-600" />
-				) : (
-					<Copy className="h-3 w-3 opacity-50" />
-				)}
-			</Button>
+				copyIconClassName="h-3 w-3"
+				checkIconClassName="h-3 w-3"
+			/>
 		</div>
 	);
 });

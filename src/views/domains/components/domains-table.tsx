@@ -3,6 +3,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DomainRow } from './domain-row';
+import { cn } from '@/lib/utils';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { SortField } from '../hooks/use-domains-sort';
 import type { Zone } from '@/types/cloudflare';
@@ -58,11 +59,13 @@ export const DomainsTable = memo(function DomainsTable({
 				<Table>
 						<TableHeader>
 								<TableRow>
-										<TableHead className="w-12">
-												<Checkbox
+										<TableHead className="w-14">
+												<label className="flex items-center justify-center p-2 rounded-sm hover:bg-muted/50 transition-colors cursor-pointer">
+													<Checkbox
 														checked={allSelected ? true : selectedCount > 0 ? 'indeterminate' : false}
 														onCheckedChange={onToggleAll}
-												/>
+													/>
+												</label>
 										</TableHead>
 										<TableHead 
 												className="cursor-pointer hover:bg-muted/50"

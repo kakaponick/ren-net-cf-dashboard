@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Globe, Search, RefreshCw } from 'lucide-react';
+import { Globe, Search, RefreshCw, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -132,15 +132,45 @@ export default function DomainsPage() {
 			</div>
 
 			{selectedCount > 0 && (
-				<Card className="bg-primary/5 border-primary/20">
-					<CardContent className="py-3">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center space-x-2">
-								<span className="text-sm font-medium text-primary">
-									{selectedCount} domain{selectedCount > 1 ? 's' : ''} selected
-								</span>
+				<Card className="sticky top-0 z-10 bg-primary/10 border-primary/30 shadow-lg backdrop-blur-sm transition-all duration-200 animate-in slide-in-from-top-2">
+					<CardContent className="py-4">
+						<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+							<div className="flex items-center gap-3 flex-1 min-w-0">
+								<div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 shrink-0">
+									<CheckCircle2 className="h-4 w-4 text-primary" />
+								</div>
+								<div className="flex-1 min-w-0">
+									<div className="flex items-center gap-2 flex-wrap">
+										<span className="text-sm font-semibold text-primary">
+											{selectedCount} domain{selectedCount > 1 ? 's' : ''} selected
+										</span>
+										{selectedZones.length > 0 && (
+											<span className="text-xs text-muted-foreground hidden sm:inline">
+												•
+											</span>
+										)}
+										{selectedZones.length > 0 && (
+											<div className="flex items-center gap-1.5 flex-wrap max-w-md">
+												{selectedZones.slice(0, 3).map((zone) => (
+													<span
+														key={`${zone.accountId}-${zone.zone.id}`}
+														className="text-xs font-mono bg-background/80 px-2 py-0.5 rounded border border-border/50 truncate max-w-[120px]"
+														title={zone.zone.name}
+													>
+														{zone.zone.name}
+													</span>
+												))}
+												{selectedZones.length > 3 && (
+													<span className="text-xs text-muted-foreground">
+														+{selectedZones.length - 3} more
+													</span>
+												)}
+											</div>
+										)}
+									</div>
+								</div>
 							</div>
-							<div className="flex items-center space-x-2">
+							<div className="flex items-center gap-2 flex-wrap">
 								<BulkEditARecordDialog
 									selectedZones={selectedZones}
 									onComplete={() => clear()}
@@ -157,8 +187,10 @@ export default function DomainsPage() {
 									size="sm"
 									variant="outline"
 									onClick={clear}
+									className="gap-2"
 								>
-									Clear Selection
+									<X className="h-3.5 w-3.5" />
+									Clear
 								</Button>
 							</div>
 						</div>
