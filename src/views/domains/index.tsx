@@ -58,6 +58,11 @@ export default function DomainsPage() {
 		loadZones();
 	}, [clearCache, loadZones]);
 
+	const handleDomainCreated = useCallback(() => {
+		// Zones are already added reactively via addZone() in use-bulk-domain-creation
+		// No need to reload - the cache updates automatically trigger table rerender
+	}, []);
+
 	const handleRefreshDNS = useCallback((zoneId: string, accountId: string) => {
 		loadDNSForZone(zoneId, accountId);
 	}, [loadDNSForZone]);
@@ -127,7 +132,7 @@ export default function DomainsPage() {
 						<RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
 						Refresh Cache
 					</Button>
-					<AddDomainDialog title="Loading all domains across accounts can take up to 30 seconds for large accounts (100 domains ~ 30s)" accounts={accounts} onDomainCreated={handleRefresh} />
+					<AddDomainDialog title="Loading all domains across accounts can take up to 30 seconds for large accounts (100 domains ~ 30s)" accounts={accounts} onDomainCreated={handleDomainCreated} />
 
 				</div>
 			</div>

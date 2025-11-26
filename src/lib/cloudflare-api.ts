@@ -384,97 +384,75 @@ export class CloudflareAPI {
   // WAF: Create custom rule to skip known bots
   // Reference: https://developers.cloudflare.com/waf/custom-rules/create-api/
   async createSkipBotsWAFRule(zoneId: string) {
+    const ruleData = {
+      description: 'Skip known bots',
+      expression: '(cf.client.bot)',
+      action: 'skip',
+      action_parameters: {
+        ruleset: 'current',
+        phases: [
+          "http_ratelimit",
+          "http_request_firewall_managed",
+          "http_request_sbfm"
+        ],
+        products: [
+          "zoneLockdown",
+          "bic",
+          "uaBlock",
+          "hot",
+          "securityLevel",
+          "rateLimit",
+          "waf"
+        ],
+      },
+      enabled: true,
+    };
+
     try {
-      // Step 1: Get the entry point ruleset for http_request_firewall_custom phase
-      const phaseResponse = await this.makeRequest(
-        `/zones/${zoneId}/rulesets/phases/http_request_firewall_custom/entrypoint`,
-        { method: 'GET' }
-      );
-
-      const rulesetId = phaseResponse.result?.id;
+      // Try to create the entry point ruleset with the rule included
+      const response = await this.makeRequest(`/zones/${zoneId}/rulesets`, {
+        method: 'POST',
+        body: {
+          name: 'Custom Rules',
+          kind: 'zone',
+          phase: 'http_request_firewall_custom',
+          rules: [ruleData],
+        },
+      });
       
-      if (rulesetId) {
-        // Step 2: Entry point ruleset exists, add rule to it
-        // POST to /zones/{zone_id}/rulesets/{ruleset_id}/rules
-        const ruleData = {
-          description: 'Skip known bots',
-          expression: '(cf.client.bot)',
-          action: 'skip',
-          action_parameters: {
-            ruleset: 'current',
-            phases: [
-              "http_ratelimit",
-              "http_request_firewall_managed",
-              "http_request_sbfm"
-            ],
-            products: [
-              "zoneLockdown",
-              "bic",
-              "uaBlock",
-              "hot",
-              "securityLevel",
-              "rateLimit",
-              "waf"
-            ],
-          },
-          enabled: true,
-        };
-
-        const response = await this.makeRequest(
-          `/zones/${zoneId}/rulesets/${rulesetId}/rules`,
-          {
-            method: 'POST',
-            body: ruleData,
-          }
-        );
-        
-        return response.result;
-      } else {
-        throw new Error('Ruleset ID not found in response');
-      }
+      return response.result;
     } catch (error: any) {
-      // If entry point ruleset doesn't exist (404), create it with the rule
-      if (error?.status === 404 || error?.message?.includes('404')) {
+      // If ruleset already exists, try to get it and add the rule
+      if (error?.status === 409 || error?.message?.includes('already exists') || error?.message?.includes('409')) {
         try {
-          // Create the entry point ruleset with the rule included
-          const response = await this.makeRequest(`/zones/${zoneId}/rulesets`, {
-            method: 'POST',
-            body: {
-              name: 'Custom Rules',
-              kind: 'zone',
-              phase: 'http_request_firewall_custom',
-              rules: [
-                {
-                  description: 'Skip known bots',
-                  expression: '(cf.client.bot)',
-                  action: 'skip',
-                  action_parameters: {
-                    ruleset: 'current',
-                    phases: [
-                      "http_ratelimit",
-                      "http_request_firewall_managed",
-                      "http_request_sbfm"
-                    ],
-                    products: [
-                      "zoneLockdown",
-                      "bic",
-                      "uaBlock",
-                      "hot",
-                      "securityLevel",
-                      "rateLimit",
-                      "waf"
-                    ],
-                  },
-                  enabled: true,
-                },
-              ],
-            },
-          });
-          
-          return response.result;
-        } catch (createError) {
-          console.error('Error creating WAF custom ruleset:', createError);
-          throw createError;
+          // Get existing rulesets for the zone
+          const rulesetsResponse = await this.makeRequest(
+            `/zones/${zoneId}/rulesets`,
+            { method: 'GET' }
+          );
+
+          // Find the entrypoint ruleset for http_request_firewall_custom phase
+          const entrypointRuleset = rulesetsResponse.result?.find(
+            (ruleset: any) => ruleset.phase === 'http_request_firewall_custom' && ruleset.kind === 'zone'
+          );
+
+          if (entrypointRuleset?.id) {
+            // Add rule to existing ruleset
+            const addRuleResponse = await this.makeRequest(
+              `/zones/${zoneId}/rulesets/${entrypointRuleset.id}/rules`,
+              {
+                method: 'POST',
+                body: ruleData,
+              }
+            );
+            
+            return addRuleResponse.result;
+          } else {
+            throw new Error('Entrypoint ruleset not found');
+          }
+        } catch (addError) {
+          console.error('Error adding rule to existing WAF custom ruleset:', addError);
+          throw addError;
         }
       } else {
         console.error('Error creating WAF custom rule:', error);

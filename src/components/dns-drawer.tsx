@@ -392,9 +392,7 @@ export function DNSDrawer({
 															</Badge>
 														</TableCell>
 														<TableCell className="font-medium font-mono text-sm">
-															<span className="truncate block max-w-[150px]" title={record.name}>
-																{record.name}
-															</span>
+															{record.name}
 														</TableCell>
 														<TableCell className="font-mono text-sm">
 															<span className="break-all block" title={record.content}>

@@ -54,6 +54,7 @@ interface CloudflareCacheState {
   
   // Cache management
   setZones: (zones: ZoneData[]) => void;
+  addZone: (zone: any, accountId: string, accountName: string) => void;
   setDNSRecords: (zoneId: string, accountId: string, records: any[]) => void;
   setSSLData: (zoneId: string, accountId: string, certificates: any[], sslSetting: any) => void;
   setZoneDetails: (zoneId: string, accountId: string, zone: any) => void;
@@ -100,6 +101,34 @@ export const useCloudflareCache = create<CloudflareCacheState>()(
         zones, 
         zonesLastUpdated: Date.now() 
       }),
+      
+      addZone: (zone, accountId, accountName) => {
+        set((state) => {
+          // Check if zone already exists to avoid duplicates
+          const zoneKey = `${accountId}-${zone.id}`;
+          const exists = state.zones.some(
+            (z) => `${z.accountId}-${z.zone.id}` === zoneKey
+          );
+          
+          if (exists) {
+            // Update existing zone
+            return {
+              zones: state.zones.map((z) =>
+                `${z.accountId}-${z.zone.id}` === zoneKey
+                  ? { zone, accountId, accountName }
+                  : z
+              ),
+              zonesLastUpdated: Date.now(),
+            };
+          } else {
+            // Add new zone
+            return {
+              zones: [...state.zones, { zone, accountId, accountName }],
+              zonesLastUpdated: Date.now(),
+            };
+          }
+        });
+      },
       
       setDNSRecords: (zoneId, accountId, records) => {
         const key = `${zoneId}-${accountId}`;

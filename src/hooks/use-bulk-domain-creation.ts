@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { CloudflareAPI, type ZoneSettingsProgressCallback } from '@/lib/cloudflare-api';
 import { useAccountStore } from '@/store/account-store';
+import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
 import { formatCloudflareError } from '@/lib/utils';
 import type { DomainQueueItem, ConfigurationStep } from '@/components/configuration-console';
@@ -14,6 +15,7 @@ interface UseBulkDomainCreationOptions {
 
 export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess }: UseBulkDomainCreationOptions) {
 	const { setDomainNameservers } = useAccountStore();
+	const { addZone } = useCloudflareCache();
 	const [isCreating, setIsCreating] = useState(false);
 	const [isConfiguring, setIsConfiguring] = useState(false);
 	const [domainQueue, setDomainQueue] = useState<DomainQueueItem[]>([]);
@@ -60,6 +62,11 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 			try {
 				// Step 1: Create zone
 				const zone = await api.createZone(domain, cloudflareAccountId);
+
+				// Add zone to cache immediately for reactive UI update
+				if (zone?.id) {
+					addZone(zone, account.id, account.name);
+				}
 
 				// Update step to success
 				setDomainQueue(prev => prev.map(item =>
