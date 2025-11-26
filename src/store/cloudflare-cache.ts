@@ -72,8 +72,6 @@ interface CloudflareCacheState {
   getZoneDetails: (zoneId: string, accountId: string) => any | null;
 }
 
-const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
-
 export const useCloudflareCache = create<CloudflareCacheState>()(
   persist(
     (set, get) => ({
@@ -192,22 +190,23 @@ export const useCloudflareCache = create<CloudflareCacheState>()(
         });
       },
       
-      // Cache validation
+      // Cache validation - cache never expires automatically, only updates manually
       isCacheValid: (type, key) => {
         const state = get();
         
         switch (type) {
           case 'zones':
-            if (!state.zonesLastUpdated) return false;
-            return Date.now() - state.zonesLastUpdated < CACHE_DURATION;
+            // Cache is valid if it exists (never expires automatically)
+            return state.zonesLastUpdated !== null && state.zones.length > 0;
             
           case 'dnsRecords':
           case 'sslData':
           case 'zoneDetails':
             if (!key) return false;
             const lastUpdated = state[`${type}LastUpdated` as keyof typeof state] as Record<string, number>;
-            if (!lastUpdated[key]) return false;
-            return Date.now() - lastUpdated[key] < CACHE_DURATION;
+            const cacheData = state[type as keyof typeof state] as Record<string, any>;
+            // Cache is valid if it exists (never expires automatically)
+            return lastUpdated[key] !== undefined && cacheData[key] !== undefined;
             
           default:
             return false;

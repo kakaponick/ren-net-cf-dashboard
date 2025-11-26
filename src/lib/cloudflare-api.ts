@@ -369,6 +369,9 @@ export class CloudflareAPI {
         body: {
           enable_js: enabled, // Required: JavaScript detection must be enabled for Bot Fight Mode
           fight_mode: enabled,
+          ai_bots_protection: "block",
+          is_robots_txt_managed: false
+          
         },
       });
       return response.result;
@@ -399,11 +402,20 @@ export class CloudflareAPI {
           action: 'skip',
           action_parameters: {
             ruleset: 'current',
-              phases: [
-                "http_ratelimit",
-                "http_request_firewall_managed",
-                "http_request_sbfm"
-              ],
+            phases: [
+              "http_ratelimit",
+              "http_request_firewall_managed",
+              "http_request_sbfm"
+            ],
+            products: [
+              "zoneLockdown",
+              "bic",
+              "uaBlock",
+              "hot",
+              "securityLevel",
+              "rateLimit",
+              "waf"
+            ],
           },
           enabled: true,
         };

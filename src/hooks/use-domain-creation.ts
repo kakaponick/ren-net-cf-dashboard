@@ -43,7 +43,35 @@ export function useDomainCreation({ account, cloudflareAccountId, onSuccess }: U
 				setCreatedNameservers(zone.name_servers);
 			}
 
-			// Step 2: Create root A record if IP address is provided
+			// Step 2: Create CNAME record for www subdomain
+			if (zone?.id) {
+				setConfigurationSteps(prev => [...prev, { name: 'Creating CNAME record (www)...', status: 'processing', variable: 'www -> @' }]);
+				try {
+					await api.createDNSRecord(zone.id, {
+						type: 'CNAME',
+						name: 'www',
+						content: '@',
+						ttl: 1,
+						proxied: proxied,
+					});
+					setConfigurationSteps(prev => prev.map(s =>
+						s.name === 'Creating CNAME record (www)...'
+							? { ...s, status: 'success' }
+							: s
+					));
+				} catch (error) {
+					console.error('Error creating www CNAME record:', error);
+					const errorMessage = formatCloudflareError(error);
+					setConfigurationSteps(prev => prev.map(s =>
+						s.name === 'Creating CNAME record (www)...'
+							? { ...s, status: 'error', error: errorMessage }
+							: s
+					));
+					toast.warning('Domain created but failed to create www CNAME record. You can add it manually.');
+				}
+			}
+
+			// Step 3: Create root A record if IP address is provided
 			if (rootIPAddress.trim() && zone?.id) {
 				setConfigurationSteps(prev => [...prev, { name: 'Creating root A record...', status: 'processing' }]);
 				try {
@@ -74,7 +102,7 @@ export function useDomainCreation({ account, cloudflareAccountId, onSuccess }: U
 			// Refresh zones immediately to show the new domain in the table
 			onSuccess();
 
-			// Step 3: Configure default zone settings
+			// Step 4: Configure default zone settings
 			if (zone?.id) {
 				setIsConfiguring(true);
 				setIsCreating(false);

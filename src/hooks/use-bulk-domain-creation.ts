@@ -77,15 +77,15 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 					setDomainNameservers(domain, zone.name_servers);
 				}
 
-				// Step 2: Create root A record if IP address is provided
-				if (rootIPAddress.trim() && zone?.id) {
+				// Step 2: Create CNAME record for www subdomain
+				if (zone?.id) {
 					setDomainQueue(prev => prev.map(item =>
 						item.domain === domain
 							? {
 								...item,
 								steps: [
 									{ name: 'Creating domain zone...', status: 'success' },
-									{ name: 'Creating root A record...', status: 'processing' }
+									{ name: 'Creating CNAME record (www)...', status: 'processing', variable: 'www -> @' }
 								]
 							}
 							: item
@@ -93,9 +93,9 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 
 					try {
 						await api.createDNSRecord(zone.id, {
-							type: 'A',
-							name: '@',
-							content: rootIPAddress.trim(),
+							type: 'CNAME',
+							name: 'www',
+							content: '@',
 							ttl: 1,
 							proxied: proxied,
 						});
@@ -106,13 +106,13 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 									...item,
 									steps: [
 										{ name: 'Creating domain zone...', status: 'success' },
-										{ name: 'Creating root A record...', status: 'success' }
+										{ name: 'Creating CNAME record (www)...', status: 'success', variable: 'www -> @' }
 									]
 								}
 								: item
 						));
 					} catch (error) {
-						console.error(`Error creating root A record for ${domain}:`, error);
+						console.error(`Error creating www CNAME record for ${domain}:`, error);
 						const errorMessage = formatCloudflareError(error);
 						setDomainQueue(prev => prev.map(item =>
 							item.domain === domain
@@ -121,9 +121,10 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 									steps: [
 										{ name: 'Creating domain zone...', status: 'success' },
 										{
-											name: 'Creating root A record...',
+											name: 'Creating CNAME record (www)...',
 											status: 'error',
-											error: errorMessage
+											error: errorMessage,
+											variable: 'www -> @'
 										}
 									]
 								}
@@ -132,7 +133,77 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 					}
 				}
 
-				// Step 3: Configure default zone settings
+				// Step 3: Create root A record if IP address is provided
+				if (rootIPAddress.trim() && zone?.id) {
+					setDomainQueue(prev => prev.map(item => {
+						if (item.domain !== domain) return item;
+						
+						const existingSteps = item.steps || [];
+						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
+						const cnameStepStatus = cnameStep?.status || 'success';
+						
+						return {
+							...item,
+							steps: [
+								{ name: 'Creating domain zone...', status: 'success' },
+								{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
+								{ name: 'Creating root A record...', status: 'processing' }
+							]
+						};
+					}));
+
+					try {
+						await api.createDNSRecord(zone.id, {
+							type: 'A',
+							name: '@',
+							content: rootIPAddress.trim(),
+							ttl: 1,
+							proxied: proxied,
+						});
+
+						setDomainQueue(prev => prev.map(item => {
+							if (item.domain !== domain) return item;
+							
+							const existingSteps = item.steps || [];
+							const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
+							const cnameStepStatus = cnameStep?.status || 'success';
+							
+							return {
+								...item,
+								steps: [
+									{ name: 'Creating domain zone...', status: 'success' },
+									{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
+									{ name: 'Creating root A record...', status: 'success' }
+								]
+							};
+						}));
+					} catch (error) {
+						console.error(`Error creating root A record for ${domain}:`, error);
+						const errorMessage = formatCloudflareError(error);
+						setDomainQueue(prev => prev.map(item => {
+							if (item.domain !== domain) return item;
+							
+							const existingSteps = item.steps || [];
+							const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
+							const cnameStepStatus = cnameStep?.status || 'success';
+							
+							return {
+								...item,
+								steps: [
+									{ name: 'Creating domain zone...', status: 'success' },
+									{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
+									{
+										name: 'Creating root A record...',
+										status: 'error',
+										error: errorMessage
+									}
+								]
+							};
+						}));
+					}
+				}
+
+				// Step 4: Configure default zone settings
 				if (zone?.id) {
 					setIsConfiguring(true);
 
