@@ -48,6 +48,7 @@ export default function DNSRecordsPage() {
     ttl: 1,
     proxied: false,
     comment: '',
+    priority: 10,
   });
 
   const account = accounts.find((acc: any) => acc.id === accountId);
@@ -163,6 +164,7 @@ export default function DNSRecordsPage() {
         ttl: 1,
         proxied: false,
         comment: '',
+        priority: 10,
       });
       // Clear cache and reload
       clearZoneCache(zoneId, accountId);
@@ -197,6 +199,7 @@ export default function DNSRecordsPage() {
       ttl: record.ttl,
       proxied: record.proxied,
       comment: record.comment || '',
+      priority: record.priority ?? 10,
     });
     setIsEditing(record.id);
     setIsAddDialogOpen(true);
@@ -334,6 +337,26 @@ export default function DNSRecordsPage() {
                     onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   />
                 </div>
+
+                {formData.type === 'MX' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Input
+                      id="priority"
+                      type="number"
+                      min="0"
+                      max="65535"
+                      placeholder="10"
+                      value={formData.priority}
+                      onChange={(e) =>
+                        setFormData({ ...formData, priority: parseInt(e.target.value) || 10 })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Lower numbers indicate higher priority (0-65535)
+                    </p>
+                  </div>
+                )}
                 
                 <div className="space-y-2">
                   <Label htmlFor="ttl">TTL</Label>
@@ -390,6 +413,7 @@ export default function DNSRecordsPage() {
                       ttl: 1,
                       proxied: false,
                       comment: '',
+                      priority: 10,
                     });
                   }}>
                     Cancel

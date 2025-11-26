@@ -58,6 +58,7 @@ export interface DNSRecord {
   proxied: boolean;
   ttl: number;
   locked: boolean;
+  priority?: number; // Required for MX records
   meta: {
     auto_added: boolean;
     managed_by_apps: boolean;

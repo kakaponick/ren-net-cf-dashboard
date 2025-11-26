@@ -193,16 +193,23 @@ export class CloudflareAPI {
 
   async createDNSRecord(zoneId: string, record: any) {
     try {
+      const body: any = {
+        type: record.type,
+        name: record.name,
+        content: record.content,
+        ttl: record.ttl || 1,
+        proxied: record.proxied || false,
+        comment: record.comment,
+      };
+
+      // Priority is required for MX records
+      if (record.type === 'MX') {
+        body.priority = record.priority ?? 10;
+      }
+
       const response = await this.makeRequest(`/zones/${zoneId}/dns_records`, {
         method: 'POST',
-        body: {
-          type: record.type,
-          name: record.name,
-          content: record.content,
-          ttl: record.ttl || 1,
-          proxied: record.proxied || false,
-          comment: record.comment,
-        },
+        body,
       });
       return response.result;
     } catch (error) {
@@ -213,16 +220,23 @@ export class CloudflareAPI {
 
   async updateDNSRecord(zoneId: string, recordId: string, record: any) {
     try {
+      const body: any = {
+        type: record.type,
+        name: record.name,
+        content: record.content,
+        ttl: record.ttl || 1,
+        proxied: record.proxied || false,
+        comment: record.comment,
+      };
+
+      // Priority is required for MX records
+      if (record.type === 'MX') {
+        body.priority = record.priority ?? 10;
+      }
+
       const response = await this.makeRequest(`/zones/${zoneId}/dns_records/${recordId}`, {
         method: 'PATCH',
-        body: {
-          type: record.type,
-          name: record.name,
-          content: record.content,
-          ttl: record.ttl || 1,
-          proxied: record.proxied || false,
-          comment: record.comment,
-        },
+        body,
       });
       return response.result;
     } catch (error) {
