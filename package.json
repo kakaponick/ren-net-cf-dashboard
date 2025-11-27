@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev --turbo",
-    "generate-changelog": "node scripts/generate-changelog.js",
-    "build": "pnpm generate-changelog && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
