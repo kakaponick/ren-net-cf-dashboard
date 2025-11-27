@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Globe,
-  KeyRound
+  KeyRound,
+  FileText
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -17,6 +18,7 @@ interface NavigationProps {
 const navigation = [
   { name: 'Domains', href: '/', icon: Globe },
   { name: 'Accounts', href: '/accounts', icon: KeyRound },
+  { name: 'Changelog', href: '/changelog', icon: FileText },
 ];
 
 export function Navigation({ children }: NavigationProps) {

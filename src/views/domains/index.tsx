@@ -6,6 +6,7 @@ import { Globe, Search, RefreshCw, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import { useSelection } from '@/hooks/use-selection';
 import { useDomainsData } from './hooks/use-domains-data';
 import { useDomainsFilter } from './hooks/use-domains-filter';
@@ -18,7 +19,7 @@ import { useCloudflareCache } from '@/store/cloudflare-cache';
 
 export default function DomainsPage() {
 	const router = useRouter();
-	const { enrichedZones, isLoading, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
+	const { enrichedZones, isLoading, dnsLoadingProgress, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
 	const { zones, isCacheValid, clearCache } = useCloudflareCache();
 
 	// Log cache info to console
@@ -72,7 +73,7 @@ export default function DomainsPage() {
 			<div className="flex items-center justify-center h-64">
 				<Card>
 					<CardContent className="text-center py-8">
-						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+						<Spinner className="h-8 w-8 mx-auto mb-4" />
 						<h3 className="text-lg font-medium mb-2">Loading Accounts...</h3>
 						<p className="text-muted-foreground">
 							Please wait while we load your Cloudflare accounts
@@ -126,10 +127,14 @@ export default function DomainsPage() {
 
 					<Button
 						onClick={handleRefresh}
-						disabled={isLoading}
+						disabled={isLoading || (dnsLoadingProgress !== null)}
 						variant="outline"
 					>
-						<RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+						{isLoading || dnsLoadingProgress !== null ? (
+							<Spinner className="mr-2 h-4 w-4" />
+						) : (
+							<RefreshCw className="mr-2 h-4 w-4" />
+						)}
 						Refresh Cache
 					</Button>
 					<AddDomainDialog title="Loading all domains across accounts can take up to 30 seconds for large accounts (100 domains ~ 30s)" accounts={accounts} onDomainCreated={handleDomainCreated} />
@@ -204,19 +209,21 @@ export default function DomainsPage() {
 				</Card>
 			)}
 
-			{isLoading ? (
-				<Card>
-					<CardContent className="py-8">
+		{isLoading ? (
+			<div className="flex items-center justify-center py-12">
+				<Card className="w-full max-w-md">
+					<CardContent className="py-10 px-6">
 						<div className="text-center">
-							<RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-							<p>Loading domains from all accounts...</p>
-							<p className="text-sm text-muted-foreground mt-2">
+							<Spinner className="h-6 w-6 mx-auto mb-3 text-primary" />
+							<h3 className="text-lg font-medium mb-2">Loading domains from all accounts...</h3>
+							<p className="text-sm text-muted-foreground">
 								This may take a moment if you have many domains
 							</p>
 						</div>
 					</CardContent>
 				</Card>
-			) : sortedZones.length === 0 ? (
+			</div>
+		) : sortedZones.length === 0 ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-12">
 						<Globe className="h-12 w-12 text-muted-foreground mb-4" />
