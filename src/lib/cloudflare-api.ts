@@ -68,7 +68,8 @@ export class CloudflareAPI {
     this.apiToken = apiToken;
   }
 
-  private async makeRequest(endpoint: string, options: any = {}) {
+  private async makeRequest(endpoint: string, options: any = {}, retryCount = 0): Promise<any> {
+    const maxRetries = 1;
     const fetchOptions: RequestInit = {
       method: options.method,
       headers: {
@@ -95,10 +96,35 @@ export class CloudflareAPI {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      
+      // Handle HTTP 429 (Too Many Requests) with retry logic
+      if (response.status === 429 && retryCount < maxRetries) {
+        const retryAfter = response.headers.get('retry-after');
+        const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : Math.pow(2, retryCount) * 5; // Default: exponential backoff (5s, 10s, 20s)
+        const waitTime = Math.min(retryAfterSeconds * 1000, 300000); // Cap at 5 minutes
+        
+        console.warn(`Rate limit exceeded (429). Retrying after ${retryAfterSeconds} seconds... (attempt ${retryCount + 1}/${maxRetries})`);
+        
+        // Wait for retry-after period before retrying
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        // Retry the request
+        return this.makeRequest(endpoint, options, retryCount + 1);
+      }
+      
+      // Create error with rate limit information
       const error = new Error(`API request failed: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`) as any;
       error.status = response.status;
       error.statusText = response.statusText;
       error.errorData = errorData;
+      
+      // Add retry-after information for 429 errors
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        error.retryAfter = retryAfter ? parseInt(retryAfter, 10) : null;
+        error.isRateLimit = true;
+      }
+      
       throw error;
     }
 

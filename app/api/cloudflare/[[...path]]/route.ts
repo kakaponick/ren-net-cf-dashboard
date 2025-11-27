@@ -68,13 +68,38 @@ async function handleCloudflareProxy(
 				const response = await fetch(cloudflareUrl, fetchOptions);
 				const data = await response.json();
 
+				// Prepare response headers
+				const responseHeaders = new Headers();
+				
+				// Forward rate limit headers from Cloudflare API
+				const retryAfter = response.headers.get('retry-after');
+				const ratelimit = response.headers.get('ratelimit');
+				const ratelimitPolicy = response.headers.get('ratelimit-policy');
+				
+				if (retryAfter) {
+					responseHeaders.set('retry-after', retryAfter);
+				}
+				if (ratelimit) {
+					responseHeaders.set('ratelimit', ratelimit);
+				}
+				if (ratelimitPolicy) {
+					responseHeaders.set('ratelimit-policy', ratelimitPolicy);
+				}
+
 				if (response.ok) {
 						console.log(`✅ Success: ${response.status}`);
 				} else {
-						console.log(`❌ Error: ${response.status}`, data.errors?.[0]?.message || '');
+						if (response.status === 429) {
+								console.log(`⚠️ Rate limit exceeded: ${response.status}`, `Retry after: ${retryAfter || 'unknown'} seconds`);
+						} else {
+								console.log(`❌ Error: ${response.status}`, data.errors?.[0]?.message || '');
+						}
 				}
 
-				return NextResponse.json(data, { status: response.status });
+				return NextResponse.json(data, { 
+					status: response.status,
+					headers: responseHeaders
+				});
 		} catch (error) {
 				console.error('Proxy error:', error);
 				return NextResponse.json(

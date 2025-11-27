@@ -60,11 +60,64 @@ export function parseBulkDomains(input: string): string[] {
 }
 
 /**
+ * Processes items in parallel with controlled concurrency
+ * @param items - Array of items to process
+ * @param processor - Async function to process each item
+ * @param concurrency - Maximum number of concurrent operations (default: 10)
+ * @returns Promise that resolves when all items are processed
+ */
+export async function processInParallel<T, R>(
+  items: T[],
+  processor: (item: T, index: number) => Promise<R>,
+  concurrency: number = 10
+): Promise<R[]> {
+  const results: (R | Error)[] = new Array(items.length);
+  let index = 0;
+
+  const executeNext = async (): Promise<void> => {
+    while (index < items.length) {
+      const currentIndex = index++;
+      const item = items[currentIndex];
+      
+      try {
+        const result = await processor(item, currentIndex);
+        results[currentIndex] = result;
+      } catch (error) {
+        // Store error in results array
+        results[currentIndex] = error as Error;
+      }
+    }
+  };
+
+  // Start concurrent workers
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => executeNext());
+
+  // Wait for all workers to complete
+  await Promise.all(workers);
+
+  return results as R[];
+}
+
+/**
  * Formats Cloudflare API errors into user-friendly messages
  * @param error - Error object from Cloudflare API
  * @returns User-friendly error message
  */
 export function formatCloudflareError(error: unknown): string {
+  // Check for rate limit errors first (highest priority)
+  if (error && typeof error === 'object') {
+    const errorObj = error as any;
+    
+    // Check if it's a rate limit error with retry-after information
+    if (errorObj.isRateLimit || errorObj.status === 429) {
+      if (errorObj.retryAfter) {
+        const minutes = Math.ceil(errorObj.retryAfter / 60);
+        return `Rate limit exceeded. Please try again in ${errorObj.retryAfter} seconds (${minutes} minute${minutes !== 1 ? 's' : ''})`;
+      }
+      return 'Rate limit exceeded. Please try again in a moment';
+    }
+  }
+  
   // Handle Error objects with errorData property
   if (error && typeof error === 'object' && 'errorData' in error) {
     const errorData = (error as any).errorData;
@@ -124,6 +177,12 @@ export function formatCloudflareError(error: unknown): string {
       return 'Authentication failed. Please check your API token';
     }
     if (message.includes('rate limit') || message.includes('429')) {
+      // Check if error has retry-after information
+      const errorObj = error as any;
+      if (errorObj?.retryAfter) {
+        const minutes = Math.ceil(errorObj.retryAfter / 60);
+        return `Rate limit exceeded. Please try again in ${errorObj.retryAfter} seconds (${minutes} minute${minutes !== 1 ? 's' : ''})`;
+      }
       return 'Rate limit exceeded. Please try again in a moment';
     }
     

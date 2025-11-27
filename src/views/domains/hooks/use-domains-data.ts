@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
+import { processInParallel } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { DNSRecord, Zone } from '@/types/cloudflare';
 
@@ -124,9 +125,17 @@ export function useDomainsData() {
 
 		setDnsRecordsCache(recordsCache);
 
-		// Load remaining zones progressively (only active zones)
-		for (const { zoneId, accountId } of zonesToLoad) {
-			await loadDNSForZone(zoneId, accountId);
+		// Load remaining zones in parallel with controlled concurrency
+		// Using concurrency of 15 to balance speed and rate limits
+		// Cloudflare allows 1200 requests per 5 minutes (~4 req/sec), so 15 concurrent is safe
+		if (zonesToLoad.length > 0) {
+			await processInParallel(
+				zonesToLoad,
+				async ({ zoneId, accountId }) => {
+					await loadDNSForZone(zoneId, accountId);
+				},
+				15 // Process 15 zones concurrently
+			);
 		}
 	}, [zones, accounts, getDNSRecords, isCacheValid, loadDNSForZone]);
 
