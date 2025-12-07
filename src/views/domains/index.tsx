@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Globe, Search, RefreshCw, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
+import { ColumnVisibilityMenu } from '@/components/table/column-visibility-menu';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -18,9 +19,17 @@ import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
 import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { useDomainHealthStore } from '@/store/domain-health-store';
-import { processInParallel } from '@/lib/utils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import {
+	DEFAULT_DOMAIN_COLUMN_VISIBILITY,
+	DOMAIN_COLUMN_KEYS,
+	DOMAIN_COLUMN_LABELS,
+	type DomainColumnKey,
+	type DomainColumnVisibility,
+	loadDomainColumnVisibility,
+	saveDomainColumnVisibility
+} from './domain-columns';
 
 export default function DomainsPage() {
 	const router = useRouter();
@@ -36,6 +45,9 @@ export default function DomainsPage() {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [sortField, setSortField] = useState<SortField>('name');
 	const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+	const [columnVisibility, setColumnVisibility] = useState<DomainColumnVisibility>(() =>
+		loadDomainColumnVisibility()
+	);
 	const [isHealthRefreshing, setIsHealthRefreshing] = useState(false);
 
 	const filteredZones = useDomainsFilter(enrichedZones, searchTerm);
@@ -60,6 +72,24 @@ export default function DomainsPage() {
 			setSortDirection('asc');
 		}
 	}, [sortField, sortDirection]);
+
+	const handleToggleColumn = useCallback((column: DomainColumnKey, isVisible: boolean) => {
+		setColumnVisibility((prev) => ({
+			...prev,
+			[column]: isVisible
+		}));
+	}, []);
+
+	const columnVisibilityItems = useMemo(
+		() =>
+			DOMAIN_COLUMN_KEYS.map((column) => ({
+				id: column,
+				label: DOMAIN_COLUMN_LABELS[column],
+				isVisible: columnVisibility[column],
+				onToggle: (isVisible: boolean) => handleToggleColumn(column, isVisible)
+			})),
+		[columnVisibility, handleToggleColumn]
+	);
 
 	const handleRefresh = useCallback(() => {
 		clearCache();
@@ -138,6 +168,10 @@ export default function DomainsPage() {
 			refreshToastId.current = null;
 		}
 	}, [isZonesLoading]);
+
+	useEffect(() => {
+		saveDomainColumnVisibility(columnVisibility);
+	}, [columnVisibility]);
 
 	if (accountsLoading) {
 		return (
@@ -239,6 +273,7 @@ export default function DomainsPage() {
 							</ButtonGroup>
 							</div>
 						</div>
+						<ColumnVisibilityMenu items={columnVisibilityItems} />
 						<AddDomainDialog title="Loading all domains across accounts can take up to 30 seconds for large accounts (100 domains ~ 30s)" accounts={accounts} onDomainCreated={handleDomainCreated} />
 					</div>
 				</div>
@@ -355,6 +390,7 @@ export default function DomainsPage() {
 							selectedCount={selectedCount}
 							onRefreshDNS={handleRefreshDNS}
 							onDomainDeleted={handleRefresh}
+							visibleColumns={columnVisibility}
 						/>
 					</div>
 				</Card>

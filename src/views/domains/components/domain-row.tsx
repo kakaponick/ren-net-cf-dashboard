@@ -34,6 +34,8 @@ import { DomainHealthCell } from './domain-health';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { Zone } from '@/types/cloudflare';
 import { getDaysToExpiration } from '@/lib/utils';
+import type { DomainColumnVisibility } from '../domain-columns';
+import { ActivityBoundary } from '@/components/activity-boundary';
 
 type DomainRowProps = {
 	item: ZoneWithDNS;
@@ -43,9 +45,19 @@ type DomainRowProps = {
 	onRefreshDNS?: (zoneId: string, accountId: string) => void;
 	onDomainDeleted?: () => void;
 	getStatusBadgeVariant: (status: Zone['status']) => 'default' | 'secondary' | 'outline' | 'destructive';
+	visibleColumns: DomainColumnVisibility;
 };
 
-export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onToggle, onRefreshDNS, onDomainDeleted, getStatusBadgeVariant }: DomainRowProps) {
+export const DomainRow = memo(function DomainRow({
+	item,
+	rowId,
+	isSelected,
+	onToggle,
+	onRefreshDNS,
+	onDomainDeleted,
+	getStatusBadgeVariant,
+	visibleColumns
+}: DomainRowProps) {
 	const { getDomainNameservers, accounts } = useAccountStore();
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
@@ -225,74 +237,88 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 				</div>
 			</TableCell>
 
-			<TableCell>
-				{item.dnsLoading ? (
-					<Skeleton className="h-6 w-12" />
-				) : isPending && hasNameservers ? (
-					<Popover>
-						<PopoverTrigger asChild>
-							<button className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm">
-								<Badge variant={getStatusBadgeVariant(item.zone.status)} className="inline-flex items-center gap-1.5">
-									{item.zone.status}
-									<Info className="h-3 w-3" />
-								</Badge>
-							</button>
-						</PopoverTrigger>
-						<PopoverContent className="w-80" align="start">
-							<div className="space-y-3">
-								<div>
-									<h4 className="font-medium text-sm mb-2">Cloudflare Nameservers</h4>
-									<p className="text-xs text-muted-foreground mb-3">
-										Replace your current nameservers with these Cloudflare nameservers:
-									</p>
+			<ActivityBoundary mode={visibleColumns.status ? 'visible' : 'hidden'}>
+				<TableCell>
+					{item.dnsLoading ? (
+						<Skeleton className="h-6 w-12" />
+					) : isPending && hasNameservers ? (
+						<Popover>
+							<PopoverTrigger asChild>
+								<button className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm">
+									<Badge variant={getStatusBadgeVariant(item.zone.status)} className="inline-flex items-center gap-1.5">
+										{item.zone.status}
+										<Info className="h-3 w-3" />
+									</Badge>
+								</button>
+							</PopoverTrigger>
+							<PopoverContent className="w-80" align="start">
+								<div className="space-y-3">
+									<div>
+										<h4 className="font-medium text-sm mb-2">Cloudflare Nameservers</h4>
+										<p className="text-xs text-muted-foreground mb-3">
+											Replace your current nameservers with these Cloudflare nameservers:
+										</p>
+									</div>
+									<div className="space-y-2">
+										{nameservers.map((nameserver, index) => (
+											<NameserverItem key={index} nameserver={nameserver} />
+										))}
+									</div>
 								</div>
-								<div className="space-y-2">
-									{nameservers.map((nameserver, index) => (
-										<NameserverItem key={index} nameserver={nameserver} />
-									))}
-								</div>
-							</div>
-						</PopoverContent>
-					</Popover>
-				) : (
-					<Badge variant={getStatusBadgeVariant(item.zone.status)}>
-						{item.zone.status}
-					</Badge>
-				)}
-			</TableCell>
-			<TableCell>
-				<ProxiedCell rootARecords={item.rootARecords} isLoading={item.dnsLoading} />
-			</TableCell>
-			<TableCell>
-				<ARecordsCell 
-					rootARecords={item.rootARecords} 
-					isLoading={item.dnsLoading}
-					zoneId={item.zone.id}
-					accountId={item.accountId}
-					zoneName={item.zone.name}
-					onRefreshDNS={onRefreshDNS}
-				/>
-			</TableCell>
-			<TableCell>
-				<span className="text-sm text-muted-foreground">{expirationLabel}</span>
-			</TableCell>
-			<TableCell>
-				<DomainHealthCell
-					domain={item.zone.name}
-					health={health}
-					error={healthError}
-					isLoading={isChecking}
-					onCheck={checkHealth}
-				/>
-			</TableCell>
-			<TableCell>
-				<span className="text-sm">{item.accountEmail}</span>
-			</TableCell>
-			<TableCell>
-				<span className="text-sm text-muted-foreground">
-					{new Date(item.zone.created_on).toLocaleDateString()}
-				</span>
-			</TableCell>
+							</PopoverContent>
+						</Popover>
+					) : (
+						<Badge variant={getStatusBadgeVariant(item.zone.status)}>
+							{item.zone.status}
+						</Badge>
+					)}
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.proxied ? 'visible' : 'hidden'}>
+				<TableCell>
+					<ProxiedCell rootARecords={item.rootARecords} isLoading={item.dnsLoading} />
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.rootARecord ? 'visible' : 'hidden'}>
+				<TableCell>
+					<ARecordsCell 
+						rootARecords={item.rootARecords} 
+						isLoading={item.dnsLoading}
+						zoneId={item.zone.id}
+						accountId={item.accountId}
+						zoneName={item.zone.name}
+						onRefreshDNS={onRefreshDNS}
+					/>
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.expiration ? 'visible' : 'hidden'}>
+				<TableCell>
+					<span className="text-sm text-muted-foreground">{expirationLabel}</span>
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.health ? 'visible' : 'hidden'}>
+				<TableCell>
+					<DomainHealthCell
+						domain={item.zone.name}
+						health={health}
+						error={healthError}
+						isLoading={isChecking}
+						onCheck={checkHealth}
+					/>
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.account ? 'visible' : 'hidden'}>
+				<TableCell>
+					<span className="text-sm">{item.accountEmail}</span>
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.created ? 'visible' : 'hidden'}>
+				<TableCell>
+					<span className="text-sm text-muted-foreground">
+						{new Date(item.zone.created_on).toLocaleDateString()}
+					</span>
+				</TableCell>
+			</ActivityBoundary>
 			<TableCell className="text-right">
 				<div className="flex items-center justify-end space-x-2">
 					<Button

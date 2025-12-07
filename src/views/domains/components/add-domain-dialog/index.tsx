@@ -114,8 +114,8 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 	return (
 		<Dialog open={isOpen} onOpenChange={setIsOpen}>
 			<DialogTrigger asChild title={title}>
-				<Button>
-					<Plus className="mr-2 h-4 w-4" />
+				<Button size="sm">
+					<Plus className="h-3.5 w-3.5" />
 					Add Domain
 				</Button>
 			</DialogTrigger>

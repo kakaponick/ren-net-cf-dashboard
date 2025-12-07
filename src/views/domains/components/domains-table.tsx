@@ -3,10 +3,11 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DomainRow } from './domain-row';
-import { cn } from '@/lib/utils';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { SortField } from '../hooks/use-domains-sort';
 import type { Zone } from '@/types/cloudflare';
+import { DOMAIN_COLUMN_LABELS, type DomainColumnVisibility } from '../domain-columns';
+import { ActivityBoundary } from '@/components/activity-boundary';
 
 type DomainsTableProps = {
 		zones: ZoneWithDNS[];
@@ -20,6 +21,7 @@ type DomainsTableProps = {
 		selectedCount: number;
 		onRefreshDNS?: (zoneId: string, accountId: string) => void;
 		onDomainDeleted?: () => void;
+		visibleColumns: DomainColumnVisibility;
 };
 
 export const DomainsTable = memo(function DomainsTable({
@@ -33,7 +35,8 @@ export const DomainsTable = memo(function DomainsTable({
 		allSelected,
 		selectedCount,
 		onRefreshDNS,
-		onDomainDeleted
+		onDomainDeleted,
+		visibleColumns
 }: DomainsTableProps) {
 		const getStatusBadgeVariant = useCallback((status: Zone['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
 				switch (status) {
@@ -67,7 +70,7 @@ export const DomainsTable = memo(function DomainsTable({
 													/>
 												</label>
 										</TableHead>
-										<TableHead 
+										<TableHead
 												className="cursor-pointer hover:bg-muted/50"
 												onClick={() => onSort('name')}
 										>
@@ -76,63 +79,77 @@ export const DomainsTable = memo(function DomainsTable({
 														{getSortIcon('name')}
 												</div>
 										</TableHead>
-										<TableHead 
-												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => onSort('status')}
-										>
-												<div className="flex items-center space-x-2">
-														<span>Status</span>
-														{getSortIcon('status')}
-												</div>
-										</TableHead>
-										<TableHead 
-												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => onSort('proxied')}
-										>
-												<div className="flex items-center space-x-2">
-														<span>Proxied</span>
-														{getSortIcon('proxied')}
-												</div>
-										</TableHead>
-										<TableHead 
-												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => onSort('rootARecord')}
-										>
-												<div className="flex items-center space-x-2">
-														<span>A Record</span>
-														{getSortIcon('rootARecord')}
-												</div>
-										</TableHead>
-										<TableHead
-												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => onSort('expiration')}
-										>
-												<div className="flex items-center space-x-2">
-														<span>Expiry</span>
-														{getSortIcon('expiration')}
-												</div>
-										</TableHead>
-										<TableHead>
-												<span>Health</span>
-										</TableHead>
-										<TableHead 
-												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => onSort('account')}
-										>
-												<div className="flex items-center space-x-2">
-														<span>Account</span>
-														{getSortIcon('account')}
-												</div>
-										</TableHead>
-										<TableHead 
-												className="cursor-pointer hover:bg-muted/50"
-												onClick={() => onSort('created')}
-										>
-												<div className="flex items-center space-x-2">
-														<span>Created</span>
-														{getSortIcon('created')}
-												</div>
-										</TableHead>
+										<ActivityBoundary mode={visibleColumns.status ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('status')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.status}</span>
+																{getSortIcon('status')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.proxied ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('proxied')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.proxied}</span>
+																{getSortIcon('proxied')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.rootARecord ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('rootARecord')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.rootARecord}</span>
+																{getSortIcon('rootARecord')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.expiration ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('expiration')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.expiration}</span>
+																{getSortIcon('expiration')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.health ? 'visible' : 'hidden'}>
+												<TableHead>
+														<span>{DOMAIN_COLUMN_LABELS.health}</span>
+												</TableHead>
+										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.account ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('account')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.account}</span>
+																{getSortIcon('account')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.created ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('created')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.created}</span>
+																{getSortIcon('created')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
 										<TableHead className="text-right">Actions</TableHead>
 								</TableRow>
 						</TableHeader>
@@ -149,6 +166,7 @@ export const DomainsTable = memo(function DomainsTable({
 														onRefreshDNS={onRefreshDNS}
 														onDomainDeleted={onDomainDeleted}
 														getStatusBadgeVariant={getStatusBadgeVariant}
+														visibleColumns={visibleColumns}
 												/>
 										);
 								})}
