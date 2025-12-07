@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Globe, Search, RefreshCw, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -16,11 +17,16 @@ import { AddDomainDialog } from './components/add-domain-dialog';
 import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
 import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
+import { useDomainHealthStore } from '@/store/domain-health-store';
+import { processInParallel } from '@/lib/utils';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function DomainsPage() {
 	const router = useRouter();
-	const { enrichedZones, isLoading, dnsLoadingProgress, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
+	const { enrichedZones, isLoading, isZonesLoading, loadZones, loadDNSForZone, accountsLoading, accounts } = useDomainsData();
 	const { zones, isCacheValid, clearCache } = useCloudflareCache();
+	const refreshToastId = useRef<string | number | null>(null);
 
 	// Log cache info to console
 	if (isCacheValid('zones') && zones.length > 0) {
@@ -30,6 +36,7 @@ export default function DomainsPage() {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [sortField, setSortField] = useState<SortField>('name');
 	const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+	const [isHealthRefreshing, setIsHealthRefreshing] = useState(false);
 
 	const filteredZones = useDomainsFilter(enrichedZones, searchTerm);
 	const sortedZones = useDomainsSort(filteredZones, sortField, sortDirection);
@@ -56,7 +63,7 @@ export default function DomainsPage() {
 
 	const handleRefresh = useCallback(() => {
 		clearCache();
-		loadZones();
+		loadZones(true);
 	}, [clearCache, loadZones]);
 
 	const handleDomainCreated = useCallback(() => {
@@ -64,9 +71,73 @@ export default function DomainsPage() {
 		// No need to reload - the cache updates automatically trigger table rerender
 	}, []);
 
+	const handleRefreshHealthAll = useCallback(async () => {
+		if (sortedZones.length === 0) {
+			toast.info('No domains to refresh');
+			return;
+		}
+
+		// Clear cached health so UI shows empty state immediately
+		useDomainHealthStore.getState().clearAll();
+
+		setIsHealthRefreshing(true);
+		const toastId = toast.loading('Refreshing health for all domains...');
+		const { setHealthResult, setHealthError } = useDomainHealthStore.getState();
+
+		const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+		const rateLimitDelayMs = 1200; // 10 req / 10s => ~1 req/s (small cushion)
+
+		try {
+			for (let i = 0; i < sortedZones.length; i++) {
+				const zone = sortedZones[i];
+				try {
+					const response = await fetch(`/api/domain-health?domain=${encodeURIComponent(zone.zone.name)}`);
+					const data = await response.json();
+
+					if (!response.ok) {
+						throw new Error(data?.error || 'Health check failed');
+					}
+
+					setHealthResult(zone.zone.name, data);
+					setHealthError(zone.zone.name, '');
+				} catch (err) {
+					const message = err instanceof Error ? err.message : 'Health check failed';
+					setHealthError(zone.zone.name, message);
+				}
+
+				// Respect RDAP rate limits (10 req / 10s) when processing large batches
+				if (i < sortedZones.length - 1) {
+					await wait(rateLimitDelayMs);
+				}
+			}
+
+			toast.success('Health refreshed for all domains');
+		} finally {
+			toast.dismiss(toastId);
+			setIsHealthRefreshing(false);
+		}
+	}, [sortedZones]);
+
 	const handleRefreshDNS = useCallback((zoneId: string, accountId: string) => {
 		loadDNSForZone(zoneId, accountId);
 	}, [loadDNSForZone]);
+
+	const stats = useMemo(() => {
+		const total = enrichedZones.length;
+		const visible = sortedZones.length;
+		const selected = selectedCount;
+		const accountsCount = accounts.length;
+		return { total, visible, selected, accountsCount };
+	}, [enrichedZones.length, sortedZones.length, selectedCount, accounts.length]);
+
+	useEffect(() => {
+		if (isZonesLoading && !refreshToastId.current) {
+			refreshToastId.current = toast.loading('Refreshing domain cache...');
+		} else if (!isZonesLoading && refreshToastId.current) {
+			toast.dismiss(refreshToastId.current);
+			refreshToastId.current = null;
+		}
+	}, [isZonesLoading]);
 
 	if (accountsLoading) {
 		return (
@@ -104,46 +175,77 @@ export default function DomainsPage() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex items-center justify-between">
-				<div>
-					<h1 className="text-2xl font-bold">Domains</h1>
-					<p className="text-muted-foreground">
-						Manage your Cloudflare zones and domains from all accounts
-					</p>
-				</div>
-
-				<div className="flex items-center space-x-2 flex-nowrap">
-					
-
-					<div className="relative">
-						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-						<Input
-							placeholder="Search domain, IP, account"
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							className="pl-10 w-96"
-						/>
+			<div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b py-3 -mx-6 px-6">
+				<div className="flex items-center justify-between gap-4">
+					<div className="flex items-center gap-4">
+						<h1 className="text-xl font-bold">Domains</h1>
+						<div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+							<span className="px-2 py-0.5 bg-muted/50 rounded border border-border/50">
+								<span className="text-foreground font-semibold">{stats.visible}</span>
+								{stats.visible !== stats.total && stats.total > 0 && (
+									<>
+										<span className="text-muted-foreground">/</span>
+										<span>{stats.total}</span>
+									</>
+								)}
+								<span className="text-muted-foreground ml-1">domains</span>
+							</span>
+							{stats.selected > 0 && (
+								<span className="px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20">
+									<span className="font-semibold">{stats.selected}</span>
+									<span className="text-muted-foreground ml-1">selected</span>
+								</span>
+							)}
+							<span className="px-2 py-0.5 bg-muted/50 rounded border border-border/50">
+								<span className="text-foreground font-semibold">{stats.accountsCount}</span>
+								<span className="text-muted-foreground ml-1">account{stats.accountsCount !== 1 ? 's' : ''}</span>
+							</span>
+						</div>
 					</div>
 
-					<Button
-						onClick={handleRefresh}
-						disabled={isLoading || (dnsLoadingProgress !== null)}
-						variant="outline"
-					>
-						{isLoading || dnsLoadingProgress !== null ? (
-							<Spinner className="mr-2 h-4 w-4" />
-						) : (
-							<RefreshCw className="mr-2 h-4 w-4" />
-						)}
-						Refresh Cache
-					</Button>
-					<AddDomainDialog title="Loading all domains across accounts can take up to 30 seconds for large accounts (100 domains ~ 30s)" accounts={accounts} onDomainCreated={handleDomainCreated} />
+					<div className="flex items-center space-x-2 flex-nowrap">
+						<div className="relative">
+							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+							<Input
+								placeholder="Search domain, IP, account"
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
+								className="pl-10 w-96"
+							/>
+						</div>
 
+						<div className="flex items-center gap-2">
+							<div className="flex items-center gap-3 rounded-md border p-1 pl-3 text-muted-foreground">
+							<RefreshCw className={cn(isLoading || isHealthRefreshing ? 'animate-spin' : '', 'h-4 w-4')} />
+								<span className="text-xs font-medium">Refresh cache</span>
+							
+							<ButtonGroup className="flex">
+								<Button
+									onClick={handleRefresh}
+									disabled={isLoading}
+									variant="outline"
+									size="sm"
+								>
+									Cloudflare
+								</Button>
+								<Button
+									onClick={() => { void handleRefreshHealthAll(); }}
+									disabled={isHealthRefreshing || isLoading}
+									variant="outline"
+									size="sm"
+								>
+									Health status
+								</Button>
+							</ButtonGroup>
+							</div>
+						</div>
+						<AddDomainDialog title="Loading all domains across accounts can take up to 30 seconds for large accounts (100 domains ~ 30s)" accounts={accounts} onDomainCreated={handleDomainCreated} />
+					</div>
 				</div>
 			</div>
 
 			{selectedCount > 0 && (
-				<Card className="sticky top-0 z-10 bg-primary/10 border-primary/30 shadow-lg backdrop-blur-sm transition-all duration-200 animate-in slide-in-from-top-2">
+				<Card className="sticky top-[60px] z-10 bg-primary/10 border-primary/30 shadow-lg backdrop-blur-sm transition-all duration-200 animate-in slide-in-from-top-2">
 					<CardContent className="py-4">
 						<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 							<div className="flex items-center gap-3 flex-1 min-w-0">
@@ -209,7 +311,7 @@ export default function DomainsPage() {
 				</Card>
 			)}
 
-		{isLoading ? (
+		{isZonesLoading ? (
 			<div className="flex items-center justify-center py-12">
 				<Card className="w-full max-w-md">
 					<CardContent className="py-10 px-6">

@@ -16,23 +16,73 @@ export async function paginateCloudflareAPI(
   let page = 1;
   let hasMorePages = true;
 
+  // Ensure perPage is within valid range (1-100)
+  const validPerPage = Math.max(1, Math.min(100, perPage));
+
   while (hasMorePages) {
-    const url = `${endpoint}?page=${page}&per_page=${perPage}`;
-    const response = await makeRequest(url);
-    const items = response.result || [];
+    // Build URL with proper query parameter handling
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const url = `${endpoint}${separator}page=${page}&per_page=${validPerPage}`;
     
-    if (items.length === 0) {
-      hasMorePages = false;
-    } else {
-      allItems.push(...items);
+    try {
+      const response = await makeRequest(url);
       
-      // Check if we have more pages
+      // Validate response structure
+      if (!response || typeof response !== 'object') {
+        console.warn('Invalid response structure from Cloudflare API:', response);
+        break;
+      }
+
+      const items = Array.isArray(response.result) ? response.result : [];
       const resultInfo = response.result_info;
-      if (resultInfo && resultInfo.page < resultInfo.total_pages) {
-        page++;
+      
+      // Add items to collection
+      if (items.length > 0) {
+        allItems.push(...items);
+      }
+      
+      // Determine if there are more pages using result_info
+      if (resultInfo && typeof resultInfo === 'object') {
+        const currentPage = resultInfo.page ?? page;
+        const totalPages = resultInfo.total_pages;
+        
+        // Primary check: use total_pages if available (most reliable)
+        if (typeof totalPages === 'number' && totalPages > 0) {
+          hasMorePages = currentPage < totalPages;
+          if (hasMorePages) {
+            page++;
+          }
+        } else {
+          // Fallback: if no total_pages, check if we got a full page
+          // If we got fewer items than requested, we're on the last page
+          hasMorePages = items.length === validPerPage && items.length > 0;
+          if (hasMorePages) {
+            page++;
+          }
+        }
       } else {
+        // No result_info - check if we got a full page
+        // If we got fewer items than per_page, likely last page
+        hasMorePages = items.length === validPerPage && items.length > 0;
+        if (hasMorePages) {
+          page++;
+        }
+      }
+      
+      // Safety check: if no items returned, stop pagination
+      if (items.length === 0) {
         hasMorePages = false;
       }
+    } catch (error) {
+      console.error(`Error paginating Cloudflare API at page ${page}:`, error);
+      // If we have items collected so far, return them
+      // Otherwise, rethrow the error
+      if (allItems.length === 0) {
+        throw error;
+      }
+      // Log warning but return what we have
+      console.warn(`Returning partial results (${allItems.length} items) due to pagination error`);
+      break;
     }
   }
 

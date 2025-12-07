@@ -103,6 +103,18 @@ export const DomainsTable = memo(function DomainsTable({
 														{getSortIcon('rootARecord')}
 												</div>
 										</TableHead>
+										<TableHead
+												className="cursor-pointer hover:bg-muted/50"
+												onClick={() => onSort('expiration')}
+										>
+												<div className="flex items-center space-x-2">
+														<span>Expiry</span>
+														{getSortIcon('expiration')}
+												</div>
+										</TableHead>
+										<TableHead>
+												<span>Health</span>
+										</TableHead>
 										<TableHead 
 												className="cursor-pointer hover:bg-muted/50"
 												onClick={() => onSort('account')}

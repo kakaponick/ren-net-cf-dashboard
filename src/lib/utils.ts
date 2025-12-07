@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { toast } from "sonner"
+import { differenceInCalendarDays, formatISO, isValid, parse, parseISO } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -194,4 +195,62 @@ export function formatCloudflareError(error: unknown): string {
   
   // Default fallback
   return 'An unexpected error occurred. Please try again';
+}
+
+const WHOIS_DATE_FORMATS = [
+  "yyyy-MM-dd",
+  "yyyy-MM-dd'T'HH:mm:ssXXX",
+  "yyyy-MM-dd'T'HH:mm:ss'Z'",
+  "yyyy/MM/dd",
+  "yyyy.MM.dd",
+  "dd-MMM-yyyy",
+  "dd MMM yyyy",
+  "MMM dd yyyy",
+  "MMM dd, yyyy",
+  "dd/MM/yyyy",
+  "yyyyMMdd",
+  "EEE MMM dd HH:mm:ss O yyyy",
+];
+
+/**
+ * Normalize a WHOIS date string into an ISO 8601 string when possible.
+ * Returns null if no valid date can be parsed.
+ */
+export function parseWhoisDate(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const value = raw.trim();
+  if (!value) return null;
+
+  // Try ISO parsing first
+  const direct = parseISO(value);
+  if (isValid(direct)) {
+    return formatISO(direct);
+  }
+
+  // Try known WHOIS date formats
+  for (const format of WHOIS_DATE_FORMATS) {
+    const parsed = parse(value, format, new Date());
+    if (isValid(parsed)) {
+      return formatISO(parsed);
+    }
+  }
+
+  // Fallback: Date constructor (best-effort)
+  const fallback = new Date(value);
+  if (isValid(fallback)) {
+    return formatISO(fallback);
+  }
+
+  return null;
+}
+
+/**
+ * Calculate days from now until the provided ISO date.
+ * Returns null when the date is invalid.
+ */
+export function getDaysToExpiration(dateIso: string | undefined | null): number | null {
+  if (!dateIso) return null;
+  const target = parseISO(dateIso);
+  if (!isValid(target)) return null;
+  return differenceInCalendarDays(target, new Date());
 }

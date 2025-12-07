@@ -29,8 +29,11 @@ import { DNSDrawer } from '@/components/dns-drawer';
 import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
+import { useDomainHealth } from '@/hooks/use-domain-health';
+import { DomainHealthCell } from './domain-health';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { Zone } from '@/types/cloudflare';
+import { getDaysToExpiration } from '@/lib/utils';
 
 type DomainRowProps = {
 	item: ZoneWithDNS;
@@ -47,6 +50,7 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isCreatingCNAME, setIsCreatingCNAME] = useState(false);
+	const { health, error: healthError, isChecking, checkHealth } = useDomainHealth(item.zone.name);
 	
 	const handleToggle = useCallback(() => onToggle(rowId), [onToggle, rowId]);
 	const handleRefreshDNS = useCallback(() => onRefreshDNS?.(item.zone.id, item.accountId), [onRefreshDNS, item.zone.id, item.accountId]);
@@ -144,6 +148,18 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 
 	const isPending = item.zone.status === 'pending';
 	const hasNameservers = nameservers.length > 0;
+
+	const expirationLabel = useMemo(() => {
+		const expiry = health?.whois.expirationDate;
+		if (!expiry) return '—';
+		const days = getDaysToExpiration(expiry);
+		const dateText = new Date(expiry).toLocaleDateString();
+		if (typeof days === 'number') {
+			const suffix = days < 0 ? '(expired)' : `(${days} days)`;
+			return `${dateText} ${suffix}`;
+		}
+		return dateText;
+	}, [health?.whois.expirationDate]);
 
 	return (
 		<TableRow 
@@ -258,6 +274,18 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 				/>
 			</TableCell>
 			<TableCell>
+				<span className="text-sm text-muted-foreground">{expirationLabel}</span>
+			</TableCell>
+			<TableCell>
+				<DomainHealthCell
+					domain={item.zone.name}
+					health={health}
+					error={healthError}
+					isLoading={isChecking}
+					onCheck={checkHealth}
+				/>
+			</TableCell>
+			<TableCell>
 				<span className="text-sm">{item.accountEmail}</span>
 			</TableCell>
 			<TableCell>
@@ -300,6 +328,18 @@ export const DomainRow = memo(function DomainRow({ item, rowId, isSelected, onTo
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									onClick={() => { void checkHealth(true); }}
+									disabled={isChecking}
+									className="cursor-pointer"
+								>
+									{isChecking ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : (
+										<RefreshCw className="mr-2 h-4 w-4" />
+									)}
+									Check health
+								</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleCreateWWWCNAME}
 								disabled={isCreatingCNAME}
