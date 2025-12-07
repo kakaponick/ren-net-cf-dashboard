@@ -5,14 +5,15 @@ import { getDaysToExpiration, parseWhoisDate, validateDomain } from '@/lib/utils
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const HTTP_TIMEOUT_MS = 7000;
-const RDAP_TIMEOUT_MS = 7000;
-const RDAP_MAX_RETRIES = 2;
-const RETRY_BASE_MS = 1000;
+const HTTP_TIMEOUT_MS = 3000; // keep HTTP checks fast to avoid UI hangs
+const RDAP_TIMEOUT_MS = 3000; // shorter RDAP timeout to cap worst-case latency
+const RDAP_MAX_RETRIES = 1; // single retry is enough; more retries add latency
+const RETRY_BASE_MS = 500; // small backoff to stay under rate limits
 const IANA_BOOTSTRAP_URL = 'https://data.iana.org/rdap/dns.json';
 let cachedIanaBootstrap: Record<string, string[]> | null = null;
 let cachedIanaFetchedAt = 0;
 const BOOTSTRAP_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const BOOTSTRAP_MAX_SERVERS = 1; // limit bootstrap attempts per TLD to keep latency low
 
 export async function GET(request: NextRequest) {
 		const domain = request.nextUrl.searchParams.get('domain')?.trim().toLowerCase();
@@ -249,8 +250,8 @@ async function fetchRdap(domain: string): Promise<Response> {
 				console.warn('rdap.org lookup failed, trying bootstrap:', error);
 		}
 
-		// Bootstrap fallback: try all available servers for TLD
-		const servers = await getBootstrapServers(domain);
+		// Bootstrap fallback: try limited servers for TLD to avoid long waits
+		const servers = (await getBootstrapServers(domain)).slice(0, BOOTSTRAP_MAX_SERVERS);
 		for (const server of servers) {
 				const serverUrl = `${server.replace(/\/$/, '')}/domain/${encodeURIComponent(domain)}`;
 				try {
