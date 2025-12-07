@@ -99,6 +99,93 @@ export async function processInParallel<T, R>(
   return results as R[];
 }
 
+type RateLimiterQueueItem = {
+  task: () => Promise<unknown>;
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+};
+
+export type RateLimiterOptions = {
+  capacity: number;
+  refillIntervalMs: number;
+  refillAmount?: number;
+};
+
+export type RateLimiter = {
+  schedule<T>(task: () => Promise<T>): Promise<T>;
+  pending: () => number;
+};
+
+/**
+ * Token bucket rate limiter for paced async work (e.g., WHOIS/RDAP).
+ * Allows an initial burst up to `capacity` and then refills tokens on the configured interval.
+ */
+export function createRateLimiter({
+  capacity,
+  refillIntervalMs,
+  refillAmount = 1,
+}: RateLimiterOptions): RateLimiter {
+  const maxTokens = Math.max(1, capacity);
+  const interval = Math.max(1, refillIntervalMs);
+  const refill = Math.max(1, refillAmount);
+
+  let tokens = maxTokens;
+  let lastRefill = Date.now();
+  const queue: RateLimiterQueueItem[] = [];
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const refillTokens = () => {
+    const now = Date.now();
+    const elapsed = now - lastRefill;
+    if (elapsed < interval) return;
+
+    const cycles = Math.floor(elapsed / interval);
+    if (cycles <= 0) return;
+
+    tokens = Math.min(maxTokens, tokens + cycles * refill);
+    lastRefill += cycles * interval;
+  };
+
+  const processQueue = () => {
+    refillTokens();
+
+    while (tokens > 0 && queue.length > 0) {
+      tokens -= 1;
+      const entry = queue.shift();
+      if (!entry) break;
+
+      Promise.resolve()
+        .then(entry.task)
+        .then(entry.resolve, entry.reject)
+        .finally(() => {
+          if (queue.length > 0) {
+            processQueue();
+          }
+        });
+    }
+
+    if (queue.length > 0 && !timer) {
+      const elapsed = Date.now() - lastRefill;
+      const delay = Math.max(interval - elapsed, 0) || interval;
+      timer = setTimeout(() => {
+        timer = null;
+        processQueue();
+      }, delay);
+    }
+  };
+
+  const schedule = <T>(task: () => Promise<T>): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      queue.push({ task, resolve, reject });
+      processQueue();
+    });
+
+  return {
+    schedule,
+    pending: () => queue.length,
+  };
+}
+
 /**
  * Formats Cloudflare API errors into user-friendly messages
  * @param error - Error object from Cloudflare API

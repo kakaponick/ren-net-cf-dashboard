@@ -20,7 +20,7 @@ import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { useDomainHealthStore } from '@/store/domain-health-store';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, createRateLimiter } from '@/lib/utils';
 import {
 	DEFAULT_DOMAIN_COLUMN_VISIBILITY,
 	DOMAIN_COLUMN_KEYS,
@@ -49,6 +49,15 @@ export default function DomainsPage() {
 		loadDomainColumnVisibility()
 	);
 	const [isHealthRefreshing, setIsHealthRefreshing] = useState(false);
+	const whoisRateLimiter = useMemo(
+		() =>
+			createRateLimiter({
+				capacity: 10,
+				refillAmount: 10,
+				refillIntervalMs: 10_000,
+			}),
+		[]
+	);
 
 	const filteredZones = useDomainsFilter(enrichedZones, searchTerm);
 	const sortedZones = useDomainsSort(filteredZones, sortField, sortDirection);
@@ -114,39 +123,34 @@ export default function DomainsPage() {
 		const toastId = toast.loading('Refreshing health for all domains...');
 		const { setHealthResult, setHealthError } = useDomainHealthStore.getState();
 
-		const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-		const rateLimitDelayMs = 1200; // 10 req / 10s => ~1 req/s (small cushion)
-
 		try {
-			for (let i = 0; i < sortedZones.length; i++) {
-				const zone = sortedZones[i];
-				try {
-					const response = await fetch(`/api/domain-health?domain=${encodeURIComponent(zone.zone.name)}`);
-					const data = await response.json();
+			const runHealthCheck = (domainName: string) =>
+				whoisRateLimiter.schedule(async () => {
+					try {
+						const response = await fetch(`/api/domain-health?domain=${encodeURIComponent(domainName)}`);
+						const data = await response.json();
 
-					if (!response.ok) {
-						throw new Error(data?.error || 'Health check failed');
+						if (!response.ok) {
+							throw new Error(data?.error || 'Health check failed');
+						}
+
+						setHealthResult(domainName, data);
+						setHealthError(domainName, '');
+					} catch (err) {
+						const message = err instanceof Error ? err.message : 'Health check failed';
+						setHealthError(domainName, message);
 					}
+				});
 
-					setHealthResult(zone.zone.name, data);
-					setHealthError(zone.zone.name, '');
-				} catch (err) {
-					const message = err instanceof Error ? err.message : 'Health check failed';
-					setHealthError(zone.zone.name, message);
-				}
-
-				// Respect RDAP rate limits (10 req / 10s) when processing large batches
-				if (i < sortedZones.length - 1) {
-					await wait(rateLimitDelayMs);
-				}
-			}
+			const tasks = sortedZones.map((zone) => runHealthCheck(zone.zone.name));
+			await Promise.all(tasks);
 
 			toast.success('Health refreshed for all domains');
 		} finally {
 			toast.dismiss(toastId);
 			setIsHealthRefreshing(false);
 		}
-	}, [sortedZones]);
+	}, [sortedZones, whoisRateLimiter]);
 
 	const handleRefreshDNS = useCallback((zoneId: string, accountId: string) => {
 		loadDNSForZone(zoneId, accountId);

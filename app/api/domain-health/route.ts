@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { DomainHealthResult, DomainHTTPHealth, DomainWhoisHealth, HealthStatus } from '@/types/domain-health';
-import { getDaysToExpiration, parseWhoisDate, validateDomain } from '@/lib/utils';
+import { createRateLimiter, getDaysToExpiration, parseWhoisDate, validateDomain } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,11 @@ const RDAP_TIMEOUT_MS = 3000; // shorter RDAP timeout to cap worst-case latency
 const RDAP_MAX_RETRIES = 1; // single retry is enough; more retries add latency
 const RETRY_BASE_MS = 500; // small backoff to stay under rate limits
 const IANA_BOOTSTRAP_URL = 'https://data.iana.org/rdap/dns.json';
+const WHOIS_RATE_LIMITER = createRateLimiter({
+		capacity: 10, // allow short bursts up to provider limit
+		refillAmount: 10, // replenish full bucket every window
+		refillIntervalMs: 10_000, // 10 requests per 10 seconds
+});
 let cachedIanaBootstrap: Record<string, string[]> | null = null;
 let cachedIanaFetchedAt = 0;
 const BOOTSTRAP_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
@@ -100,7 +105,7 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 
 async function checkWhois(domain: string): Promise<DomainWhoisHealth> {
 		try {
-				const rdapResponse = await fetchRdap(domain);
+				const rdapResponse = await WHOIS_RATE_LIMITER.schedule(() => fetchRdap(domain));
 
 				if (!rdapResponse.ok) {
 						const statusText = rdapResponse.statusText || 'Unknown error';
