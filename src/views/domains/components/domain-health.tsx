@@ -36,10 +36,10 @@ const statusCopy: Record<HealthStatus, { label: string; colorClass: string; Icon
 };
 
 export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: DomainHealthCellProps) {
-		const derivedStatus = health ? getDerivedStatus(health) : null;
+		const derivedStatus = health ? health.http.status : null;
 		const statusMeta = derivedStatus ? statusCopy[derivedStatus] : null;
-		const isWhoisUnavailable = health ? !health.whois.expirationDate && !health.whois.error : false;
 		const redirectMessage = health ? getRedirectMessage(health.http.urlTried, health.http.finalUrl) : undefined;
+		const statusDetail = health?.http.error;
 
 		return (
 				<div className="flex items-center gap-2">
@@ -99,7 +99,7 @@ export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: 
 																				<span className={statusMeta?.colorClass}>{statusMeta?.label}</span>
 																		</span>
 																}
-																message={health.http.error}
+																message={statusDetail}
 														/>
 														<HealthRow
 																label="HTTP"
@@ -110,11 +110,6 @@ export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: 
 																}
 																message={redirectMessage ?? health.http.urlTried}
 														/>
-														{isWhoisUnavailable && (
-																<p className="text-xs text-muted-foreground">
-																		WHOIS data unavailable; status is based on HTTP reachability.
-																</p>
-														)}
 														<p className="text-[11px] text-muted-foreground">
 																Checked at {new Date(health.checkedAt).toLocaleString()}
 														</p>
@@ -141,14 +136,6 @@ function HealthRow({ label, value, message }: HealthRowProps) {
 						{message && <p className="text-xs text-muted-foreground break-words">{message}</p>}
 				</div>
 		);
-}
-
-function getDerivedStatus(health: DomainHealthResult): HealthStatus {
-		const whoisUnavailable = !health.whois.expirationDate && !health.whois.error;
-		if (health.status === 'warning' && health.http.status === 'healthy' && whoisUnavailable) {
-				return 'healthy';
-		}
-		return health.status;
 }
 
 function normalizeUrl(url: string | undefined | null) {

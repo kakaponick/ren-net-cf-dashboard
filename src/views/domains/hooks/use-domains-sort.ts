@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useDomainHealthStore } from '@/store/domain-health-store';
 import type { ZoneWithDNS } from './use-domains-data';
 
-export type SortField = 'name' | 'status' | 'account' | 'created' | 'rootARecord' | 'proxied' | 'expiration';
+export type SortField = 'name' | 'status' | 'account' | 'created' | 'rootARecord' | 'proxied' | 'expiration' | 'health';
 export type SortDirection = 'asc' | 'desc';
 
 export function useDomainsSort(zones: ZoneWithDNS[], sortField: SortField, sortDirection: SortDirection) {
@@ -41,6 +41,20 @@ export function useDomainsSort(zones: ZoneWithDNS[], sortField: SortField, sortD
 										const bExpiry = b.zone?.name ? useDomainHealthStore.getState().healthByDomain[b.zone.name]?.whois.expirationDate : null;
 										aValue = aExpiry ? new Date(aExpiry).getTime() : Number.POSITIVE_INFINITY;
 										bValue = bExpiry ? new Date(bExpiry).getTime() : Number.POSITIVE_INFINITY;
+										break;
+								}
+								case 'health': {
+										const healthStore = useDomainHealthStore.getState().healthByDomain;
+										const rank = (status?: string) => {
+												if (status === 'error') return 0;
+												if (status === 'warning') return 1;
+												if (status === 'healthy') return 2;
+												return 3;
+										};
+										const aStatus = a.zone?.name ? healthStore[a.zone.name]?.http.status || healthStore[a.zone.name]?.status : undefined;
+										const bStatus = b.zone?.name ? healthStore[b.zone.name]?.http.status || healthStore[b.zone.name]?.status : undefined;
+										aValue = rank(aStatus);
+										bValue = rank(bStatus);
 										break;
 								}
 								default:

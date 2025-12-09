@@ -124,8 +124,14 @@ export const DomainsTable = memo(function DomainsTable({
 												</TableHead>
 										</ActivityBoundary>
 										<ActivityBoundary mode={visibleColumns.health ? 'visible' : 'hidden'}>
-												<TableHead>
-														<span>{DOMAIN_COLUMN_LABELS.health}</span>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('health')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.health}</span>
+																{getSortIcon('health' as SortField)}
+														</div>
 												</TableHead>
 										</ActivityBoundary>
 										<ActivityBoundary mode={visibleColumns.account ? 'visible' : 'hidden'}>
