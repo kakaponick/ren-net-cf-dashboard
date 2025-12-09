@@ -88,7 +88,8 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 
 		const reachable = Boolean(response);
 		const statusCode = response?.status;
-		const redirected = Boolean(response?.redirected) || (response?.url && response.url !== usedUrl);
+		const redirected = Boolean(response?.redirected) || (response?.url ? response.url !== usedUrl : false);
+		const finalUrlResolved = response?.url || finalUrl;
 
 		let status: HealthStatus = 'healthy';
 		if (!reachable) {
@@ -103,7 +104,7 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 				statusCode,
 				urlTried: usedUrl,
 				redirected,
-				finalUrl,
+				finalUrl: finalUrlResolved,
 				latencyMs,
 				error
 		};

@@ -39,6 +39,7 @@ export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: 
 		const derivedStatus = health ? getDerivedStatus(health) : null;
 		const statusMeta = derivedStatus ? statusCopy[derivedStatus] : null;
 		const isWhoisUnavailable = health ? !health.whois.expirationDate && !health.whois.error : false;
+		const redirectMessage = health ? getRedirectMessage(health.http.urlTried, health.http.finalUrl) : undefined;
 
 		return (
 				<div className="flex items-center gap-2">
@@ -107,11 +108,7 @@ export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: 
 																				? `Reachable (${health.http.statusCode ?? '—'})`
 																				: 'Unreachable'
 																}
-																message={
-																		health.http.redirected && health.http.finalUrl
-																				? `Redirected to ${health.http.finalUrl}`
-																				: health.http.urlTried
-																}
+																message={redirectMessage ?? health.http.urlTried}
 														/>
 														{isWhoisUnavailable && (
 																<p className="text-xs text-muted-foreground">
@@ -152,4 +149,23 @@ function getDerivedStatus(health: DomainHealthResult): HealthStatus {
 				return 'healthy';
 		}
 		return health.status;
+}
+
+function normalizeUrl(url: string | undefined | null) {
+		if (!url) return null;
+		try {
+				const parsed = new URL(url);
+				const pathname = parsed.pathname.endsWith('/') && parsed.pathname !== '/' ? parsed.pathname.slice(0, -1) : parsed.pathname;
+				return `${parsed.origin}${pathname}${parsed.search}`;
+		} catch {
+				return url;
+		}
+}
+
+function getRedirectMessage(tried?: string, finalUrl?: string) {
+		const normTried = normalizeUrl(tried);
+		const normFinal = normalizeUrl(finalUrl);
+		if (!normFinal || !normTried) return undefined;
+		if (normFinal === normTried) return undefined;
+		return `Redirected to ${normFinal}`;
 }
