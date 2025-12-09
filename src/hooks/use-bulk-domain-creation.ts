@@ -5,7 +5,7 @@ import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
 import { formatCloudflareError } from '@/lib/utils';
 import type { DomainQueueItem, ConfigurationStep } from '@/components/configuration-console';
-import type { CloudflareAccount } from '@/types/cloudflare';
+import type { CloudflareAccount, DNSRecord } from '@/types/cloudflare';
 
 interface UseBulkDomainCreationOptions {
 	account: CloudflareAccount;
@@ -15,11 +15,15 @@ interface UseBulkDomainCreationOptions {
 
 export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess }: UseBulkDomainCreationOptions) {
 	const { setDomainNameservers } = useAccountStore();
-	const { addZone } = useCloudflareCache();
+	const { addZone, setDNSRecords } = useCloudflareCache();
 	const [isCreating, setIsCreating] = useState(false);
 	const [isConfiguring, setIsConfiguring] = useState(false);
 	const [domainQueue, setDomainQueue] = useState<DomainQueueItem[]>([]);
 	const abortControllerRef = useRef<AbortController | null>(null);
+
+	const syncDNSCache = (zoneId: string, records: DNSRecord[]) => {
+		setDNSRecords(zoneId, account.id, records);
+	};
 
 	const createDomains = async (
 		domains: string[],
@@ -51,6 +55,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 			}
 
 			const domain = domains[i].trim();
+			const createdRecords: DNSRecord[] = [];
 
 			// Update domain status to processing
 			setDomainQueue(prev => prev.map(item =>
@@ -99,13 +104,18 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 					));
 
 					try {
-						await api.createDNSRecord(zone.id, {
+						const wwwRecord = await api.createDNSRecord(zone.id, {
 							type: 'CNAME',
 							name: 'www',
 							content: '@',
 							ttl: 1,
 							proxied: proxied,
 						});
+
+						if (wwwRecord) {
+							createdRecords.push(wwwRecord as DNSRecord);
+							syncDNSCache(zone.id, createdRecords);
+						}
 
 						setDomainQueue(prev => prev.map(item =>
 							item.domain === domain
@@ -160,13 +170,17 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 					}));
 
 					try {
-						await api.createDNSRecord(zone.id, {
+						const rootRecord = await api.createDNSRecord(zone.id, {
 							type: 'A',
 							name: '@',
 							content: rootIPAddress.trim(),
 							ttl: 1,
 							proxied: proxied,
 						});
+
+						if (rootRecord) {
+							createdRecords.push(rootRecord as DNSRecord);
+						}
 
 						setDomainQueue(prev => prev.map(item => {
 							if (item.domain !== domain) return item;
@@ -208,6 +222,8 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 							};
 						}));
 					}
+
+					syncDNSCache(zone.id, createdRecords);
 				}
 
 				// Step 4: Configure default zone settings
@@ -256,6 +272,10 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 						? { ...item, status: 'success' }
 						: item
 				));
+
+				if (zone?.id) {
+					syncDNSCache(zone.id, createdRecords);
+				}
 				successCount++;
 
 			} catch (error) {
@@ -308,9 +328,18 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 		}
 	};
 
+	const resetQueue = () => {
+		cancel();
+		setDomainQueue([]);
+		setIsCreating(false);
+		setIsConfiguring(false);
+		abortControllerRef.current = null;
+	};
+
 	return {
 		createDomains,
 		cancel,
+		resetQueue,
 		isCreating,
 		isConfiguring,
 		domainQueue,

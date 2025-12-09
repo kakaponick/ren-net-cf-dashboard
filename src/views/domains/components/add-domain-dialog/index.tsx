@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import {
 	Dialog,
@@ -50,6 +50,14 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 
 	const isProcessing = bulkDomainCreation.isCreating || bulkDomainCreation.isConfiguring;
 
+	const queueStats = useMemo(() => {
+		const total = bulkDomainCreation.domainQueue.length;
+		const completed = bulkDomainCreation.domainQueue.filter((item) => item.status === 'success').length;
+		const failed = bulkDomainCreation.domainQueue.filter((item) => item.status === 'error').length;
+		const inProgress = bulkDomainCreation.domainQueue.some((item) => item.status === 'processing');
+		return { total, completed, failed, inProgress };
+	}, [bulkDomainCreation.domainQueue]);
+
 	// Auto-select first API account when dialog opens
 	useEffect(() => {
 		if (isOpen && accountsToUse.length > 0 && !selectedAccountId) {
@@ -98,7 +106,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 	};
 
 	const handleClose = () => {
-		bulkDomainCreation.cancel();
+		bulkDomainCreation.resetQueue();
 		setIsOpen(false);
 		setDomains('');
 		setSelectedAccountId('');
@@ -107,12 +115,20 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 		setProxied(true);
 	};
 
-	const showProgress = isProcessing || bulkDomainCreation.domainQueue.length > 0;
-	const canCreate = bulkDomainCreation.domainQueue.length === 0;
+	const handleDialogChange = (open: boolean) => {
+		if (!open) {
+			handleClose();
+			return;
+		}
+
+		setIsOpen(true);
+	};
+
+	const hasQueue = queueStats.total > 0;
 	const validDomainsCount = parseBulkDomains(domains).length;
 
 	return (
-		<Dialog open={isOpen} onOpenChange={setIsOpen}>
+		<Dialog open={isOpen} onOpenChange={handleDialogChange}>
 			<DialogTrigger asChild title={title}>
 				<Button size="sm">
 					<Plus className="h-3.5 w-3.5" />
@@ -128,42 +144,80 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto px-6 space-y-4 min-h-0">
-					{!showProgress && (
-						<>
-							<BulkDomainInputForm
-								value={domains}
-								onChange={setDomains}
-								disabled={isProcessing}
-							/>
+					<BulkDomainInputForm
+						value={domains}
+						onChange={setDomains}
+						disabled={isProcessing}
+					/>
 
-							<RootARecordInput
-								ipAddress={rootIPAddress}
-								proxied={proxied}
-								onIPChange={setRootIPAddress}
-								onProxiedChange={setProxied}
-								onSubmit={handleCreateDomains}
-								disabled={isProcessing}
-							/>
+					<RootARecordInput
+						ipAddress={rootIPAddress}
+						proxied={proxied}
+						onIPChange={setRootIPAddress}
+						onProxiedChange={setProxied}
+						onSubmit={handleCreateDomains}
+						disabled={isProcessing}
+					/>
 
-							<AccountSelectors
-								accounts={accountsToUse}
-								cloudflareAccounts={cloudflareAccounts}
-								selectedAccountId={selectedAccountId}
-								selectedCloudflareAccountId={selectedCloudflareAccountId}
-								isLoadingAccounts={isLoadingAccounts}
-								onAccountChange={setSelectedAccountId}
-								onCloudflareAccountChange={setSelectedCloudflareAccountId}
-								disabled={isProcessing}
-							/>
-						</>
-					)}
+					<AccountSelectors
+						accounts={accountsToUse}
+						cloudflareAccounts={cloudflareAccounts}
+						selectedAccountId={selectedAccountId}
+						selectedCloudflareAccountId={selectedCloudflareAccountId}
+						isLoadingAccounts={isLoadingAccounts}
+						onAccountChange={setSelectedAccountId}
+						onCloudflareAccountChange={setSelectedCloudflareAccountId}
+						disabled={isProcessing}
+					/>
 
-					{showProgress && (
-						<div className="pb-4 flex-1 min-h-0 flex flex-col">
+					{hasQueue && (
+						<div className="pb-4 flex-1 min-h-0 flex flex-col gap-3 rounded-lg border bg-muted/40 p-4">
+							<div className="flex items-start justify-between gap-3">
+								<div className="space-y-1">
+									<p className="text-sm font-semibold">
+										{isProcessing || queueStats.inProgress ? 'Domain creation in progress' : 'Last run summary'}
+									</p>
+									<p className="text-xs text-muted-foreground">
+										Queue updates in real time. You can start another batch without closing this dialog.
+									</p>
+									<div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+										<span>
+											Completed {queueStats.completed}/{queueStats.total}
+										</span>
+										{queueStats.failed > 0 && (
+											<span className="text-destructive">
+												Failed {queueStats.failed}
+											</span>
+										)}
+									</div>
+								</div>
+								<div className="flex items-center gap-2">
+									{isProcessing ? (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={bulkDomainCreation.cancel}
+											disabled={!isProcessing}
+										>
+											Stop run
+										</Button>
+									) : (
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={bulkDomainCreation.resetQueue}
+										>
+											Clear log
+										</Button>
+									)}
+								</div>
+							</div>
 							<ConfigurationConsole
 								domainQueue={bulkDomainCreation.domainQueue}
 								title="Domain Creation Queue"
-								className="flex-1 min-h-0"
+								className="flex-1 min-h-[420px]"
+								maxHeight="70vh"
+								dense
 							/>
 						</div>
 					)}
@@ -175,25 +229,23 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 						onClick={handleClose}
 						disabled={isProcessing}
 					>
-						{canCreate ? 'Cancel' : 'Close'}
+						Close
 					</Button>
-					{canCreate && (
-						<Button onClick={handleCreateDomains} disabled={isProcessing || validDomainsCount === 0}>
-							{isProcessing ? (
-								<>
-									<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-									{bulkDomainCreation.isConfiguring ? 'Configuring...' : 'Creating Domains...'}
-								</>
-							) : (
-								<>
-									<Plus className="mr-2 h-4 w-4" />
-									{validDomainsCount > 0
-										? `Create ${validDomainsCount} Domain${validDomainsCount !== 1 ? 's' : ''}`
-										: 'Create Domain'}
-								</>
-							)}
-						</Button>
-					)}
+					<Button onClick={handleCreateDomains} disabled={isProcessing || validDomainsCount === 0}>
+						{isProcessing ? (
+							<>
+								<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+								{bulkDomainCreation.isConfiguring ? 'Configuring...' : 'Creating Domains...'}
+							</>
+						) : (
+							<>
+								<Plus className="mr-2 h-4 w-4" />
+								{validDomainsCount > 0
+									? `Create ${validDomainsCount} Domain${validDomainsCount !== 1 ? 's' : ''}`
+									: 'Create Domain'}
+							</>
+						)}
+					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

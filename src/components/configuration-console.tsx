@@ -29,16 +29,33 @@ interface ConfigurationConsoleProps {
   domainQueue?: DomainQueueItem[];
   title?: string;
   className?: string;
+  /**
+   * Minimum height the console should reserve. Defaults adapt to bulk mode.
+   */
+  minHeight?: string;
+  /**
+   * Maximum height the console should occupy. Defaults to 75vh.
+   */
+  maxHeight?: string;
+  /**
+   * Dense mode tightens spacing for cramped layouts.
+   */
+  dense?: boolean;
 }
 
 export function ConfigurationConsole({ 
   steps = [], 
-  domainQueue = [],
+  domainQueue = [], 
   title = 'Configuration Progress',
-  className
+  className,
+  minHeight,
+  maxHeight,
+  dense = false,
 }: ConfigurationConsoleProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const isBulkMode = domainQueue.length > 0;
+  const resolvedMinHeight = minHeight ?? (isBulkMode ? '420px' : '320px');
+  const resolvedMaxHeight = maxHeight ?? '75vh';
 
   // Auto-scroll to bottom when new steps are added
   useEffect(() => {
@@ -121,9 +138,21 @@ export function ConfigurationConsole({
     : [];
 
   return (
-    <Card className={cn('w-full flex flex-col min-h-[500px]', className)}>
+    <Card
+      className={cn(
+        'w-full flex flex-col h-full',
+        dense ? 'text-sm' : '',
+        className
+      )}
+      style={{ minHeight: resolvedMinHeight, maxHeight: resolvedMaxHeight }}
+    >
       <CardContent className="p-0 flex flex-col h-full min-h-0">
-        <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/30 flex-shrink-0">
+        <div
+          className={cn(
+            'border-b flex items-center justify-between bg-muted/30 flex-shrink-0',
+            dense ? 'px-3 py-2' : 'px-4 py-3'
+          )}
+        >
           <h3 className="text-sm font-semibold">{title}</h3>
           {totalCount > 0 && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -148,7 +177,12 @@ export function ConfigurationConsole({
         </div>
         
         {allNameservers.length > 0 && (
-          <div className="border-b px-4 py-2 bg-muted/20 flex-shrink-0">
+          <div
+            className={cn(
+              'border-b bg-muted/20 flex-shrink-0',
+              dense ? 'px-3 py-1.5' : 'px-4 py-2'
+            )}
+          >
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium mb-1 text-muted-foreground">Nameservers:</div>
@@ -176,7 +210,10 @@ export function ConfigurationConsole({
         )}
 
         <div className="flex-1 min-h-0 relative overflow-y-auto">
-          <div ref={contentRef} className="p-4 space-y-3">
+          <div
+            ref={contentRef}
+            className={cn('space-y-3', dense ? 'p-3' : 'p-4')}
+          >
             {isBulkMode ? (
               // Bulk mode: Show domain queue
               domainQueue.length === 0 ? (
