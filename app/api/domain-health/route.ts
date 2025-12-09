@@ -60,6 +60,7 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 
 		let response: Response | null = null;
 		let usedUrl = httpsUrl;
+		let finalUrl: string | undefined;
 		let error: string | undefined;
 		let latencyMs: number | undefined;
 
@@ -67,6 +68,7 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 				const start = Date.now();
 				response = await fetchWithTimeout(httpsUrl, HTTP_TIMEOUT_MS, { method: 'HEAD', redirect: 'follow' });
 				latencyMs = Date.now() - start;
+				finalUrl = response.url;
 		} catch (err) {
 				error = err instanceof Error ? err.message : 'HTTPS check failed';
 		}
@@ -77,6 +79,7 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 						response = await fetchWithTimeout(httpUrl, HTTP_TIMEOUT_MS, { method: 'HEAD', redirect: 'follow' });
 						latencyMs = Date.now() - start;
 						usedUrl = httpUrl;
+						finalUrl = response.url;
 						error = undefined;
 				} catch (fallbackError) {
 						error = fallbackError instanceof Error ? fallbackError.message : 'HTTP check failed';
@@ -85,6 +88,7 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 
 		const reachable = Boolean(response);
 		const statusCode = response?.status;
+		const redirected = Boolean(response?.redirected) || (response?.url && response.url !== usedUrl);
 
 		let status: HealthStatus = 'healthy';
 		if (!reachable) {
@@ -98,6 +102,8 @@ async function checkHTTP(domain: string): Promise<DomainHTTPHealth> {
 				reachable,
 				statusCode,
 				urlTried: usedUrl,
+				redirected,
+				finalUrl,
 				latencyMs,
 				error
 		};

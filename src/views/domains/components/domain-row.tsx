@@ -31,9 +31,9 @@ import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
 import { useDomainHealth } from '@/hooks/use-domain-health';
 import { DomainHealthCell } from './domain-health';
+import { DomainExpirationCell } from './domain-expiration';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { Zone } from '@/types/cloudflare';
-import { getDaysToExpiration } from '@/lib/utils';
 import type { DomainColumnVisibility } from '../domain-columns';
 import { ActivityBoundary } from '@/components/activity-boundary';
 
@@ -161,18 +161,6 @@ export const DomainRow = memo(function DomainRow({
 	const isPending = item.zone.status === 'pending';
 	const hasNameservers = nameservers.length > 0;
 
-	const expirationLabel = useMemo(() => {
-		const expiry = health?.whois.expirationDate;
-		if (!expiry) return '—';
-		const days = getDaysToExpiration(expiry);
-		const dateText = new Date(expiry).toLocaleDateString();
-		if (typeof days === 'number') {
-			const suffix = days < 0 ? '(expired)' : `(${days} days)`;
-			return `${dateText} ${suffix}`;
-		}
-		return dateText;
-	}, [health?.whois.expirationDate]);
-
 	return (
 		<TableRow 
 			data-state={isSelected ? 'selected' : undefined}
@@ -293,7 +281,13 @@ export const DomainRow = memo(function DomainRow({
 			</ActivityBoundary>
 			<ActivityBoundary mode={visibleColumns.expiration ? 'visible' : 'hidden'}>
 				<TableCell>
-					<span className="text-sm text-muted-foreground">{expirationLabel}</span>
+					<DomainExpirationCell
+						domain={item.zone.name}
+						health={health}
+						error={healthError}
+						isLoading={isChecking}
+						onRefresh={checkHealth}
+					/>
 				</TableCell>
 			</ActivityBoundary>
 			<ActivityBoundary mode={visibleColumns.health ? 'visible' : 'hidden'}>

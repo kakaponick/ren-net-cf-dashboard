@@ -5,6 +5,8 @@ export interface DomainHTTPHealth {
 	reachable: boolean;
 	statusCode?: number;
 	urlTried: string;
+	redirected?: boolean;
+	finalUrl?: string;
 	latencyMs?: number;
 	error?: string;
 }

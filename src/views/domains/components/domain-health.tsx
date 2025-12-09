@@ -1,8 +1,8 @@
 'use client';
 
 import type { JSX } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import type { LucideIcon } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
@@ -17,41 +17,43 @@ type DomainHealthCellProps = {
 		onCheck: (force?: boolean) => Promise<unknown> | void;
 };
 
-const statusCopy: Record<HealthStatus, { label: string; variant: 'default' | 'secondary' | 'destructive'; icon: JSX.Element }> = {
+const statusCopy: Record<HealthStatus, { label: string; colorClass: string; Icon: LucideIcon }> = {
 		healthy: {
 				label: 'Healthy',
-				variant: 'default',
-				icon: <CheckCircle2 className="h-4 w-4" />
+				colorClass: 'text-emerald-600 dark:text-emerald-400',
+				Icon: CheckCircle2
 		},
 		warning: {
 				label: 'Attention',
-				variant: 'secondary',
-				icon: <AlertTriangle className="h-4 w-4" />
+				colorClass: 'text-amber-600 dark:text-amber-400',
+				Icon: AlertTriangle
 		},
 		error: {
 				label: 'Unhealthy',
-				variant: 'destructive',
-				icon: <AlertCircle className="h-4 w-4" />
+				colorClass: 'text-destructive',
+				Icon: AlertCircle
 		}
 };
 
 export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: DomainHealthCellProps) {
-		const statusMeta = health ? statusCopy[health.status] : null;
+		const derivedStatus = health ? getDerivedStatus(health) : null;
+		const statusMeta = derivedStatus ? statusCopy[derivedStatus] : null;
+		const isWhoisUnavailable = health ? !health.whois.expirationDate && !health.whois.error : false;
 
 		return (
 				<div className="flex items-center gap-2">
 						<Popover>
 								<PopoverTrigger asChild>
-										<Button variant="ghost" size="sm" className="h-8 px-2">
+										<Button variant="ghost" size="sm" className="h-8 px-2 inline-flex items-center gap-2">
 												{isLoading ? (
 														<Loader2 className="h-4 w-4 animate-spin" />
 												) : statusMeta ? (
-														<Badge variant={statusMeta.variant} className="inline-flex items-center gap-1">
-																{statusMeta.icon}
-																{statusMeta.label}
-														</Badge>
+														<span className="inline-flex items-center gap-2 text-sm font-medium">
+																<statusMeta.Icon className={cn('h-4 w-4', statusMeta.colorClass)} />
+																<span className={statusMeta.colorClass}>{statusMeta.label}</span>
+														</span>
 												) : (
-														<Badge variant="outline">Check health</Badge>
+														<span className="text-sm text-muted-foreground">Check health</span>
 												)}
 										</Button>
 								</PopoverTrigger>
@@ -90,11 +92,13 @@ export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: 
 																label="Status"
 																value={
 																		<span className={cn('inline-flex items-center gap-2')}>
-																				{statusMeta?.icon}
-																				{statusMeta?.label}
+																				{statusMeta ? (
+																						<statusMeta.Icon className={cn('h-4 w-4', statusMeta.colorClass)} />
+																				) : null}
+																				<span className={statusMeta?.colorClass}>{statusMeta?.label}</span>
 																		</span>
 																}
-																message={health.whois.message || health.http.error}
+																message={health.http.error}
 														/>
 														<HealthRow
 																label="HTTP"
@@ -103,13 +107,17 @@ export function DomainHealthCell({ domain, health, error, isLoading, onCheck }: 
 																				? `Reachable (${health.http.statusCode ?? '—'})`
 																				: 'Unreachable'
 																}
-																message={health.http.urlTried}
+																message={
+																		health.http.redirected && health.http.finalUrl
+																				? `Redirected to ${health.http.finalUrl}`
+																				: health.http.urlTried
+																}
 														/>
-														<HealthRow
-																label="WHOIS"
-																value={formatWhoisValue(health)}
-																message={health.whois.message}
-														/>
+														{isWhoisUnavailable && (
+																<p className="text-xs text-muted-foreground">
+																		WHOIS data unavailable; status is based on HTTP reachability.
+																</p>
+														)}
 														<p className="text-[11px] text-muted-foreground">
 																Checked at {new Date(health.checkedAt).toLocaleString()}
 														</p>
@@ -138,25 +146,10 @@ function HealthRow({ label, value, message }: HealthRowProps) {
 		);
 }
 
-function formatWhoisValue(health: DomainHealthResult) {
-		const { expirationDate, daysToExpire, registrar } = health.whois;
-		if (!expirationDate) {
-				return 'Date unavailable';
+function getDerivedStatus(health: DomainHealthResult): HealthStatus {
+		const whoisUnavailable = !health.whois.expirationDate && !health.whois.error;
+		if (health.status === 'warning' && health.http.status === 'healthy' && whoisUnavailable) {
+				return 'healthy';
 		}
-
-		const parts = [];
-		parts.push(new Date(expirationDate).toLocaleDateString());
-		if (typeof daysToExpire === 'number') {
-				if (daysToExpire < 0) {
-						parts.push('(expired)');
-				} else {
-						parts.push(`(${daysToExpire} days)`);
-				}
-		}
-		if (registrar) {
-				parts.push(registrar);
-		}
-
-		return parts.join(' ');
+		return health.status;
 }
-
