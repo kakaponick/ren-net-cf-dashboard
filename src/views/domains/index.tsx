@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Globe, Search, RefreshCw, CheckCircle2, X } from 'lucide-react';
+import { Globe, Search, RefreshCw, CheckCircle2, X, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { ColumnVisibilityMenu } from '@/components/table/column-visibility-menu';
@@ -20,7 +20,7 @@ import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { useDomainHealthStore } from '@/store/domain-health-store';
 import { toast } from 'sonner';
-import { cn, createRateLimiter } from '@/lib/utils';
+import { cn, createRateLimiter, copyToClipboard } from '@/lib/utils';
 import {
 	DEFAULT_DOMAIN_COLUMN_VISIBILITY,
 	DOMAIN_COLUMN_KEYS,
@@ -163,6 +163,16 @@ export default function DomainsPage() {
 		const accountsCount = accounts.length;
 		return { total, visible, selected, accountsCount };
 	}, [enrichedZones.length, sortedZones.length, selectedCount, accounts.length]);
+
+	const handleCopySelected = useCallback(async () => {
+		if (selectedZones.length === 0) return;
+		const domainsText = selectedZones.map((zone) => zone.zone.name).join('\n');
+		await copyToClipboard(
+			domainsText,
+			`Copied ${selectedZones.length} domain${selectedZones.length > 1 ? 's' : ''}`,
+			'Failed to copy selected domains'
+		);
+	}, [selectedZones]);
 
 	useEffect(() => {
 		if (isZonesLoading && !refreshToastId.current) {
@@ -335,6 +345,15 @@ export default function DomainsPage() {
 										handleRefresh();
 									}}
 								/>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => { void handleCopySelected(); }}
+									className="gap-2"
+								>
+									<Copy className="h-3.5 w-3.5" />
+									Copy selected
+								</Button>
 								<Button
 									size="sm"
 									variant="outline"
