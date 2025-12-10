@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
-import { processInParallel } from '@/lib/utils';
+import { getRootARecordsFromDNS, processInParallel } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { DNSRecord, Zone } from '@/types/cloudflare';
 
@@ -33,13 +33,6 @@ export function useDomainsData() {
 	const loadingZonesRef = useRef<Set<string>>(new Set()); // Track zones currently being loaded
 	const hasLoadedZones = useRef(false);
 
-		const getRootARecordsFromDNS = useCallback((records: DNSRecord[], domainName: string): DNSRecord[] => {
-				if (!records || records.length === 0) return [];
-				return records.filter(
-						(record) => record.type === 'A' && (record.name === domainName || record.name === '@' || record.name === '')
-				);
-		}, []);
-
 		const enrichedZones = useMemo(() => {
 				if (zones.length === 0) return [];
 				
@@ -59,7 +52,7 @@ export function useDomainsData() {
 						
 						return enriched;
 				});
-		}, [zones, accounts, dnsRecordsCache, dnsLoadingStates, getDNSRecords, getRootARecordsFromDNS]);
+		}, [zones, accounts, dnsRecordsCache, dnsLoadingStates, getDNSRecords]);
 
 	const loadDNSForZone = useCallback(async (zoneId: string, accountId: string) => {
 		const cacheKey = `${zoneId}-${accountId}`;

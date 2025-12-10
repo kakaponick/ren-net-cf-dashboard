@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CopyButton } from '@/components/ui/copy-button';
-import { cn } from '@/lib/utils';
+import { cn, getRootARecordsFromDNS } from '@/lib/utils';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -33,7 +33,7 @@ import { useDomainHealth } from '@/hooks/use-domain-health';
 import { DomainHealthCell } from './domain-health';
 import { DomainExpirationCell } from './domain-expiration';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
-import type { Zone } from '@/types/cloudflare';
+import type { DNSRecord, Zone } from '@/types/cloudflare';
 import type { DomainColumnVisibility } from '../domain-columns';
 import { ActivityBoundary } from '@/components/activity-boundary';
 
@@ -106,9 +106,9 @@ export const DomainRow = memo(function DomainRow({
 			const api = new CloudflareAPI(account.apiToken);
 			
 			// Check if www CNAME already exists
-			const dnsRecords = await api.getDNSRecords(item.zone.id);
+			const dnsRecords: DNSRecord[] = await api.getDNSRecords(item.zone.id);
 			const existingWWWCNAME = dnsRecords.find(
-				(record: any) => record.type === 'CNAME' && record.name === 'www'
+				(record: DNSRecord) => record.type === 'CNAME' && record.name === 'www'
 			);
 
 			if (existingWWWCNAME) {
@@ -120,8 +120,9 @@ export const DomainRow = memo(function DomainRow({
 				return;
 			}
 
-			// Determine proxied status from root A record if it exists, otherwise default to false
-			const rootARecord = item.rootARecords?.[0];
+			// Determine proxied status from current root A record if it exists
+			const rootARecord =
+				getRootARecordsFromDNS(dnsRecords, item.zone.name)[0] ?? item.rootARecords?.[0];
 			const proxied = rootARecord?.proxied ?? false;
 
 			// Create www CNAME record

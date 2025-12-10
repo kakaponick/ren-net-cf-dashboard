@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { toast } from "sonner"
 import { differenceInCalendarDays, formatISO, isValid, parse, parseISO } from "date-fns"
+import type { DNSRecord } from "@/types/cloudflare"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -58,6 +59,18 @@ export function parseBulkDomains(input: string): string[] {
     .map(line => line.trim())
     .filter(line => line.length > 0)
     .filter(validateDomain);
+}
+
+/**
+ * Returns all root-level A records for the provided domain.
+ */
+export function getRootARecordsFromDNS(records: DNSRecord[], domainName: string): DNSRecord[] {
+  if (!records || records.length === 0) return [];
+  return records.filter(
+    (record) =>
+      record.type === 'A' &&
+      (record.name === domainName || record.name === '@' || record.name === '')
+  );
 }
 
 /**
