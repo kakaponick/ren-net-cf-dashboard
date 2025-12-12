@@ -43,8 +43,18 @@ export default function DomainsPage() {
 	}
 
 	const [searchTerm, setSearchTerm] = useState('');
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 	const [sortField, setSortField] = useState<SortField>('name');
 	const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+	// Debounce search term with 200ms delay
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedSearchTerm(searchTerm);
+		}, 200);
+
+		return () => clearTimeout(timer);
+	}, [searchTerm]);
 	const [columnVisibility, setColumnVisibility] = useState<DomainColumnVisibility>(() =>
 		loadDomainColumnVisibility()
 	);
@@ -59,7 +69,7 @@ export default function DomainsPage() {
 		[]
 	);
 
-	const filteredZones = useDomainsFilter(enrichedZones, searchTerm);
+	const filteredZones = useDomainsFilter(enrichedZones, debouncedSearchTerm);
 	const sortedZones = useDomainsSort(filteredZones, sortField, sortDirection);
 
 	const currentIds = useMemo(
@@ -255,11 +265,21 @@ export default function DomainsPage() {
 						<div className="relative">
 							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
 							<Input
-								placeholder="Search domain, IP, account"
+								placeholder="Search domain, IP, account, health"
 								value={searchTerm}
 								onChange={(e) => setSearchTerm(e.target.value)}
-								className="pl-10 w-96"
+								className="pl-10 pr-10 w-96"
 							/>
+							{searchTerm && (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-muted"
+									onClick={() => setSearchTerm('')}
+								>
+									<X className="h-3 w-3" />
+								</Button>
+							)}
 						</div>
 
 						<div className="flex items-center gap-2">
