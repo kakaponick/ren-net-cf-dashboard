@@ -29,20 +29,24 @@ export function useDomainsFilter(zones: ZoneWithDNS[], searchTerm: string) {
 
 						if (health) {
 								const status = health.http.status;
-								// Search by status keywords
-								if (term.includes('healthy') && status === 'healthy') return true;
-								if (term.includes('unhealthy') && status === 'error') return true;
-								if (term.includes('attention') && status === 'warning') return true;
-								if (term.includes('error') && status === 'error') return true;
-								if (term.includes('warning') && status === 'warning') return true;
-
-								// Search by status label
+								
+								// Status labels mapping
 								const statusLabels = {
 										healthy: 'healthy',
 										warning: 'attention',
 										error: 'unhealthy'
 								};
-								if (statusLabels[status]?.toLowerCase().includes(term)) return true;
+								
+								const statusLabel = statusLabels[status]?.toLowerCase();
+								
+								// Check if status label starts with the search term
+								// This prevents "healthy" from matching "unhealthy" (substring issue)
+								// Supports both exact matches ("healthy") and partial matches ("heal")
+								if (statusLabel && statusLabel.startsWith(term)) return true;
+								
+								// Also check for status code keywords
+								if (term === 'warning' && status === 'warning') return true;
+								if (term === 'error' && status === 'error') return true;
 
 								// Search by HTTP reachability
 								if (term.includes('reachable') && health.http.reachable) return true;
