@@ -115,6 +115,11 @@ export default function DomainsPage() {
 		loadZones(true);
 	}, [clearCache, loadZones]);
 
+	const handleDomainDeleted = useCallback((zoneId: string, accountId: string) => {
+		const { removeZone } = useCloudflareCache.getState();
+		removeZone(zoneId, accountId);
+	}, []);
+
 	const handleDomainCreated = useCallback(() => {
 		// Zones are already added reactively via addZone() in use-bulk-domain-creation
 		// No need to reload - the cache updates automatically trigger table rerender
@@ -362,7 +367,6 @@ export default function DomainsPage() {
 									selectedZones={selectedZones}
 									onComplete={() => {
 										clear();
-										handleRefresh();
 									}}
 								/>
 								<Button
@@ -432,7 +436,7 @@ export default function DomainsPage() {
 							allSelected={allSelected}
 							selectedCount={selectedCount}
 							onRefreshDNS={handleRefreshDNS}
-							onDomainDeleted={handleRefresh}
+							onDomainDeleted={handleDomainDeleted}
 							visibleColumns={columnVisibility}
 						/>
 					</div>

@@ -55,6 +55,7 @@ interface CloudflareCacheState {
   // Cache management
   setZones: (zones: ZoneData[]) => void;
   addZone: (zone: any, accountId: string, accountName: string) => void;
+  removeZone: (zoneId: string, accountId: string) => void;
   setDNSRecords: (zoneId: string, accountId: string, records: any[]) => void;
   setSSLData: (zoneId: string, accountId: string, certificates: any[], sslSetting: any) => void;
   setZoneDetails: (zoneId: string, accountId: string, zone: any) => void;
@@ -127,6 +128,34 @@ export const useCloudflareCache = create<CloudflareCacheState>()(
               zonesLastUpdated: Date.now(),
             };
           }
+        });
+      },
+      
+      removeZone: (zoneId, accountId) => {
+        set((state) => {
+          // Remove zone from zones array
+          const updatedZones = state.zones.filter(
+            (z) => !(z.zone.id === zoneId && z.accountId === accountId)
+          );
+          
+          // Also clear all related cache for this zone
+          const key = `${zoneId}-${accountId}`;
+          const newState = { ...state };
+          delete newState.dnsRecords[key];
+          delete newState.dnsRecordsLastUpdated[key];
+          delete newState.sslData[key];
+          delete newState.sslDataLastUpdated[key];
+          delete newState.zoneDetails[key];
+          delete newState.zoneDetailsLastUpdated[key];
+          delete newState.isLoading.dnsRecords[key];
+          delete newState.isLoading.sslData[key];
+          delete newState.isLoading.zoneDetails[key];
+          
+          return {
+            ...newState,
+            zones: updatedZones,
+            zonesLastUpdated: updatedZones.length > 0 ? (state.zonesLastUpdated || Date.now()) : null,
+          };
         });
       },
       

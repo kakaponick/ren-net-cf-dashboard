@@ -43,7 +43,7 @@ type DomainRowProps = {
 	isSelected: boolean;
 	onToggle: (rowId: string) => void;
 	onRefreshDNS?: (zoneId: string, accountId: string) => void;
-	onDomainDeleted?: () => void;
+	onDomainDeleted?: (zoneId: string, accountId: string) => void;
 	getStatusBadgeVariant: (status: Zone['status']) => 'default' | 'secondary' | 'outline' | 'destructive';
 	visibleColumns: DomainColumnVisibility;
 };
@@ -80,7 +80,7 @@ export const DomainRow = memo(function DomainRow({
 			await api.deleteZone(item.zone.id);
 			toast.success(`Domain "${item.zone.name}" deleted successfully`);
 			setIsDeleteDialogOpen(false);
-			onDomainDeleted?.();
+			onDomainDeleted?.(item.zone.id, item.accountId);
 		} catch (error) {
 			console.error('Error deleting domain:', error);
 			const errorMessage = error instanceof Error ? error.message : 'Failed to delete domain';

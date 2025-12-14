@@ -20,7 +20,7 @@ type DomainsTableProps = {
 		allSelected: boolean;
 		selectedCount: number;
 		onRefreshDNS?: (zoneId: string, accountId: string) => void;
-		onDomainDeleted?: () => void;
+		onDomainDeleted?: (zoneId: string, accountId: string) => void;
 		visibleColumns: DomainColumnVisibility;
 };
 

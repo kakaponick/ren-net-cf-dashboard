@@ -11,6 +11,7 @@ import {
 	DialogTrigger,
 } from '@/components/ui/dialog';
 import { useAccountStore } from '@/store/account-store';
+import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
@@ -25,6 +26,7 @@ export function BulkDeleteDomainsDialog({ selectedZones, onComplete }: BulkDelet
 	const [open, setOpen] = useState(false);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const { accounts } = useAccountStore();
+	const { removeZone } = useCloudflareCache();
 
 	const handleBulkDelete = async () => {
 		setIsProcessing(true);
@@ -45,6 +47,8 @@ export function BulkDeleteDomainsDialog({ selectedZones, onComplete }: BulkDelet
 				try {
 					const api = new CloudflareAPI(account.apiToken);
 					await api.deleteZone(zone.zone.id);
+					// Remove zone from cache immediately
+					removeZone(zone.zone.id, zone.accountId);
 					successCount++;
 				} catch (error) {
 					console.error(`Error deleting ${zone.zone.name}:`, error);
