@@ -22,6 +22,8 @@ export interface DomainQueueItem {
   steps?: ConfigurationStep[];
   error?: string;
   nameservers?: string[];
+  rootIPAddress?: string;
+  proxied?: boolean;
 }
 
 interface ConfigurationConsoleProps {

@@ -103,6 +103,9 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 		}
 
 		await bulkDomainCreation.createDomains(parsedDomains, rootIPAddress.trim(), proxied);
+		
+		// Clear domain input after adding to queue (but keep other settings)
+		setDomains('');
 	};
 
 	const handleClose = () => {
@@ -147,7 +150,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 					<BulkDomainInputForm
 						value={domains}
 						onChange={setDomains}
-						disabled={isProcessing}
+						disabled={false}
 					/>
 
 					<RootARecordInput
@@ -156,7 +159,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 						onIPChange={setRootIPAddress}
 						onProxiedChange={setProxied}
 						onSubmit={handleCreateDomains}
-						disabled={isProcessing}
+						disabled={false}
 					/>
 
 					<AccountSelectors
@@ -231,11 +234,13 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 					>
 						Close
 					</Button>
-					<Button onClick={handleCreateDomains} disabled={isProcessing || validDomainsCount === 0}>
+					<Button onClick={handleCreateDomains} disabled={validDomainsCount === 0}>
 						{isProcessing ? (
 							<>
-								<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-								{bulkDomainCreation.isConfiguring ? 'Configuring...' : 'Creating Domains...'}
+								<Plus className="mr-2 h-4 w-4" />
+								{validDomainsCount > 0
+									? `Add ${validDomainsCount} Domain${validDomainsCount !== 1 ? 's' : ''} to Queue`
+									: 'Add to Queue'}
 							</>
 						) : (
 							<>
