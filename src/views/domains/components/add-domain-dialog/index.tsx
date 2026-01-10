@@ -221,6 +221,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 								className="flex-1 min-h-[420px]"
 								maxHeight="70vh"
 								dense
+								onRetryStep={bulkDomainCreation.retryStep}
 							/>
 						</div>
 					)}

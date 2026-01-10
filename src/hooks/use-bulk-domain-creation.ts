@@ -32,6 +32,49 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 		});
 	};
 
+	const setDomainStatus = (domain: string, status: DomainQueueItem['status']) => {
+		updateQueue(prev => prev.map(item =>
+			item.domain === domain
+				? { ...item, status }
+				: item
+		));
+	};
+
+	const setStepState = (
+		domain: string,
+		stepName: string,
+		status: ConfigurationStep['status'],
+		error?: string
+	) => {
+		updateQueue(prev => prev.map(item => {
+			if (item.domain !== domain) return item;
+
+			const steps = item.steps || [];
+			const index = steps.findIndex(s => s.name === stepName);
+			const existing = steps[index];
+			const nextStep: ConfigurationStep = {
+				name: stepName,
+				status,
+				error,
+				variable: existing?.variable,
+			};
+
+			const nextSteps = index >= 0 ? [...steps] : [...steps, nextStep];
+			nextSteps[index >= 0 ? index : nextSteps.length - 1] = nextStep;
+
+			return { ...item, steps: nextSteps };
+		}));
+	};
+
+	const refreshDNSRecords = async (zoneId: string, api: CloudflareAPI) => {
+		try {
+			const records = await api.getDNSRecords(zoneId);
+			setDNSRecords(zoneId, account.id, records);
+		} catch (error) {
+			console.error('Error refreshing DNS cache:', error);
+		}
+	};
+
 	// Sync ref with state on mount and when queue changes
 	useEffect(() => {
 		domainQueueRef.current = domainQueue;
@@ -73,7 +116,8 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 					? {
 						...item,
 						steps: [{ name: 'Creating domain zone...', status: 'success' }],
-						nameservers: zone?.name_servers || []
+						nameservers: zone?.name_servers || [],
+						zoneId: zone?.id
 					}
 					: item
 			));
@@ -396,6 +440,129 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 		setIsConfiguring(false);
 	};
 
+	const retryStep = async (domain: string | undefined, step: ConfigurationStep) => {
+		if (!domain) return;
+
+		const queueItem = domainQueueRef.current.find(item => item.domain === domain);
+		if (!queueItem) return;
+
+		const api = new CloudflareAPI(account.apiToken);
+
+		const runSettingRetry = async (zoneId: string, name: string) => {
+			const settingActions: Record<string, () => Promise<void>> = {
+				'SSL mode': () => api.setSSLMode(zoneId, 'strict'),
+				'Always use HTTPS': () => api.setAlwaysUseHTTPS(zoneId, true),
+				'HSTS': () => api.setHSTS(zoneId, true),
+				'TLS 1.3': () => api.setTLS13(zoneId, false),
+				'Authenticated Origin Pulls': () => api.setAuthenticatedOriginPulls(zoneId, true),
+				'Bot Fight Mode': () => api.setBotFightMode(zoneId, true),
+				'WAF Custom Rule': () => api.createSkipBotsWAFRule(zoneId),
+				'Early Hints': () => api.setEarlyHints(zoneId, true),
+				'0-RTT': () => api.set0RTT(zoneId, true),
+				'Pseudo IPv4': () => api.setPseudoIPv4(zoneId, 'overwrite_header'),
+				'Email Obfuscation': () => api.setEmailObfuscation(zoneId, false),
+			};
+
+			const action = settingActions[name];
+			if (!action) {
+				throw new Error('Retry not available for this step');
+			}
+
+			setIsConfiguring(true);
+			try {
+				await action();
+			} finally {
+				setIsConfiguring(false);
+			}
+		};
+
+		try {
+			setDomainStatus(domain, 'processing');
+			setStepState(domain, step.name, 'processing');
+
+			if (step.name === 'Creating domain zone...') {
+				const zone = await api.createZone(domain, cloudflareAccountId);
+
+				updateQueue(prev => prev.map(item =>
+					item.domain === domain
+						? {
+							...item,
+							status: 'success',
+							steps: [{ name: 'Creating domain zone...', status: 'success' }],
+							nameservers: zone?.name_servers || [],
+							zoneId: zone?.id,
+						}
+						: item
+				));
+
+				if (zone?.name_servers?.length) {
+					setDomainNameservers(domain, zone.name_servers);
+				}
+
+				if (zone?.id) {
+					addZone(zone, account.id, account.name);
+				}
+
+				return;
+			}
+
+			if (step.name === 'Creating CNAME record (www)...') {
+				if (!queueItem.zoneId) {
+					throw new Error('Zone not found. Retry zone creation first.');
+				}
+
+				await api.createDNSRecord(queueItem.zoneId, {
+					type: 'CNAME',
+					name: 'www',
+					content: '@',
+					ttl: 1,
+					proxied: queueItem.proxied ?? true,
+				});
+
+				await refreshDNSRecords(queueItem.zoneId, api);
+				setStepState(domain, step.name, 'success');
+				setDomainStatus(domain, 'success');
+				return;
+			}
+
+			if (step.name === 'Creating root A record...') {
+				if (!queueItem.zoneId) {
+					throw new Error('Zone not found. Retry zone creation first.');
+				}
+
+				if (!queueItem.rootIPAddress) {
+					throw new Error('Root IP address not provided.');
+				}
+
+				await api.createDNSRecord(queueItem.zoneId, {
+					type: 'A',
+					name: '@',
+					content: queueItem.rootIPAddress,
+					ttl: 1,
+					proxied: queueItem.proxied ?? true,
+				});
+
+				await refreshDNSRecords(queueItem.zoneId, api);
+				setStepState(domain, step.name, 'success');
+				setDomainStatus(domain, 'success');
+				return;
+			}
+
+			if (!queueItem.zoneId) {
+				throw new Error('Zone not found. Retry zone creation first.');
+			}
+
+			await runSettingRetry(queueItem.zoneId, step.name);
+			setStepState(domain, step.name, 'success');
+			setDomainStatus(domain, 'success');
+		} catch (error) {
+			console.error(`Retry failed for ${domain} - ${step.name}:`, error);
+			const errorMessage = formatCloudflareError(error);
+			setStepState(domain, step.name, 'error', errorMessage);
+			setDomainStatus(domain, 'error');
+		}
+	};
+
 	const resetQueue = () => {
 		cancel();
 		updateQueue(() => []);
@@ -409,6 +576,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 		createDomains,
 		cancel,
 		resetQueue,
+		retryStep,
 		isCreating,
 		isConfiguring,
 		domainQueue,

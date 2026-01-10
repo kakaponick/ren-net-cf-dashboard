@@ -118,8 +118,46 @@ export class CloudflareAPI {
     this.apiToken = apiToken;
   }
 
+  private extractErrorMessage(error: any): string {
+    if (!error) return '';
+
+    const data = error.errorData || error.data || error.response?.data;
+    if (Array.isArray(data?.errors) && data.errors.length > 0) {
+      return data.errors
+        .map((err: any) => err?.message || err?.error || JSON.stringify(err))
+        .filter(Boolean)
+        .join('; ');
+    }
+
+    if (typeof data?.message === 'string' && data.message.trim().length > 0) {
+      return data.message;
+    }
+
+    if (Array.isArray(error?.errors) && error.errors.length > 0) {
+      return error.errors
+        .map((err: any) => err?.message || err?.error || JSON.stringify(err))
+        .filter(Boolean)
+        .join('; ');
+    }
+
+    if (typeof error?.message === 'string' && error.message.trim().length > 0) {
+      return error.message;
+    }
+
+    if (typeof error === 'string' && error.trim().length > 0) {
+      return error;
+    }
+
+    return '';
+  }
+
+  private buildError(fallback: string, error: any): Error {
+    const detail = this.extractErrorMessage(error);
+    return new Error(detail ? `${fallback}: ${detail}` : fallback);
+  }
+
   private async makeRequest(endpoint: string, options: any = {}, retryCount = 0): Promise<any> {
-    const maxRetries = 1;
+    const maxRetries = 2;
     const fetchOptions: RequestInit = {
       method: options.method,
       headers: {
@@ -161,6 +199,22 @@ export class CloudflareAPI {
         // Retry the request
         return this.makeRequest(endpoint, options, retryCount + 1);
       }
+
+      // Retry once for unknown server errors (e.g., 500 with "unknown" message)
+      const isUnknownServerError = response.status >= 500 && response.status < 600 && (
+        (Array.isArray(errorData?.errors) && errorData.errors.some((e: any) =>
+          e?.code === 500 ||
+          (typeof e?.message === 'string' && e.message.toLowerCase().includes('unknown api error'))
+        )) ||
+        (typeof errorData?.message === 'string' && errorData.message.toLowerCase().includes('unknown api error'))
+      );
+
+      if (isUnknownServerError && retryCount < maxRetries) {
+        const waitTime = 5000;
+        console.warn(`Unknown server error (${response.status}). Retrying in 5s... (attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.makeRequest(endpoint, options, retryCount + 1);
+      }
       
       // Create error with rate limit information
       const error = new Error(`API request failed: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`) as any;
@@ -188,7 +242,7 @@ export class CloudflareAPI {
       return response.result || [];
     } catch (error) {
       console.error('Error fetching accounts:', error);
-      throw new Error('Failed to fetch accounts');
+      throw this.buildError('Failed to fetch accounts', error);
     }
   }
 
@@ -202,7 +256,7 @@ export class CloudflareAPI {
       );
     } catch (error) {
       console.error('Error fetching zones:', error);
-      throw new Error('Failed to fetch zones');
+      throw this.buildError('Failed to fetch zones', error);
     }
   }
 
@@ -212,7 +266,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error('Error fetching zone:', error);
-      throw new Error('Failed to fetch zone');
+      throw this.buildError('Failed to fetch zone', error);
     }
   }
 
@@ -250,7 +304,7 @@ export class CloudflareAPI {
       });
     } catch (error) {
       console.error('Error deleting zone:', error);
-      throw new Error('Failed to delete zone');
+      throw this.buildError('Failed to delete zone', error);
     }
   }
 
@@ -264,7 +318,7 @@ export class CloudflareAPI {
       );
     } catch (error) {
       console.error('Error fetching DNS records:', error);
-      throw new Error('Failed to fetch DNS records');
+      throw this.buildError('Failed to fetch DNS records', error);
     }
   }
 
@@ -291,7 +345,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error('Error creating DNS record:', error);
-      throw new Error('Failed to create DNS record');
+      throw this.buildError('Failed to create DNS record', error);
     }
   }
 
@@ -318,7 +372,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error('Error updating DNS record:', error);
-      throw new Error('Failed to update DNS record');
+      throw this.buildError('Failed to update DNS record', error);
     }
   }
 
@@ -329,7 +383,7 @@ export class CloudflareAPI {
       });
     } catch (error) {
       console.error('Error deleting DNS record:', error);
-      throw new Error('Failed to delete DNS record');
+      throw this.buildError('Failed to delete DNS record', error);
     }
   }
 
@@ -343,7 +397,7 @@ export class CloudflareAPI {
       );
     } catch (error) {
       console.error('Error fetching SSL certificates:', error);
-      throw new Error('Failed to fetch SSL certificates');
+      throw this.buildError('Failed to fetch SSL certificates', error);
     }
   }
 
@@ -353,7 +407,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error('Error fetching SSL setting:', error);
-      throw new Error('Failed to fetch SSL setting');
+      throw this.buildError('Failed to fetch SSL setting', error);
     }
   }
 
@@ -366,7 +420,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error('Error updating SSL setting:', error);
-      throw new Error('Failed to update SSL setting');
+      throw this.buildError('Failed to update SSL setting', error);
     }
   }
 
@@ -380,7 +434,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error(`Error updating ${setting}:`, error);
-      throw new Error(`Failed to update ${setting}`);
+      throw this.buildError(`Failed to update ${setting}`, error);
     }
   }
 
@@ -418,7 +472,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error) {
       console.error('Error updating HSTS:', error);
-      throw new Error('Failed to update HSTS');
+      throw this.buildError('Failed to update HSTS', error);
     }
   }
 
@@ -453,7 +507,7 @@ export class CloudflareAPI {
       return response.result;
     } catch (error: any) {
       console.error('Error updating Bot Fight Mode:', error);
-      throw new Error('Failed to update Bot Fight Mode');
+      throw this.buildError('Failed to update Bot Fight Mode', error);
     }
   }
 
