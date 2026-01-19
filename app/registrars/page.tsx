@@ -99,7 +99,13 @@ export default function RegistrarsPage() {
 		);
 	};
 
-	const handleRefresh = () => loadDomains(true);
+	const handleRefresh = () => {
+		if (selectedAccount && selectedAccount !== 'all') {
+			refreshAccount(selectedAccount);
+		} else {
+			loadDomains(true);
+		}
+	};
 
 	useLoadingToast(isRefreshing, 'Loading domains...');
 	useLoadingToast(isLoading, 'Loading Namecheap domains...');

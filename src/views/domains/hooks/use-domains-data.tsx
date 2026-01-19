@@ -88,7 +88,7 @@ export function useDomainsData() {
 		}
 	}, [accounts]);
 
-	const loadDNSRecordsProgressively = useCallback(async (forceRefresh = false) => {
+	const loadDNSRecordsProgressively = useCallback(async (forceRefresh = false, targetAccountId?: string) => {
 		// Read zones directly from store to avoid stale closure values
 		const currentZones = useCloudflareCache.getState().zones;
 		if (currentZones.length === 0 || accounts.length === 0) return;
@@ -98,6 +98,9 @@ export function useDomainsData() {
 		const zonesToLoad: Array<{ zoneId: string; accountId: string; zone: Zone }> = [];
 
 		currentZones.forEach((item) => {
+            // If targetAccountId is specified, skip zones from other accounts
+            if (targetAccountId && item.accountId !== targetAccountId) return;
+
 			const cacheKey = `${item.zone.id}-${item.accountId}`;
 			const cachedRecords = getDNSRecords(item.zone.id, item.accountId);
 			const cacheState = useCloudflareCache.getState();
@@ -120,7 +123,7 @@ export function useDomainsData() {
 			}
 		});
 
-		setDnsRecordsCache(recordsCache);
+		setDnsRecordsCache(prev => ({ ...prev, ...recordsCache }));
 
 		// Load remaining zones in parallel with controlled concurrency
 		// Using concurrency of 15 to balance speed and rate limits
@@ -141,63 +144,77 @@ export function useDomainsData() {
 		}
 	}, [accounts, getDNSRecords, isCacheValid, loadDNSForZone]);
 
-		const loadZones = useCallback(async (forceRefresh = false) => {
-				if (accounts.length === 0) return;
+	const loadZones = useCallback(async (forceRefresh = false, targetAccountId?: string) => {
+		const accountsToLoad = targetAccountId 
+			? accounts.filter(a => a.id === targetAccountId)
+			: accounts;
 
-				if (!forceRefresh && isCacheValid('zones') && zones.length > 0) {
-						return;
-				}
+		if (accountsToLoad.length === 0) return;
 
-				setLoading('zones', '', true);
+		// If global refresh (no targetAccountId) and cache is valid, skip
+		if (!targetAccountId && !forceRefresh && isCacheValid('zones') && zones.length > 0) {
+			return;
+		}
+
+		setLoading('zones', '', true);
+		try {
+			const fetchedZones: any[] = [];
+			
+			const promises = accountsToLoad.map(async (account) => {
 				try {
-						const allZones: any[] = [];
-						
-						const promises = accounts.map(async (account) => {
-								try {
-										const api = new CloudflareAPI(account.apiToken);
-										const zonesData = await api.getZones();
-										console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
-										return zonesData.map((zone: any) => ({
-												zone,
-												accountId: account.id,
-												accountName: account.name || account.email,
-										}));
-								} catch (error) {
-										console.error(`Error loading zones for account ${account.name}:`, error);
-										toast.error(`Failed to load zones for ${account.name}`);
-										return [];
-								}
-						});
-
-						const results = await Promise.all(promises);
-						results.forEach((accountZones: any[]) => {
-								allZones.push(...accountZones);
-						});
-
-						setZones(allZones);
-						
-						// Show success toast with domain count
-						if (allZones.length > 0) {
-								toast.success(`Loaded ${allZones.length} domain${allZones.length !== 1 ? 's' : ''}`);
-						}
-						
-						// Reset the flag so DNS loading can happen
-						hasLoadedZones.current = false;
-						
-						// Trigger progressive DNS loading after zones are set
-						// Pass forceRefresh to also refresh DNS records when zones are refreshed
-						// Use a small delay to ensure zones state has propagated
-						setTimeout(() => {
-								loadDNSRecordsProgressively(forceRefresh);
-								hasLoadedZones.current = true;
-						}, 100);
+					const api = new CloudflareAPI(account.apiToken);
+					const zonesData = await api.getZones();
+					console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
+					return zonesData.map((zone: any) => ({
+						zone,
+						accountId: account.id,
+						accountName: account.name || account.email,
+					}));
 				} catch (error) {
-						toast.error('Failed to load domains');
-						console.error('Error loading zones:', error);
-				} finally {
-						setLoading('zones', '', false);
+					console.error(`Error loading zones for account ${account.name}:`, error);
+					toast.error(`Failed to load zones for ${account.name}`);
+					return [];
 				}
-		}, [accounts, isCacheValid, zones.length, setLoading, setZones, loadDNSRecordsProgressively]);
+			});
+
+			const results = await Promise.all(promises);
+			results.forEach((accountZones: any[]) => {
+				fetchedZones.push(...accountZones);
+			});
+
+			// If targetAccountId is set, merge with existing zones from other accounts
+			if (targetAccountId) {
+				const currentZones = useCloudflareCache.getState().zones;
+				// Keep zones from other accounts
+				const otherZones = currentZones.filter(z => z.accountId !== targetAccountId);
+				setZones([...otherZones, ...fetchedZones]);
+			} else {
+				// Otherwise replace all zones
+				setZones(fetchedZones);
+			}
+			
+			// Show success toast with domain count
+			if (fetchedZones.length > 0) {
+				toast.success(`Loaded ${fetchedZones.length} domain${fetchedZones.length !== 1 ? 's' : ''}`);
+			}
+			
+			// Reset the flag so DNS loading can happen
+			hasLoadedZones.current = false;
+			
+			// Trigger progressive DNS loading after zones are set
+			// Pass forceRefresh to also refresh DNS records when zones are refreshed
+			// Use a small delay to ensure zones state has propagated
+			setTimeout(() => {
+				loadDNSRecordsProgressively(forceRefresh, targetAccountId);
+				hasLoadedZones.current = true;
+			}, 100);
+		} catch (error) {
+			toast.error('Failed to load domains');
+			console.error('Error loading zones:', error);
+		} finally {
+			setLoading('zones', '', false);
+		}
+	}, [accounts, isCacheValid, zones.length, setLoading, setZones, loadDNSRecordsProgressively]);
 
 		useEffect(() => {
 				if (!accountsLoading && accounts.length > 0) {

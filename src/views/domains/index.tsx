@@ -189,9 +189,13 @@ export default function DomainsPage() {
 	);
 
 	const handleRefresh = useCallback(() => {
-		clearCache();
-		loadZones(true);
-	}, [clearCache, loadZones]);
+		if (selectedAccount && selectedAccount !== 'all') {
+			loadZones(true, selectedAccount);
+		} else {
+			clearCache();
+			loadZones(true);
+		}
+	}, [clearCache, loadZones, selectedAccount]);
 
 	const handleDomainDeleted = useCallback((zoneId: string, accountId: string) => {
 		const { removeZone } = useCloudflareCache.getState();
