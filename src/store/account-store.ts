@@ -1,19 +1,25 @@
 import { create } from 'zustand';
 import { storage } from '@/lib/storage';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
-import type { CloudflareAccount } from '@/types/cloudflare';
+import { useCloudflareCache } from '@/store/cloudflare-cache';
+import type { CloudflareAccount, ProxyAccount } from '@/types/cloudflare';
 
 interface AccountStore {
   accounts: CloudflareAccount[];
+  proxyAccounts: ProxyAccount[];
   isLoading: boolean;
   error: string | null;
   domainNameservers: Record<string, string[]>; // domain -> nameservers mapping
 
   // Actions
   loadAccounts: () => void;
+  loadProxyAccounts: () => void;
   addAccount: (account: CloudflareAccount) => void;
+  addProxyAccount: (account: ProxyAccount) => void;
   updateAccount: (id: string, updates: Partial<CloudflareAccount>) => void;
+  updateProxyAccount: (id: string, updates: Partial<ProxyAccount>) => void;
   removeAccount: (id: string) => void;
+  removeProxyAccount: (id: string) => void;
   fetchAndCacheCloudflareAccounts: (accountId: string) => Promise<void>;
   setDomainNameservers: (domain: string, nameservers: string[]) => void;
   getDomainNameservers: (domain: string) => string[] | undefined;
@@ -48,6 +54,7 @@ const saveNameservers = (nameservers: Record<string, string[]>) => {
 
 export const useAccountStore = create<AccountStore>((set, get) => ({
   accounts: [],
+  proxyAccounts: [],
   isLoading: false,
   error: null,
   domainNameservers: loadNameservers(),
@@ -67,14 +74,26 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
 
   addAccount: (account) => {
     try {
-      storage.addAccount(account);
+      // Ensure createdAt is set
+      const accountWithTimestamps = {
+        ...account,
+        createdAt: account.createdAt || new Date(),
+      };
+      storage.addAccount(accountWithTimestamps);
       const accounts = storage.getAccounts();
       set({ accounts, error: null });
-      
-      // Automatically fetch Cloudflare accounts for the new account
-      get().fetchAndCacheCloudflareAccounts(account.id);
+
+      // Automatically fetch Cloudflare accounts for the new account ONLY if it is a Cloudflare account
+      if (account.category === 'cloudflare') {
+        get().fetchAndCacheCloudflareAccounts(account.id);
+      }
+
+      // Cache registrar data if this is a registrar account
+      if (account.category === 'registrar' && account.registrarName) {
+        useCloudflareCache.getState().setRegistrarData(account.id, account.registrarName);
+      }
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to add account'
       });
     }
@@ -82,16 +101,33 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
 
   updateAccount: (id, updates) => {
     try {
-      storage.updateAccount(id, updates);
+      const updatesWithTimestamp = {
+        ...updates,
+        lastUpdated: new Date(),
+      };
+      storage.updateAccount(id, updatesWithTimestamp);
       const accounts = storage.getAccounts();
       set({ accounts, error: null });
-      
-      // If API token changed, re-fetch Cloudflare accounts
+
+      // If API token changed, re-fetch Cloudflare accounts if it's a Cloudflare account
       if (updates.apiToken) {
-        get().fetchAndCacheCloudflareAccounts(id);
+        const updatedAccount = accounts.find(acc => acc.id === id);
+        if (updatedAccount && updatedAccount.category === 'cloudflare') {
+          get().fetchAndCacheCloudflareAccounts(id);
+        }
+      }
+
+      // Update registrar data if registrar name changed
+      const updatedAccounts = storage.getAccounts();
+      const account = updatedAccounts.find(acc => acc.id === id);
+      if (account && account.category === 'registrar') {
+        const registrarName = updates.registrarName || account.registrarName;
+        if (registrarName) {
+          useCloudflareCache.getState().setRegistrarData(id, registrarName);
+        }
       }
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to update account'
       });
     }
@@ -103,8 +139,65 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
       const accounts = storage.getAccounts();
       set({ accounts, error: null });
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to remove account'
+      });
+    }
+  },
+
+  loadProxyAccounts: () => {
+    set({ isLoading: true, error: null });
+    try {
+      const proxyAccounts = storage.getProxyAccounts();
+      set({ proxyAccounts, isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load proxy accounts',
+        isLoading: false
+      });
+    }
+  },
+
+  addProxyAccount: (account) => {
+    try {
+      const accountWithTimestamps = {
+        ...account,
+        createdAt: account.createdAt || new Date(),
+      };
+      storage.addProxyAccount(accountWithTimestamps);
+      const proxyAccounts = storage.getProxyAccounts();
+      set({ proxyAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to add proxy account'
+      });
+    }
+  },
+
+  updateProxyAccount: (id, updates) => {
+    try {
+      const updatesWithTimestamp = {
+        ...updates,
+        lastUpdated: new Date(),
+      };
+      storage.updateProxyAccount(id, updatesWithTimestamp);
+      const proxyAccounts = storage.getProxyAccounts();
+      set({ proxyAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update proxy account'
+      });
+    }
+  },
+
+  removeProxyAccount: (id) => {
+    try {
+      storage.removeProxyAccount(id);
+      const proxyAccounts = storage.getProxyAccounts();
+      set({ proxyAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to remove proxy account'
       });
     }
   },

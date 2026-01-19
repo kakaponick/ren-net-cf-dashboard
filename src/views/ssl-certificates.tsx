@@ -224,7 +224,7 @@ export default function SSLCertificatesPage() {
           <div>
             <h1 className="text-2xl font-bold">SSL Certificates</h1>
             <p className="text-muted-foreground">
-              {zone ? `Managing SSL certificates for ${zone.name} (${account.name})` : 'Loading...'}
+              {zone ? `Managing SSL certificates for ${zone.name} (${account.name || account.email})` : 'Loading...'}
             </p>
           </div>
         </div>

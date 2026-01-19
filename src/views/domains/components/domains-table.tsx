@@ -59,7 +59,7 @@ export const DomainsTable = memo(function DomainsTable({
 		};
 
 		return (
-				<Table>
+				<Table className='mb-2'>
 						<TableHeader>
 								<TableRow>
 										<TableHead className="w-14">
@@ -109,28 +109,6 @@ export const DomainsTable = memo(function DomainsTable({
 														<div className="flex items-center space-x-2">
 																<span>{DOMAIN_COLUMN_LABELS.rootARecord}</span>
 																{getSortIcon('rootARecord')}
-														</div>
-												</TableHead>
-										</ActivityBoundary>
-										<ActivityBoundary mode={visibleColumns.expiration ? 'visible' : 'hidden'}>
-												<TableHead
-														className="cursor-pointer hover:bg-muted/50"
-														onClick={() => onSort('expiration')}
-												>
-														<div className="flex items-center space-x-2">
-																<span>{DOMAIN_COLUMN_LABELS.expiration}</span>
-																{getSortIcon('expiration')}
-														</div>
-												</TableHead>
-										</ActivityBoundary>
-										<ActivityBoundary mode={visibleColumns.health ? 'visible' : 'hidden'}>
-												<TableHead
-														className="cursor-pointer hover:bg-muted/50"
-														onClick={() => onSort('health')}
-												>
-														<div className="flex items-center space-x-2">
-																<span>{DOMAIN_COLUMN_LABELS.health}</span>
-																{getSortIcon('health' as SortField)}
 														</div>
 												</TableHead>
 										</ActivityBoundary>

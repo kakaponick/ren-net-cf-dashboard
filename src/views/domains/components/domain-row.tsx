@@ -29,9 +29,6 @@ import { DNSDrawer } from '@/components/dns-drawer';
 import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
-import { useDomainHealth } from '@/hooks/use-domain-health';
-import { DomainHealthCell } from './domain-health';
-import { DomainExpirationCell } from './domain-expiration';
 import type { ZoneWithDNS } from '../hooks/use-domains-data';
 import type { DNSRecord, Zone } from '@/types/cloudflare';
 import type { DomainColumnVisibility } from '../domain-columns';
@@ -62,7 +59,6 @@ export const DomainRow = memo(function DomainRow({
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isCreatingCNAME, setIsCreatingCNAME] = useState(false);
-	const { health, error: healthError, isChecking, checkHealth } = useDomainHealth(item.zone.name);
 	
 	const handleToggle = useCallback(() => onToggle(rowId), [onToggle, rowId]);
 	const handleRefreshDNS = useCallback(() => onRefreshDNS?.(item.zone.id, item.accountId), [onRefreshDNS, item.zone.id, item.accountId]);
@@ -280,28 +276,6 @@ export const DomainRow = memo(function DomainRow({
 					/>
 				</TableCell>
 			</ActivityBoundary>
-			<ActivityBoundary mode={visibleColumns.expiration ? 'visible' : 'hidden'}>
-				<TableCell>
-					<DomainExpirationCell
-						domain={item.zone.name}
-						health={health}
-						error={healthError}
-						isLoading={isChecking}
-						onRefresh={checkHealth}
-					/>
-				</TableCell>
-			</ActivityBoundary>
-			<ActivityBoundary mode={visibleColumns.health ? 'visible' : 'hidden'}>
-				<TableCell>
-					<DomainHealthCell
-						domain={item.zone.name}
-						health={health}
-						error={healthError}
-						isLoading={isChecking}
-						onCheck={checkHealth}
-					/>
-				</TableCell>
-			</ActivityBoundary>
 			<ActivityBoundary mode={visibleColumns.account ? 'visible' : 'hidden'}>
 				<TableCell>
 					<span className="text-sm">{item.accountEmail}</span>
@@ -349,18 +323,6 @@ export const DomainRow = memo(function DomainRow({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-								<DropdownMenuItem
-									onClick={() => { void checkHealth(true); }}
-									disabled={isChecking}
-									className="cursor-pointer"
-								>
-									{isChecking ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : (
-										<RefreshCw className="mr-2 h-4 w-4" />
-									)}
-									Check health
-								</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={handleCreateWWWCNAME}
 								disabled={isCreatingCNAME}

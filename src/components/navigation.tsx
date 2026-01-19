@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
+  AtSign,
+  CheckCircle2,
   Globe,
   KeyRound
 } from 'lucide-react';
@@ -15,8 +17,9 @@ interface NavigationProps {
 }
 
 const navigation = [
-  { name: 'Domains', href: '/', icon: Globe },
-  { name: 'Accounts', href: '/accounts', icon: KeyRound },
+  { name: 'Cloudflare', href: '/', icon: Globe },
+  { name: 'Namecheap', href: '/registrars', icon: AtSign },
+  { name: 'Credentials', href: '/credentials', icon: KeyRound },
 ];
 
 export function Navigation({ children }: NavigationProps) {
@@ -29,7 +32,7 @@ export function Navigation({ children }: NavigationProps) {
         <header className="border-b bg-card px-6 py-2">
           <div className="flex items-center justify-between">
             <div className="flex gap-6 items-center">
-              <h1 className="font-bold">Cloudflare Dashboard</h1>
+
 
               <nav className="flex gap-2">
                 {navigation.map((item) => {
@@ -58,7 +61,7 @@ export function Navigation({ children }: NavigationProps) {
           </div>
         </header>
 
-        <main className="flex-1 px-6">
+        <main className="flex-1 px-6 pb-6">
           {children}
         </main>
       </div>

@@ -271,7 +271,7 @@ export default function DNSRecordsPage() {
           <div>
             <h1 className="text-2xl font-bold">DNS Records</h1>
             <p className="text-muted-foreground">
-              {zone ? `Managing DNS records for ${zone.name} (${account.name})` : 'Loading...'}
+              {zone ? `Managing DNS records for ${zone.name} (${account.name || account.email})` : 'Loading...'}
             </p>
           </div>
         </div>

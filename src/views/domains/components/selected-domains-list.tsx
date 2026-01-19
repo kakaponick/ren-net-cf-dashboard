@@ -50,9 +50,9 @@ export function SelectedDomainsList({
 									{zone.zone.name}
 								</div>
 								{showAccount && account && (
-									<div className="text-xs text-muted-foreground mt-1 truncate" title={account.name}>
-										{account.name}
-									</div>
+								<div className="text-xs text-muted-foreground mt-1 truncate" title={account.name || account.email}>
+									{account.name || account.email}
+								</div>
 								)}
 							</div>
 						);

@@ -1,4 +1,4 @@
-export type DomainColumnKey = 'status' | 'proxied' | 'rootARecord' | 'expiration' | 'health' | 'account' | 'created';
+export type DomainColumnKey = 'status' | 'proxied' | 'rootARecord' | 'account' | 'created';
 
 export type DomainColumnVisibility = Record<DomainColumnKey, boolean>;
 
@@ -6,8 +6,6 @@ export const DOMAIN_COLUMN_LABELS: Record<DomainColumnKey, string> = {
 		status: 'Status',
 		proxied: 'Proxied',
 		rootARecord: 'A Record',
-		expiration: 'Expiry',
-		health: 'Health',
 		account: 'Account',
 		created: 'Created'
 };
@@ -16,8 +14,6 @@ export const DOMAIN_COLUMN_KEYS: DomainColumnKey[] = [
 		'status',
 		'proxied',
 		'rootARecord',
-		'expiration',
-		'health',
 		'account',
 		'created'
 ];

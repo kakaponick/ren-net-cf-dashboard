@@ -286,7 +286,7 @@ export function DNSDrawer({
 									<span>
 										Managing DNS records for <strong className="font-semibold">{zone.name}</strong>
 										{account && (
-											<span className="text-muted-foreground"> ({account.name})</span>
+											<span className="text-muted-foreground"> ({account.name || account.email})</span>
 										)}
 									</span>
 								) : (

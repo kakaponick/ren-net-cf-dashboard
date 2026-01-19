@@ -1,12 +1,32 @@
+export type AccountCategory = "registrar" | "cloudflare" | "proxy"
+
+export type RegistrarType = "namecheap"
+
 export interface CloudflareAccount {
   id: string;
-  name: string;
+  name?: string;
   email: string;
   apiToken: string;
+  category?: AccountCategory;
+  registrarName?: RegistrarType; // Required when category is "registrar"
+  username?: string; // API username for registrar accounts (defaults to email prefix)
+  proxyId?: string; // Reference to proxy account for API calls
+  createdAt: Date;
   cloudflareAccounts?: {
     id: string;
     name: string;
   }[];
+}
+
+export interface ProxyAccount {
+  id: string;
+  name?: string;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  category: "proxy";
+  createdAt: Date;
 }
 
 export interface Zone {

@@ -107,7 +107,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 
 			// Add zone to cache immediately for reactive UI update
 			if (zone?.id) {
-				addZone(zone, account.id, account.name);
+				addZone(zone, account.id, account.name || 'Unnamed Account');
 			}
 
 			// Update step to success
@@ -500,7 +500,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 				}
 
 				if (zone?.id) {
-					addZone(zone, account.id, account.name);
+					addZone(zone, account.id, account.name || 'Unnamed Account');
 				}
 
 				return;

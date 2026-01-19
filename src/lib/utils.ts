@@ -189,7 +189,7 @@ export function createRateLimiter({
 
   const schedule = <T>(task: () => Promise<T>): Promise<T> =>
     new Promise<T>((resolve, reject) => {
-      queue.push({ task, resolve, reject });
+      queue.push({ task, resolve: resolve as (value: unknown) => void, reject });
       processQueue();
     });
 
@@ -348,9 +348,3 @@ export function parseWhoisDate(raw: string | undefined | null): string | null {
  * Calculate days from now until the provided ISO date.
  * Returns null when the date is invalid.
  */
-export function getDaysToExpiration(dateIso: string | undefined | null): number | null {
-  if (!dateIso) return null;
-  const target = parseISO(dateIso);
-  if (!isValid(target)) return null;
-  return differenceInCalendarDays(target, new Date());
-}

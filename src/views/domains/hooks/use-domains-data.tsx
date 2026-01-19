@@ -17,7 +17,8 @@ export interface ZoneWithDNS {
 }
 
 export function useDomainsData() {
-		const { accounts, isLoading: accountsLoading } = useAccountStore();
+		const { accounts: allAccounts, isLoading: accountsLoading } = useAccountStore();
+		const accounts = allAccounts.filter(account => account.category === 'cloudflare');
 		const { 
 				zones, 
 				isLoading,
@@ -159,7 +160,7 @@ export function useDomainsData() {
 										return zonesData.map((zone: any) => ({
 												zone,
 												accountId: account.id,
-												accountName: account.name,
+												accountName: account.name || account.email,
 										}));
 								} catch (error) {
 										console.error(`Error loading zones for account ${account.name}:`, error);
