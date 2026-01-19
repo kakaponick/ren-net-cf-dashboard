@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { NamecheapDomain } from '@/types/namecheap';
 
 type SortField = 'name' | 'user' | 'created' | 'expires' | 'status';
@@ -15,9 +16,9 @@ function getDomainStatus(domain: NamecheapDomain): keyof typeof STATUS_ORDER {
 }
 
 export function useRegistrarFilterSort(domains: NamecheapDomain[]) {
-	const [searchTerm, setSearchTerm] = useState('');
+	const [searchTerm, setSearchTerm] = useLocalStorage<string>('namecheap-search-term', '');
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-	const [selectedAccount, setSelectedAccount] = useState('all');
+	const [selectedAccount, setSelectedAccount] = useLocalStorage<string>('namecheap-account-filter', 'all');
 	const [sortField, setSortField] = useState<SortField>('name');
 	const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 

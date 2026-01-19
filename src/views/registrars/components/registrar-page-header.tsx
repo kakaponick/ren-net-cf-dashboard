@@ -70,24 +70,7 @@ export function RegistrarPageHeader({
 				</div>
 
 				<div className="flex items-center space-x-2 flex-nowrap">
-					<Select value={selectedAccount} onValueChange={onAccountChange}>
-						<SelectTrigger className="w-[200px] h-9">
-							<SelectValue placeholder="All Accounts" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">
-								All Accounts <span className="text-muted-foreground ml-1">({totalDomains})</span>
-							</SelectItem>
-							{accounts.map((account) => (
-								<SelectItem key={account.id} value={account.id}>
-									{account.name || account.email}
-									<span className="text-muted-foreground ml-2">
-										({domainCounts[account.id] || 0})
-									</span>
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					
 					<div className="relative">
 						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
 						<Input
@@ -107,6 +90,25 @@ export function RegistrarPageHeader({
 							</Button>
 						)}
 					</div>
+
+					<Select value={selectedAccount} onValueChange={onAccountChange}>
+						<SelectTrigger className="w-xs h-9">
+							<SelectValue placeholder="All Accounts" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">
+								All Accounts <span className="text-muted-foreground ml-1">({totalDomains})</span>
+							</SelectItem>
+							{accounts.map((account) => (
+								<SelectItem key={account.id} value={account.id}>
+									{account.name || account.email}
+									<span className="text-muted-foreground ml-2">
+										({domainCounts[account.id] || 0})
+									</span>
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 
 					<Button
 						onClick={onRefresh}

@@ -9,7 +9,15 @@ import { ColumnVisibilityMenu } from '@/components/table/column-visibility-menu'
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { useSelection } from '@/hooks/use-selection';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useDomainsData } from './hooks/use-domains-data';
 import { useDomainsFilter } from './hooks/use-domains-filter';
 import { useDomainsSort, type SortField, type SortDirection } from './hooks/use-domains-sort';
@@ -42,7 +50,8 @@ export default function DomainsPage() {
 		console.log(`Cache: ${enrichedZones.length} of ${zones.length} domains loaded`);
 	}
 
-	const [searchTerm, setSearchTerm] = useState('');
+	const [searchTerm, setSearchTerm] = useLocalStorage<string>('cloudflare-search-term', '');
+	const [selectedAccount, setSelectedAccount] = useLocalStorage<string>('cloudflare-account-filter', 'all');
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 	const [sortField, setSortField] = useState<SortField>('name');
 	const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -97,8 +106,17 @@ export default function DomainsPage() {
 		[]
 	);
 
-	const filteredZones = useDomainsFilter(enrichedZones, debouncedSearchTerm);
+	const filteredZones = useDomainsFilter(enrichedZones, debouncedSearchTerm, selectedAccount);
 	const sortedZones = useDomainsSort(filteredZones, sortField, sortDirection);
+
+	// Calculate domain counts per account
+	const domainCounts = useMemo(() => {
+		const counts: Record<string, number> = {};
+		enrichedZones.forEach((zone) => {
+			counts[zone.accountId] = (counts[zone.accountId] || 0) + 1;
+		});
+		return counts;
+	}, [enrichedZones]);
 
 	// Pagination commented out - showing all rows
 	// Compute itemsPerPage based on selected mode
@@ -285,6 +303,7 @@ export default function DomainsPage() {
 					</div>
 
 					<div className="flex items-center space-x-2 flex-nowrap">
+						
 						<div className="relative">
 							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
 							<Input
@@ -305,21 +324,40 @@ export default function DomainsPage() {
 							)}
 						</div>
 
+						<Select value={selectedAccount} onValueChange={setSelectedAccount}>
+							<SelectTrigger className="w-xsh-9">
+								<SelectValue placeholder="All Accounts" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">
+									All Accounts <span className="text-muted-foreground ml-1">({enrichedZones.length})</span>
+								</SelectItem>
+								{accounts.map((account) => (
+									<SelectItem key={account.id} value={account.id}>
+										{account.name || account.email}
+										<span className="text-muted-foreground ml-2">
+											({domainCounts[account.id] || 0})
+										</span>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+
 						<div className="flex items-center gap-2">
 							<div className="flex items-center gap-3 rounded-md border p-1 pl-3 text-muted-foreground">
-							<RefreshCw className={cn(isLoading ? 'animate-spin' : '', 'h-4 w-4')} />
-								<span className="text-xs font-medium">Refresh cache</span>
-							
-							<ButtonGroup className="flex">
-								<Button
-									onClick={handleRefresh}
-									disabled={isLoading}
-									variant="outline"
-									size="sm"
-								>
-									Cloudflare
-								</Button>
-							</ButtonGroup>
+								<RefreshCw className={cn(isLoading ? 'animate-spin' : '', 'h-4 w-4')} />
+									<span className="text-xs font-medium whitespace-nowrap">Refresh cache</span>
+								
+								<ButtonGroup className="flex">
+									<Button
+										onClick={handleRefresh}
+										disabled={isLoading}
+										variant="outline"
+										size="sm"
+									>
+										Cloudflare
+									</Button>
+								</ButtonGroup>
 							</div>
 						</div>
 						<ColumnVisibilityMenu items={columnVisibilityItems} />

@@ -201,7 +201,7 @@ export function AccountsTable({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <code className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1 truncate max-w-[240px]">
+                          <code className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1 truncate max-w-[300px]">
                             {visibleTokens[accountId] ? apiToken : displayToken}
                           </code>
                           <div className="flex gap-1">

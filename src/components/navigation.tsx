@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   AtSign,
-  CheckCircle2,
   Globe,
   KeyRound
 } from 'lucide-react';
