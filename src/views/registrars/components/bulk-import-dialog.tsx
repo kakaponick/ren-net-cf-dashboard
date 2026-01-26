@@ -23,11 +23,11 @@ import { Switch } from '@/components/ui/switch';
 import { useAccountStore } from '@/store/account-store';
 import { useBulkDomainCreation } from '@/hooks/use-bulk-domain-creation';
 import { toast } from 'sonner';
-import type { NamecheapDomain } from '@/types/namecheap';
+import type { UnifiedDomain } from '@/types/registrar';
 import type { CloudflareAccount } from '@/types/cloudflare';
 
 interface BulkImportDialogProps {
-	selectedDomains: NamecheapDomain[];
+	selectedDomains: UnifiedDomain[];
 	onComplete?: () => void;
 }
 
@@ -59,7 +59,7 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 		},
 	});
 
-	const domainNames = selectedDomains.map(domain => domain.Name);
+	const domainNames = selectedDomains.map(domain => domain.name);
 
 	const handleImport = useCallback(async () => {
 		if (!selectedAccount || !rootIPAddress.trim()) {
@@ -107,7 +107,7 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 						Bulk Import Domains to Cloudflare
 					</DialogTitle>
 					<DialogDescription>
-						Import {selectedDomains.length} selected domain{selectedDomains.length > 1 ? 's' : ''} from Namecheap to Cloudflare.
+						Import {selectedDomains.length} selected domain{selectedDomains.length > 1 ? 's' : ''} to Cloudflare.
 						This will create zones and configure default settings for each domain.
 					</DialogDescription>
 				</DialogHeader>

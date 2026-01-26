@@ -17,8 +17,13 @@ export function useCloudflareAccounts({
 	const fetchingRef = useRef<string | null>(null);
 	const lastCheckedAccountIdRef = useRef<string | null>(null);
 
+	// Filter store accounts to only Cloudflare accounts
+	const cloudflareStoreAccounts = useMemo(() => {
+		return storeAccounts.filter(account => account.category === 'cloudflare');
+	}, [storeAccounts]);
+
 	// Use store accounts if available, otherwise fall back to props
-	const accountsToUse = storeAccounts.length > 0 ? storeAccounts : accounts;
+	const accountsToUse = cloudflareStoreAccounts.length > 0 ? cloudflareStoreAccounts : accounts;
 	
 	// Memoize selected account to prevent unnecessary recalculations
 	const selectedAccount = useMemo(() => {

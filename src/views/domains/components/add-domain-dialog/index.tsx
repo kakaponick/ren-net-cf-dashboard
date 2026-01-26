@@ -65,14 +65,25 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 		}
 	}, [isOpen, accountsToUse, selectedAccountId]);
 
-	// Auto-select first Cloudflare account if only one exists
+	// Reset Cloudflare account selection when API account changes
 	useEffect(() => {
+		if (selectedAccountId) {
+			setSelectedCloudflareAccountId('');
+		}
+	}, [selectedAccountId]);
+
+	// Auto-select first Cloudflare account if only one exists (after loading completes)
+	useEffect(() => {
+		if (!selectedAccountId || isLoadingAccounts) {
+			return;
+		}
+
 		if (cloudflareAccounts.length === 1 && !selectedCloudflareAccountId) {
 			setSelectedCloudflareAccountId(cloudflareAccounts[0].id);
 		} else if (cloudflareAccounts.length === 0 && selectedCloudflareAccountId) {
 			setSelectedCloudflareAccountId('');
 		}
-	}, [cloudflareAccounts, selectedCloudflareAccountId]);
+	}, [cloudflareAccounts, selectedCloudflareAccountId, selectedAccountId, isLoadingAccounts]);
 
 	const handleCreateDomains = async () => {
 		if (!domains.trim()) {

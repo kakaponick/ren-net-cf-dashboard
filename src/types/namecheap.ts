@@ -11,6 +11,7 @@ export interface NamecheapDomain {
   IsPremium: boolean;
   IsOurDNS: boolean;
   accountId?: string;
+  registrar?: 'namecheap';
 }
 
 export interface NamecheapApiResponse {

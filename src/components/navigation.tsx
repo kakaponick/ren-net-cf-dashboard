@@ -17,7 +17,7 @@ interface NavigationProps {
 
 const navigation = [
   { name: 'Cloudflare', href: '/', icon: Globe },
-  { name: 'Namecheap', href: '/registrars', icon: AtSign },
+  { name: 'Registrars', href: '/registrars', icon: AtSign },
   { name: 'Credentials', href: '/credentials', icon: KeyRound },
 ];
 

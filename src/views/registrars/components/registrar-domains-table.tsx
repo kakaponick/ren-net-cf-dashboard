@@ -2,13 +2,13 @@ import { memo, useCallback } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Shield, ShieldCheck, ShieldX } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { NamecheapDomain } from '@/types/namecheap';
+import type { UnifiedDomain } from '@/types/registrar';
 import { ActivityBoundary } from '@/components/activity-boundary';
 
-type SortField = 'name' | 'user' | 'created' | 'expires' | 'status';
+type SortField = 'name' | 'registrar' | 'expires' | 'status';
 
 type RegistrarDomainsTableProps = {
-	domains: NamecheapDomain[];
+	domains: UnifiedDomain[];
 	sortField: SortField;
 	sortDirection: 'asc' | 'desc';
 	onSort: (field: SortField) => void;
@@ -30,35 +30,48 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 	allSelected,
 	selectedCount
 }: RegistrarDomainsTableProps) {
-	const getStatusTextColor = useCallback((isExpired: boolean, isLocked: boolean) => {
-		if (isExpired) return 'text-destructive';
-		if (isLocked) return 'text-muted-foreground';
+	const getStatusTextColor = useCallback((status: string) => {
+		if (status === 'expired') return 'text-destructive';
+		if (status === 'locked' || status === 'inactive') return 'text-muted-foreground';
 		return 'text-green-600';
 	}, []);
 
-
-	const getStatusText = useCallback((domain: NamecheapDomain) => {
-		if (domain.IsExpired) return 'Expired';
-		if (domain.IsLocked) return 'Locked';
-		return 'Active';
+	const getStatusText = useCallback((status: string) => {
+		const statusMap: Record<string, string> = {
+			active: 'Active',
+			expired: 'Expired',
+			locked: 'Locked',
+			inactive: 'Inactive',
+		};
+		return statusMap[status] || status;
 	}, []);
 
-	const getWhoisGuardIcon = useCallback((whoisGuard: string) => {
-		switch (whoisGuard) {
-			case 'ENABLED':
-				return <ShieldCheck className="h-4 w-4" />;
-			case 'NOTPRESENT':
-				return <ShieldX className="h-4 w-4" />;
-			default:
-				return <Shield className="h-4 w-4" />;
+	const getWhoisGuardIcon = useCallback((domain: UnifiedDomain) => {
+		// Namecheap domains have WhoisGuard info
+		if (domain.ncDomain?.WhoisGuard) {
+			switch (domain.ncDomain.WhoisGuard) {
+				case 'ENABLED':
+					return <ShieldCheck className="h-4 w-4" />;
+				case 'NOTPRESENT':
+					return <ShieldX className="h-4 w-4" />;
+				default:
+					return <Shield className="h-4 w-4" />;
+			}
 		}
+		// Njalla doesn't have privacy info, return neutral icon
+		return <Shield className="h-4 w-4 opacity-50" />;
 	}, []);
 
 	const formatDate = useCallback((dateString: string) => {
 		try {
-			// Parse MM/DD/YYYY format
-			const [month, day, year] = dateString.split('/');
-			const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+			// Try MM/DD/YYYY format first (Namecheap)
+			if (dateString.includes('/')) {
+				const [month, day, year] = dateString.split('/');
+				const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+				return date.toLocaleDateString();
+			}
+			// Try ISO 8601 format (Njalla)
+			const date = new Date(dateString);
 			return date.toLocaleDateString();
 		} catch {
 			return dateString;
@@ -96,33 +109,22 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 					<ActivityBoundary mode="visible">
 						<TableHead
 							className="cursor-pointer hover:bg-muted/50"
+							onClick={() => onSort('registrar')}
+						>
+							<div className="flex items-center space-x-2">
+								<span>Registrar</span>
+								{getSortIcon('registrar')}
+							</div>
+						</TableHead>
+					</ActivityBoundary>
+					<ActivityBoundary mode="visible">
+						<TableHead
+							className="cursor-pointer hover:bg-muted/50"
 							onClick={() => onSort('status')}
 						>
 							<div className="flex items-center space-x-2">
 								<span>Status</span>
 								{getSortIcon('status')}
-							</div>
-						</TableHead>
-					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
-						<TableHead
-							className="cursor-pointer hover:bg-muted/50"
-							onClick={() => onSort('user')}
-						>
-							<div className="flex items-center space-x-2">
-								<span>User</span>
-								{getSortIcon('user')}
-							</div>
-						</TableHead>
-					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
-						<TableHead
-							className="cursor-pointer hover:bg-muted/50"
-							onClick={() => onSort('created')}
-						>
-							<div className="flex items-center space-x-2">
-								<span>Created</span>
-								{getSortIcon('created')}
 							</div>
 						</TableHead>
 					</ActivityBoundary>
@@ -137,15 +139,21 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 							</div>
 						</TableHead>
 					</ActivityBoundary>
-					<TableHead className="text-center">Privacy</TableHead>
 					<TableHead className="text-center">Auto Renew</TableHead>
-					<TableHead className="text-center">Premium</TableHead>
-					<TableHead className="text-center">DNS</TableHead>
+					<ActivityBoundary mode="visible">
+						<TableHead className="text-center">Privacy</TableHead>
+					</ActivityBoundary>
+					<ActivityBoundary mode="visible">
+						<TableHead className="text-center">Premium</TableHead>
+					</ActivityBoundary>
+					<ActivityBoundary mode="visible">
+						<TableHead className="text-center">DNS</TableHead>
+					</ActivityBoundary>
 				</TableRow>
 			</TableHeader>
 			<TableBody>
 				{domains.map((domain) => {
-					const rowId = domain.ID.toString();
+					const rowId = domain.id;
 					return (
 						<TableRow key={rowId}>
 							<TableCell>
@@ -157,35 +165,34 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 								</label>
 							</TableCell>
 							<TableCell className="font-medium">
-								{domain.Name}
+								{domain.name}
+							</TableCell>
+							<TableCell className="capitalize">
+								<span className="px-2 py-1 bg-muted/50 rounded text-xs font-medium">
+									{domain.registrar}
+								</span>
 							</TableCell>
 							<TableCell>
-								<span className={getStatusTextColor(domain.IsExpired, domain.IsLocked)}>
-									{getStatusText(domain)}
+								<span className={getStatusTextColor(domain.status)}>
+									{getStatusText(domain.status)}
 								</span>
 							</TableCell>
 							<TableCell className="text-muted-foreground">
-								{domain.User}
+								{formatDate(domain.expiry)}
 							</TableCell>
-							<TableCell className="text-muted-foreground">
-								{formatDate(domain.Created)}
-							</TableCell>
-							<TableCell className="text-muted-foreground">
-								{formatDate(domain.Expires)}
+							<TableCell className="text-center">
+								{domain.autorenew ? 'Yes' : 'No'}
 							</TableCell>
 							<TableCell className="text-center">
 								<div className="flex justify-center">
-									{getWhoisGuardIcon(domain.WhoisGuard)}
+									{getWhoisGuardIcon(domain)}
 								</div>
 							</TableCell>
 							<TableCell className="text-center">
-								{domain.AutoRenew ? 'Yes' : 'No'}
+								{domain.ncDomain?.IsPremium ? 'Premium' : domain.ncDomain ? 'Standard' : '—'}
 							</TableCell>
 							<TableCell className="text-center">
-								{domain.IsPremium ? 'Premium' : 'Standard'}
-							</TableCell>
-							<TableCell className="text-center">
-								{domain.IsOurDNS ? 'Namecheap' : 'External'}
+								{domain.ncDomain?.IsOurDNS ? 'Namecheap' : domain.ncDomain ? 'External' : '—'}
 							</TableCell>
 						</TableRow>
 					);

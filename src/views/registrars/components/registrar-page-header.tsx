@@ -10,6 +10,8 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import type { NamecheapAccount } from '@/types/namecheap';
+import type { NjallaAccount } from '@/types/njalla';
+import type { RegistrarType } from '@/types/registrar';
 
 interface Stats {
 	visible: number;
@@ -24,9 +26,12 @@ interface RegistrarPageHeaderProps {
 	onClearSearch: () => void;
 	onRefresh: () => void;
 	isRefreshing: boolean;
-	accounts: NamecheapAccount[];
+	namecheapAccounts: NamecheapAccount[];
+	njallaAccounts: NjallaAccount[];
 	selectedAccount: string;
 	onAccountChange: (value: string) => void;
+	selectedRegistrar: RegistrarType | 'all';
+	onRegistrarChange: (value: RegistrarType | 'all') => void;
 	domainCounts: Record<string, number>;
 }
 
@@ -37,18 +42,22 @@ export function RegistrarPageHeader({
 	onClearSearch,
 	onRefresh,
 	isRefreshing,
-	accounts,
+	namecheapAccounts,
+	njallaAccounts,
 	selectedAccount,
 	onAccountChange,
+	selectedRegistrar,
+	onRegistrarChange,
 	domainCounts,
 }: RegistrarPageHeaderProps) {
+	const allAccounts = [...namecheapAccounts, ...njallaAccounts];
 	const totalDomains = Object.values(domainCounts).reduce((a, b) => a + b, 0);
 
 	return (
 		<div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b py-3 -mx-6 px-6">
 			<div className="flex items-center justify-between gap-4">
 				<div className="flex items-center gap-4">
-					<h1 className="text-xl font-bold">Namecheap</h1>
+					<h1 className="text-xl font-bold">Registrars</h1>
 					<div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
 						<span className="px-2 py-0.5 bg-muted/50 rounded border border-border/50">
 							<span className="text-foreground font-semibold">{stats.visible}</span>
@@ -91,6 +100,17 @@ export function RegistrarPageHeader({
 						)}
 					</div>
 
+					<Select value={selectedRegistrar} onValueChange={onRegistrarChange}>
+						<SelectTrigger className="w-xs h-9">
+							<SelectValue placeholder="All Registrars" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All Registrars</SelectItem>
+							<SelectItem value="namecheap">Namecheap</SelectItem>
+							<SelectItem value="njalla">Njalla</SelectItem>
+						</SelectContent>
+					</Select>
+
 					<Select value={selectedAccount} onValueChange={onAccountChange}>
 						<SelectTrigger className="w-xs h-9">
 							<SelectValue placeholder="All Accounts" />
@@ -99,7 +119,7 @@ export function RegistrarPageHeader({
 							<SelectItem value="all">
 								All Accounts <span className="text-muted-foreground ml-1">({totalDomains})</span>
 							</SelectItem>
-							{accounts.map((account) => (
+							{allAccounts.map((account) => (
 								<SelectItem key={account.id} value={account.id}>
 									{account.name || account.email}
 									<span className="text-muted-foreground ml-2">

@@ -2,11 +2,11 @@ import { CheckCircle2, X, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { BulkImportDialog } from './bulk-import-dialog';
-import type { NamecheapDomain } from '@/types/namecheap';
+import type { UnifiedDomain } from '@/types/registrar';
 
 interface SelectionToolbarProps {
 	selectedCount: number;
-	selectedDomains: NamecheapDomain[];
+	selectedDomains: UnifiedDomain[];
 	onCopySelected: () => void;
 	onClearSelection: () => void;
 }
@@ -38,11 +38,11 @@ export function SelectionToolbar({
 										<div className="flex items-center gap-1.5 flex-wrap max-w-md">
 											{selectedDomains.slice(0, 3).map((domain) => (
 												<span
-													key={domain.ID}
+													key={domain.id}
 													className="text-xs font-mono bg-background/80 px-2 py-0.5 rounded border border-border/50 truncate max-w-[120px]"
-													title={domain.Name}
+													title={domain.name}
 												>
-													{domain.Name}
+													{domain.name}
 												</span>
 											))}
 											{selectedDomains.length > 3 && (

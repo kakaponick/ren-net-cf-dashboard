@@ -227,70 +227,86 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
                     Namecheap
                   </div>
                 </SelectItem>
+                <SelectItem value="njalla">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Njalla
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="username" className="text-sm font-medium">
-              API Username <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="username"
-              placeholder="username"
-              value={formData.username || ''}
-              onChange={(e) => {
-                // Remove dots from username as Namecheap doesn't allow them
-                const newUsername = e.target.value.replaceAll('.', '')
-                setFormData({ ...formData, username: newUsername })
-              }}
-              onBlur={(e) => {
-                // Auto-fill username from email if empty
-                if (!e.target.value && formData.email) {
-                  const defaultUsername = formData.email.split('@')[0].replaceAll('.', '')
-                  setFormData({ ...formData, username: defaultUsername })
-                }
-              }}
-              className="font-mono text-sm transition-colors focus:ring-2"
-            />
-            <p className="text-xs text-muted-foreground">
-              Your Namecheap API username. Defaults to the part before @ in your email.
-            </p>
-          </div>
-        </>
-      )}
+          {formData.registrarName === 'namecheap' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-sm font-medium">
+                  API Username <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="username"
+                  placeholder="username"
+                  value={formData.username || ''}
+                  onChange={(e) => {
+                    // Remove dots from username as Namecheap doesn't allow them
+                    const newUsername = e.target.value.replaceAll('.', '')
+                    setFormData({ ...formData, username: newUsername })
+                  }}
+                  onBlur={(e) => {
+                    // Auto-fill username from email if empty
+                    if (!e.target.value && formData.email) {
+                      const defaultUsername = formData.email.split('@')[0].replaceAll('.', '')
+                      setFormData({ ...formData, username: defaultUsername })
+                    }
+                  }}
+                  className="font-mono text-sm transition-colors focus:ring-2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your Namecheap API username. Defaults to the part before @ in your email.
+                </p>
+              </div>
 
-      {/* Proxy Selection for Registrar Accounts */}
-      {formData.category === 'registrar' && (
-        <div className="space-y-2">
-          <Label htmlFor="proxy-account" className="text-sm font-medium">
-            Proxy Account (Optional)
-          </Label>
-          <Select
-            value={formData.proxyId || "none"}
-            onValueChange={(value) => setFormData({ ...formData, proxyId: value === "none" ? undefined : value })}
-          >
-            <SelectTrigger id="proxy-account" className="transition-colors focus:ring-2">
-              <SelectValue placeholder="Select proxy for API calls" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">
-                <div className="flex items-center gap-2">
-                  <X className="h-4 w-4" />
-                  No proxy (direct connection)
-                </div>
-              </SelectItem>
-              {proxyAccounts.map((proxy) => (
-                <SelectItem key={proxy.id} value={proxy.id}>
-                  <div className="flex items-center gap-2">
-                    <Server className="h-4 w-4" />
-                    {proxy.name || `${proxy.host}:${proxy.port}`}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+              {/* Proxy Selection for Namecheap Registrar Accounts */}
+              <div className="space-y-2">
+                <Label htmlFor="proxy-account" className="text-sm font-medium">
+                  Proxy Account (Optional)
+                </Label>
+                <Select
+                  value={formData.proxyId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, proxyId: value === "none" ? undefined : value })}
+                >
+                  <SelectTrigger id="proxy-account" className="transition-colors focus:ring-2">
+                    <SelectValue placeholder="Select proxy for API calls" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2">
+                        <X className="h-4 w-4" />
+                        No proxy (direct connection)
+                      </div>
+                    </SelectItem>
+                    {proxyAccounts.map((proxy) => (
+                      <SelectItem key={proxy.id} value={proxy.id}>
+                        <div className="flex items-center gap-2">
+                          <Server className="h-4 w-4" />
+                          {proxy.name || `${proxy.host}:${proxy.port}`}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
+          {formData.registrarName === 'njalla' && (
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-4">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                <strong>Njalla API Key:</strong> Njalla uses API keys for authentication. No username or proxy is needed.
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {/* API Token for non-proxy accounts */}

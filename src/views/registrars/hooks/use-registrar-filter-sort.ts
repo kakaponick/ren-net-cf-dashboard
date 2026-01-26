@@ -1,24 +1,29 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import type { NamecheapDomain } from '@/types/namecheap';
+import type { UnifiedDomain, RegistrarType } from '@/types/registrar';
 
-type SortField = 'name' | 'user' | 'created' | 'expires' | 'status';
+type SortField = 'name' | 'registrar' | 'expires' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 const DEBOUNCE_DELAY = 200;
 
-const STATUS_ORDER = { Active: 0, Locked: 1, Expired: 2 } as const;
+const STATUS_ORDER = { Active: 0, Locked: 1, Inactive: 2, Expired: 3 } as const;
 
-function getDomainStatus(domain: NamecheapDomain): keyof typeof STATUS_ORDER {
-	if (domain.IsExpired) return 'Expired';
-	if (domain.IsLocked) return 'Locked';
-	return 'Active';
+function getDomainStatus(domain: UnifiedDomain): keyof typeof STATUS_ORDER {
+	const statusMap: Record<string, keyof typeof STATUS_ORDER> = {
+		active: 'Active',
+		locked: 'Locked',
+		inactive: 'Inactive',
+		expired: 'Expired',
+	};
+	return statusMap[domain.status] || 'Active';
 }
 
-export function useRegistrarFilterSort(domains: NamecheapDomain[]) {
-	const [searchTerm, setSearchTerm] = useLocalStorage<string>('namecheap-search-term', '');
+export function useRegistrarFilterSort(domains: UnifiedDomain[]) {
+	const [searchTerm, setSearchTerm] = useLocalStorage<string>('registrar-search-term', '');
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-	const [selectedAccount, setSelectedAccount] = useLocalStorage<string>('namecheap-account-filter', 'all');
+	const [selectedAccount, setSelectedAccount] = useLocalStorage<string>('registrar-account-filter', 'all');
+	const [selectedRegistrar, setSelectedRegistrar] = useLocalStorage<RegistrarType | 'all'>('registrar-type-filter', 'all');
 	const [sortField, setSortField] = useState<SortField>('name');
 	const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
@@ -33,6 +38,11 @@ export function useRegistrarFilterSort(domains: NamecheapDomain[]) {
 	const filteredDomains = useMemo(() => {
 		let result = domains;
 
+		// Filter by registrar type
+		if (selectedRegistrar !== 'all') {
+			result = result.filter((d) => d.registrar === selectedRegistrar);
+		}
+
 		// Filter by account
 		if (selectedAccount !== 'all') {
 			result = result.filter((d) => d.accountId === selectedAccount);
@@ -43,13 +53,12 @@ export function useRegistrarFilterSort(domains: NamecheapDomain[]) {
 			const lowerSearch = debouncedSearchTerm.toLowerCase();
 			result = result.filter(
 				(domain) =>
-					domain.Name.toLowerCase().includes(lowerSearch) ||
-					domain.User.toLowerCase().includes(lowerSearch)
+					domain.name.toLowerCase().includes(lowerSearch)
 			);
 		}
 
 		return result;
-	}, [domains, debouncedSearchTerm, selectedAccount]);
+	}, [domains, debouncedSearchTerm, selectedAccount, selectedRegistrar]);
 
 	const sortedDomains = useMemo(() => {
 		return [...filteredDomains].sort((a, b) => {
@@ -58,20 +67,16 @@ export function useRegistrarFilterSort(domains: NamecheapDomain[]) {
 
 			switch (sortField) {
 				case 'name':
-					aValue = a.Name.toLowerCase();
-					bValue = b.Name.toLowerCase();
+					aValue = a.name.toLowerCase();
+					bValue = b.name.toLowerCase();
 					break;
-				case 'user':
-					aValue = a.User.toLowerCase();
-					bValue = b.User.toLowerCase();
-					break;
-				case 'created':
-					aValue = new Date(a.Created).getTime();
-					bValue = new Date(b.Created).getTime();
+				case 'registrar':
+					aValue = a.registrar.toLowerCase();
+					bValue = b.registrar.toLowerCase();
 					break;
 				case 'expires':
-					aValue = new Date(a.Expires).getTime();
-					bValue = new Date(b.Expires).getTime();
+					aValue = new Date(a.expiry).getTime();
+					bValue = new Date(b.expiry).getTime();
 					break;
 				case 'status':
 					aValue = STATUS_ORDER[getDomainStatus(a)];
@@ -104,6 +109,8 @@ export function useRegistrarFilterSort(domains: NamecheapDomain[]) {
 		clearSearch,
 		selectedAccount,
 		setSelectedAccount,
+		selectedRegistrar,
+		setSelectedRegistrar,
 		sortField,
 		sortDirection,
 		handleSort,

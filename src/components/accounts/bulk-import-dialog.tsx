@@ -115,48 +115,56 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
                         Namecheap
                       </div>
                     </SelectItem>
+                    <SelectItem value="njalla">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        Njalla
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Default Proxy Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="default-proxy" className="text-sm font-medium">
-                  Default Proxy (Optional)
-                </Label>
-                <Select
-                  value={defaultProxyId || undefined}
-                  onValueChange={(value) => setDefaultProxyId(value === "__none__" ? "" : value)}
-                >
-                  <SelectTrigger id="default-proxy" className="transition-colors focus:ring-2">
-                    <SelectValue placeholder="Select default proxy" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {proxyAccounts.length === 0 ? (
-                      <SelectItem value="__no_proxies__" disabled>
-                        <span className="text-muted-foreground">No proxies available</span>
-                      </SelectItem>
-                    ) : (
-                      <>
-                        <SelectItem value="__none__">
-                          <span className="text-muted-foreground">No default proxy</span>
+              {/* Default Proxy Selection - Only for Namecheap */}
+              {importRegistrarName === 'namecheap' && (
+                <div className="space-y-2">
+                  <Label htmlFor="default-proxy" className="text-sm font-medium">
+                    Default Proxy (Optional)
+                  </Label>
+                  <Select
+                    value={defaultProxyId || undefined}
+                    onValueChange={(value) => setDefaultProxyId(value === "__none__" ? "" : value)}
+                  >
+                    <SelectTrigger id="default-proxy" className="transition-colors focus:ring-2">
+                      <SelectValue placeholder="Select default proxy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {proxyAccounts.length === 0 ? (
+                        <SelectItem value="__no_proxies__" disabled>
+                          <span className="text-muted-foreground">No proxies available</span>
                         </SelectItem>
-                        {proxyAccounts.map((proxy) => (
-                          <SelectItem key={proxy.id} value={proxy.id}>
-                            <div className="flex items-center gap-2">
-                              <Server className="h-4 w-4" />
-                              {proxy.name || `${proxy.host}:${proxy.port}`}
-                            </div>
+                      ) : (
+                        <>
+                          <SelectItem value="__none__">
+                            <span className="text-muted-foreground">No default proxy</span>
                           </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  This proxy will be used for rows that don't specify a proxy in the third parameter.
-                </p>
-              </div>
+                          {proxyAccounts.map((proxy) => (
+                            <SelectItem key={proxy.id} value={proxy.id}>
+                              <div className="flex items-center gap-2">
+                                <Server className="h-4 w-4" />
+                                {proxy.name || `${proxy.host}:${proxy.port}`}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This proxy will be used for rows that don't specify a proxy in the third parameter.
+                  </p>
+                </div>
+              )}
             </>
           )}
 
@@ -168,7 +176,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
               <span className="text-xs text-muted-foreground">
                 Format: {
                   importCategory === 'registrar' 
-                    ? 'Email  API_Key  Proxy(Optional)' 
+                    ? (importRegistrarName === 'njalla' ? 'Email  API_Key' : 'Email  API_Key  Proxy(Optional)')
                     : importCategory === 'proxy'
                     ? 'Host:Port[:User:Pass]'
                     : 'Email  API_Token'
@@ -179,10 +187,14 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
               id="import-data"
               placeholder={
                 importCategory === 'registrar'
-                  ? `# Example format (one account per line):
+                  ? (importRegistrarName === 'njalla' 
+                    ? `# Example format (one account per line):
+user@example.com  api_key_1234567890
+admin@client.com  api_key_abcdef1234`
+                    : `# Example format (one account per line):
 user@example.com  api_key_1234567890
 admin@client.com  api_key_abcdef1234  127.0.0.1:1080
-support@company.com  api_key_xyz789  192.168.1.1:1080:username:password`
+support@company.com  api_key_xyz789  192.168.1.1:1080:username:password`)
                   : importCategory === 'proxy'
                   ? `# Example format (one proxy per line):
 127.0.0.1:1080

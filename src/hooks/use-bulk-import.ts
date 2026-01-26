@@ -81,8 +81,8 @@ export function useBulkImport() {
             return
           }
 
-          // Validate email for Namecheap
-          if (importCategory === 'registrar' && importRegistrarName === 'namecheap') {
+          // Validate email format for registrars
+          if (importCategory === 'registrar') {
              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
              if (!emailRegex.test(email)) {
                errorCount++
@@ -90,8 +90,8 @@ export function useBulkImport() {
              }
           }
 
-          // Handle 3rd parameter (Proxy) for Registrar accounts
-          if (importCategory === 'registrar' && parts.length >= 3) {
+          // Handle 3rd parameter (Proxy) for Namecheap only
+          if (importCategory === 'registrar' && importRegistrarName === 'namecheap' && parts.length >= 3) {
             const proxyString = parts[2]
             const proxyParts = proxyString.split(':')
             
@@ -130,8 +130,8 @@ export function useBulkImport() {
             }
           }
 
-          // Use default proxy if no proxy was specified in the line
-          if (importCategory === 'registrar' && !proxyId && defaultProxyId) {
+          // Use default proxy if no proxy was specified in the line (Namecheap only)
+          if (importCategory === 'registrar' && importRegistrarName === 'namecheap' && !proxyId && defaultProxyId) {
             proxyId = defaultProxyId
           }
 

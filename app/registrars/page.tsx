@@ -4,7 +4,7 @@ import { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { useSelection } from '@/hooks/use-selection';
-import { useNamecheapDomains } from '@/hooks/use-namecheap-domains';
+import { useRegistrars } from '@/hooks/use-registrars';
 import { useAccountStore } from '@/store/account-store';
 import { copyToClipboard } from '@/lib/utils';
 import { RegistrarDomainsTable } from '@/views/registrars/components/registrar-domains-table';
@@ -23,9 +23,10 @@ export default function RegistrarsPage() {
 		isLoading,
 		isRefreshing,
 		namecheapAccounts,
+		njallaAccounts,
 		loadDomains,
 		refreshAccount,
-	} = useNamecheapDomains();
+	} = useRegistrars();
 
 	// Load accounts from localStorage on mount
 	useEffect(() => {
@@ -39,6 +40,8 @@ export default function RegistrarsPage() {
 		clearSearch,
 		selectedAccount,
 		setSelectedAccount,
+		selectedRegistrar,
+		setSelectedRegistrar,
 		sortField,
 		sortDirection,
 		handleSort,
@@ -68,7 +71,7 @@ export default function RegistrarsPage() {
 	};
 
 	const currentIds = useMemo(
-		() => sortedDomains.map((domain) => domain.ID.toString()),
+		() => sortedDomains.map((domain) => domain.id),
 		[sortedDomains]
 	);
 
@@ -76,7 +79,7 @@ export default function RegistrarsPage() {
 		useSelection(currentIds);
 
 	const selectedDomains = useMemo(
-		() => sortedDomains.filter((domain) => isSelected(domain.ID.toString())),
+		() => sortedDomains.filter((domain) => isSelected(domain.id)),
 		[sortedDomains, isSelected]
 	);
 
@@ -91,7 +94,7 @@ export default function RegistrarsPage() {
 
 	const handleCopySelected = async () => {
 		if (selectedDomains.length === 0) return;
-		const domainsText = selectedDomains.map((domain) => domain.Name).join('\n');
+		const domainsText = selectedDomains.map((domain) => domain.name).join('\n');
 		await copyToClipboard(
 			domainsText,
 			`Copied ${selectedDomains.length} domain${selectedDomains.length > 1 ? 's' : ''}`,
@@ -108,7 +111,7 @@ export default function RegistrarsPage() {
 	};
 
 	useLoadingToast(isRefreshing, 'Loading domains...');
-	useLoadingToast(isLoading, 'Loading Namecheap domains...');
+	useLoadingToast(isLoading, 'Loading domains...');
 
 	return (
 		<div className="space-y-6 h-full flex flex-col">
@@ -119,9 +122,12 @@ export default function RegistrarsPage() {
 				onClearSearch={clearSearch}
 				onRefresh={handleRefresh}
 				isRefreshing={isRefreshing}
-				accounts={namecheapAccounts}
+				namecheapAccounts={namecheapAccounts}
+				njallaAccounts={njallaAccounts}
 				selectedAccount={selectedAccount}
 				onAccountChange={handleAccountChange}
+				selectedRegistrar={selectedRegistrar}
+				onRegistrarChange={setSelectedRegistrar}
 				domainCounts={domainCounts}
 			/>
 
@@ -149,7 +155,7 @@ export default function RegistrarsPage() {
 						<EmptyDescription>
 							{searchTerm
 								? 'Try adjusting your search terms'
-								: 'No domains found in your Namecheap accounts.'}
+								: 'No domains found in your registrar accounts.'}
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>

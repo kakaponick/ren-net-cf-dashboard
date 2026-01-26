@@ -59,7 +59,8 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
             disabled={
               (formData.category === 'proxy'
                 ? !formData.proxyHost || !formData.proxyPort
-                : !formData.email || !formData.apiToken) ||
+                : !formData.email || !formData.apiToken ||
+                  (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
               isLoading
             }
           >
