@@ -1,21 +1,23 @@
-export type DomainColumnKey = 'status' | 'proxied' | 'rootARecord' | 'account' | 'created';
+export type DomainColumnKey = 'status' | 'proxied' | 'rootARecord' | 'account' | 'created' | 'sslTls';
 
 export type DomainColumnVisibility = Record<DomainColumnKey, boolean>;
 
 export const DOMAIN_COLUMN_LABELS: Record<DomainColumnKey, string> = {
-		status: 'Status',
-		proxied: 'Proxied',
-		rootARecord: 'A Record',
-		account: 'Account',
-		created: 'Created'
+	status: 'Status',
+	proxied: 'Proxied',
+	rootARecord: 'A Record',
+	account: 'Account',
+	created: 'Created',
+	sslTls: 'SSL/TLS'
 };
 
 export const DOMAIN_COLUMN_KEYS: DomainColumnKey[] = [
-		'status',
-		'proxied',
-		'rootARecord',
-		'account',
-		'created'
+	'status',
+	'proxied',
+	'rootARecord',
+	'sslTls',
+	'account',
+	'created'
 ];
 
 export const DEFAULT_DOMAIN_COLUMN_VISIBILITY: DomainColumnVisibility = DOMAIN_COLUMN_KEYS.reduce(

@@ -24,7 +24,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ARecordsCell, ProxiedCell } from './dns-cell';
+import { ARecordsCell, ProxiedCell, SSLTlsCell } from './dns-cell';
 import { DNSDrawer } from '@/components/dns-drawer';
 import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
@@ -273,6 +273,18 @@ export const DomainRow = memo(function DomainRow({
 						accountId={item.accountId}
 						zoneName={item.zone.name}
 						onRefreshDNS={onRefreshDNS}
+					/>
+				</TableCell>
+			</ActivityBoundary>
+			<ActivityBoundary mode={visibleColumns.sslTls ? 'visible' : 'hidden'}>
+				<TableCell>
+					<SSLTlsCell
+						zoneId={item.zone.id}
+						accountId={item.accountId}
+						zoneName={item.zone.name}
+						isLoading={item.dnsLoading}
+						currentMode={item.sslMode}
+						onModeChange={handleRefreshDNS}
 					/>
 				</TableCell>
 			</ActivityBoundary>

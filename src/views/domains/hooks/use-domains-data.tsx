@@ -14,6 +14,7 @@ export interface ZoneWithDNS {
 		dnsRecords?: DNSRecord[];
 		rootARecords?: DNSRecord[];
 		dnsLoading?: boolean;
+		sslMode?: 'off' | 'flexible' | 'full' | 'strict';
 }
 
 export function useDomainsData() {

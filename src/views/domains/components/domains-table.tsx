@@ -112,6 +112,17 @@ export const DomainsTable = memo(function DomainsTable({
 														</div>
 												</TableHead>
 										</ActivityBoundary>
+										<ActivityBoundary mode={visibleColumns.sslTls ? 'visible' : 'hidden'}>
+												<TableHead
+														className="cursor-pointer hover:bg-muted/50"
+														onClick={() => onSort('sslTls')}
+												>
+														<div className="flex items-center space-x-2">
+																<span>{DOMAIN_COLUMN_LABELS.sslTls}</span>
+																{getSortIcon('sslTls')}
+														</div>
+												</TableHead>
+										</ActivityBoundary>
 										<ActivityBoundary mode={visibleColumns.account ? 'visible' : 'hidden'}>
 												<TableHead
 														className="cursor-pointer hover:bg-muted/50"

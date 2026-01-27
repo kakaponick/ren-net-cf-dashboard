@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ZoneWithDNS } from './use-domains-data';
 
-export type SortField = 'name' | 'status' | 'account' | 'created' | 'rootARecord' | 'proxied';
+export type SortField = 'name' | 'status' | 'account' | 'created' | 'rootARecord' | 'proxied' | 'sslTls';
 export type SortDirection = 'asc' | 'desc';
 
 export function useDomainsSort(zones: ZoneWithDNS[], sortField: SortField, sortDirection: SortDirection) {
@@ -34,6 +34,10 @@ export function useDomainsSort(zones: ZoneWithDNS[], sortField: SortField, sortD
 								case 'proxied':
 										aValue = (a.rootARecords || []).some(r => r.proxied) ? 2 : (a.rootARecords?.length ? 1 : 0);
 										bValue = (b.rootARecords || []).some(r => r.proxied) ? 2 : (b.rootARecords?.length ? 1 : 0);
+										break;
+								case 'sslTls':
+										aValue = a.sslMode || 'strict';
+										bValue = b.sslMode || 'strict';
 										break;
 								default:
 										return 0;
