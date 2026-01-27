@@ -26,11 +26,11 @@ export function useDomainsData() {
 		setZones,
 		setLoading,
 		isCacheValid,
-		getDNSRecords
+		getDNSRecords,
+		getSSLData
 	} = useCloudflareCache();
 
 	const [dnsRecordsCache, setDnsRecordsCache] = useState<Record<string, DNSRecord[]>>({});
-	const [sslModeCache, setSslModeCache] = useState<Record<string, 'off' | 'flexible' | 'full' | 'strict'>>({});
 	const [dnsLoadingStates, setDnsLoadingStates] = useState<Record<string, boolean>>({});
 	const [isDnsLoading, setIsDnsLoading] = useState(false);
 	const loadingZonesRef = useRef<Set<string>>(new Set()); // Track zones currently being loaded
@@ -44,6 +44,8 @@ export function useDomainsData() {
 			const cacheKey = `${item.zone.id}-${item.accountId}`;
 			const records = dnsRecordsCache[cacheKey] || getDNSRecords(item.zone.id, item.accountId) || [];
 			const rootARecords = getRootARecordsFromDNS(records, item.zone.name);
+			const sslData = getSSLData(item.zone.id, item.accountId);
+			const sslMode = sslData?.sslSetting?.value as 'off' | 'flexible' | 'full' | 'strict' | undefined;
 
 			const enriched: ZoneWithDNS = {
 				...item,
@@ -51,12 +53,12 @@ export function useDomainsData() {
 				dnsRecords: records,
 				rootARecords,
 				dnsLoading: dnsLoadingStates[cacheKey] || false,
-				sslMode: sslModeCache[cacheKey]
+				sslMode
 			};
 
 			return enriched;
 		});
-	}, [zones, accounts, dnsRecordsCache, sslModeCache, dnsLoadingStates, getDNSRecords]);
+	}, [zones, accounts, dnsRecordsCache, dnsLoadingStates, getDNSRecords, getSSLData]);
 
 	const loadDNSForZone = useCallback(async (zoneId: string, accountId: string) => {
 		const cacheKey = `${zoneId}-${accountId}`;
@@ -86,8 +88,9 @@ export function useDomainsData() {
 			setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: records }));
 
 			// Cache SSL mode if available
-			if (sslSetting?.value) {
-				setSslModeCache(prev => ({ ...prev, [cacheKey]: sslSetting.value }));
+			if (sslSetting) {
+				const { setSSLData } = useCloudflareCache.getState();
+				setSSLData(zoneId, accountId, [], sslSetting);
 			}
 
 			const { setDNSRecords } = useCloudflareCache.getState();
