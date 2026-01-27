@@ -456,6 +456,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 				'TLS 1.3': () => api.setTLS13(zoneId, false),
 				'Authenticated Origin Pulls': () => api.setAuthenticatedOriginPulls(zoneId, true),
 				'Bot Fight Mode': () => api.setBotFightMode(zoneId, true),
+				'AI Bots Protection': () => api.setAIBotsProtection(zoneId, 'disabled'),
 				'WAF Custom Rule': () => api.createSkipBotsWAFRule(zoneId),
 				'Early Hints': () => api.setEarlyHints(zoneId, true),
 				'0-RTT': () => api.set0RTT(zoneId, true),

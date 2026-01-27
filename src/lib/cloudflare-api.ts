@@ -499,15 +499,35 @@ export class CloudflareAPI {
         body: {
           enable_js: enabled, // Required: JavaScript detection must be enabled for Bot Fight Mode
           fight_mode: enabled,
-          ai_bots_protection: "block",
+          ai_bots_protection: "disabled", // Verified AI crawlers (like GPTBot, ClaudeBot, etc.) allowed
           is_robots_txt_managed: false
-
         },
       });
       return response.result;
     } catch (error: any) {
       console.error('Error updating Bot Fight Mode:', error);
       throw this.buildError('Failed to update Bot Fight Mode', error);
+    }
+  }
+
+  // Security: AI Bots Protection
+  // Reference: https://developers.cloudflare.com/bots/get-started/ai-bots/
+  // PUT /zones/{zone_id}/bot_management
+  async setAIBotsProtection(zoneId: string, mode: 'disabled' | 'block' = 'disabled') {
+    try {
+      const response = await this.makeRequest(`/zones/${zoneId}/bot_management`, {
+        method: 'PUT',
+        body: {
+          ai_bots_protection: mode,
+          fight_mode: true, // Keep it enabled by default in our setup
+          enable_js: true,
+          is_robots_txt_managed: false
+        },
+      });
+      return response.result;
+    } catch (error: any) {
+      console.error('Error updating AI Bots Protection:', error);
+      throw this.buildError('Failed to update AI Bots Protection', error);
     }
   }
 
@@ -637,6 +657,7 @@ export class CloudflareAPI {
       { name: 'TLS 1.3', variable: 'off', fn: () => this.setTLS13(zoneId, false) },
       { name: 'Authenticated Origin Pulls', variable: 'on', fn: () => this.setAuthenticatedOriginPulls(zoneId, true) },
       { name: 'Bot Fight Mode', variable: 'on', fn: () => this.setBotFightMode(zoneId, true) },
+      { name: 'AI Bots Protection', variable: 'disabled', fn: () => this.setAIBotsProtection(zoneId, 'disabled') },
       { name: 'WAF Custom Rule', variable: 'skip_bots', fn: () => this.createSkipBotsWAFRule(zoneId) },
       { name: 'Early Hints', variable: 'on', fn: () => this.setEarlyHints(zoneId, true) },
       { name: '0-RTT', variable: 'on', fn: () => this.set0RTT(zoneId, true) },

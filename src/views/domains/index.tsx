@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Globe, Search, RefreshCw, CheckCircle2, X, Copy } from 'lucide-react';
+import { Globe, Search, RefreshCw, CheckCircle2, X, Copy, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { ColumnVisibilityMenu } from '@/components/table/column-visibility-menu';
@@ -26,6 +26,7 @@ import { CompactPagination } from './components/compact-pagination';
 import { AddDomainDialog } from './components/add-domain-dialog';
 import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
 import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog';
+import { AIBotsProtectionDialog } from './components/ai-bots-protection-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
 import { cn, createRateLimiter, copyToClipboard } from '@/lib/utils';
@@ -146,7 +147,7 @@ export default function DomainsPage() {
 	// const paginatedZones = rowsPerPageMode === 'all' 
 	// 	? sortedZones 
 	// 	: sortedZones.slice(startIndex, startIndex + itemsPerPage);
-	
+
 	// Show all rows instead of paginated
 	const paginatedZones = sortedZones;
 
@@ -263,13 +264,13 @@ export default function DomainsPage() {
 			<div className="flex items-center justify-center h-64">
 				<Card>
 					<CardContent className="text-center py-8">
-					<h3 className="text-lg font-medium mb-2">No Cloudflare Credentials Found</h3>
-					<p className="text-muted-foreground mb-4">
-						You need at least one Cloudflare credential to view domains. Add or configure your Cloudflare credentials in the Credentials section.
-					</p>
-					<Button onClick={() => router.push('/credentials')}>
-						Manage Credentials
-					</Button>
+						<h3 className="text-lg font-medium mb-2">No Cloudflare Credentials Found</h3>
+						<p className="text-muted-foreground mb-4">
+							You need at least one Cloudflare credential to view domains. Add or configure your Cloudflare credentials in the Credentials section.
+						</p>
+						<Button onClick={() => router.push('/credentials')}>
+							Manage Credentials
+						</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -307,7 +308,7 @@ export default function DomainsPage() {
 					</div>
 
 					<div className="flex items-center space-x-2 flex-nowrap">
-						
+
 						<div className="relative">
 							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
 							<Input
@@ -350,8 +351,8 @@ export default function DomainsPage() {
 						<div className="flex items-center gap-2">
 							<div className="flex items-center gap-3 rounded-md border p-1 pl-3 text-muted-foreground">
 								<RefreshCw className={cn(isLoading ? 'animate-spin' : '', 'h-4 w-4')} />
-									<span className="text-xs font-medium whitespace-nowrap">Refresh cache</span>
-								
+								<span className="text-xs font-medium whitespace-nowrap">Refresh cache</span>
+
 								<ButtonGroup className="flex">
 									<Button
 										onClick={handleRefresh}
@@ -415,6 +416,16 @@ export default function DomainsPage() {
 									onComplete={() => clear()}
 									onRefreshDNS={handleRefreshDNS}
 								/>
+								<AIBotsProtectionDialog
+									selectedZones={selectedZones}
+									onComplete={() => clear()}
+									trigger={
+										<Button size="sm" variant="outline" className="gap-2">
+											<ShieldCheck className="h-3.5 w-3.5" />
+											AI Bots
+										</Button>
+									}
+								/>
 								<BulkDeleteDomainsDialog
 									selectedZones={selectedZones}
 									onComplete={() => {
@@ -445,21 +456,21 @@ export default function DomainsPage() {
 				</Card>
 			)}
 
-		{isZonesLoading ? (
-			<div className="flex items-center justify-center py-12">
-				<Card className="w-full max-w-md">
-					<CardContent className="py-10 px-6">
-						<div className="text-center">
-							<Spinner className="h-6 w-6 mx-auto mb-3 text-primary" />
-							<h3 className="text-lg font-medium mb-2">Loading domains from Cloudflare accounts...</h3>
-							<p className="text-sm text-muted-foreground">
-								This may take a moment if you have many domains across your Cloudflare accounts
-							</p>
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-		) : sortedZones.length === 0 ? (
+			{isZonesLoading ? (
+				<div className="flex items-center justify-center py-12">
+					<Card className="w-full max-w-md">
+						<CardContent className="py-10 px-6">
+							<div className="text-center">
+								<Spinner className="h-6 w-6 mx-auto mb-3 text-primary" />
+								<h3 className="text-lg font-medium mb-2">Loading domains from Cloudflare accounts...</h3>
+								<p className="text-sm text-muted-foreground">
+									This may take a moment if you have many domains across your Cloudflare accounts
+								</p>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+			) : sortedZones.length === 0 ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-12">
 						<Globe className="h-12 w-12 text-muted-foreground mb-4" />

@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2, Globe, Loader2 } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2, Globe, Loader2, ShieldCheck } from 'lucide-react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ARecordsCell, ProxiedCell, SSLTlsCell } from './dns-cell';
 import { DNSDrawer } from '@/components/dns-drawer';
+import { AIBotsProtectionDialog } from './ai-bots-protection-dialog';
 import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
@@ -59,10 +60,11 @@ export const DomainRow = memo(function DomainRow({
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isCreatingCNAME, setIsCreatingCNAME] = useState(false);
-	
+	const [isAIBotsDialogOpen, setIsAIBotsDialogOpen] = useState(false);
+
 	const handleToggle = useCallback(() => onToggle(rowId), [onToggle, rowId]);
 	const handleRefreshDNS = useCallback(() => onRefreshDNS?.(item.zone.id, item.accountId), [onRefreshDNS, item.zone.id, item.accountId]);
-	
+
 	const handleDelete = useCallback(async () => {
 		setIsDeleting(true);
 		try {
@@ -100,7 +102,7 @@ export const DomainRow = memo(function DomainRow({
 
 		try {
 			const api = new CloudflareAPI(account.apiToken);
-			
+
 			// Check if www CNAME already exists
 			const dnsRecords: DNSRecord[] = await api.getDNSRecords(item.zone.id);
 			const existingWWWCNAME = dnsRecords.find(
@@ -159,7 +161,7 @@ export const DomainRow = memo(function DomainRow({
 	const hasNameservers = nameservers.length > 0;
 
 	return (
-		<TableRow 
+		<TableRow
 			data-state={isSelected ? 'selected' : undefined}
 			className={cn(
 				"transition-colors",
@@ -168,8 +170,8 @@ export const DomainRow = memo(function DomainRow({
 		>
 			<TableCell className="w-14">
 				<label className="flex items-center justify-center p-2 rounded-sm hover:bg-muted/50 transition-colors cursor-pointer">
-					<Checkbox 
-						checked={isSelected} 
+					<Checkbox
+						checked={isSelected}
 						onCheckedChange={handleToggle}
 					/>
 				</label>
@@ -266,8 +268,8 @@ export const DomainRow = memo(function DomainRow({
 			</ActivityBoundary>
 			<ActivityBoundary mode={visibleColumns.rootARecord ? 'visible' : 'hidden'}>
 				<TableCell>
-					<ARecordsCell 
-						rootARecords={item.rootARecords} 
+					<ARecordsCell
+						rootARecords={item.rootARecords}
 						isLoading={item.dnsLoading}
 						zoneId={item.zone.id}
 						accountId={item.accountId}
@@ -356,10 +358,21 @@ export const DomainRow = memo(function DomainRow({
 								disabled={isCreatingCNAME}
 							>
 								<Trash2 className="mr-2 h-4 w-4" />
-								Delete Domain 
+								Delete Domain
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() => setIsAIBotsDialogOpen(true)}
+							>
+								<ShieldCheck className="mr-2 h-4 w-4" />
+								AI Bots Protection
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
+					<AIBotsProtectionDialog
+						selectedZones={[item]}
+						open={isAIBotsDialogOpen}
+						onOpenChange={setIsAIBotsDialogOpen}
+					/>
 					<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
 						<AlertDialogContent>
 							<AlertDialogHeader>
