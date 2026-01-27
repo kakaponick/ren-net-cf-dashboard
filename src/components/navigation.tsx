@@ -54,7 +54,7 @@ export function Navigation({ children }: NavigationProps) {
                 })}
               </nav>
             </div>
-            
+
 
             <ThemeToggle />
           </div>

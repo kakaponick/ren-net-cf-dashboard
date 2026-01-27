@@ -23,10 +23,10 @@ export async function paginateCloudflareAPI(
     // Build URL with proper query parameter handling
     const separator = endpoint.includes('?') ? '&' : '?';
     const url = `${endpoint}${separator}page=${page}&per_page=${validPerPage}`;
-    
+
     try {
       const response = await makeRequest(url);
-      
+
       // Validate response structure
       if (!response || typeof response !== 'object') {
         console.warn('Invalid response structure from Cloudflare API:', response);
@@ -35,17 +35,17 @@ export async function paginateCloudflareAPI(
 
       const items = Array.isArray(response.result) ? response.result : [];
       const resultInfo = response.result_info;
-      
+
       // Add items to collection
       if (items.length > 0) {
         allItems.push(...items);
       }
-      
+
       // Determine if there are more pages using result_info
       if (resultInfo && typeof resultInfo === 'object') {
         const currentPage = resultInfo.page ?? page;
         const totalPages = resultInfo.total_pages;
-        
+
         // Primary check: use total_pages if available (most reliable)
         if (typeof totalPages === 'number' && totalPages > 0) {
           hasMorePages = currentPage < totalPages;
@@ -68,7 +68,7 @@ export async function paginateCloudflareAPI(
           page++;
         }
       }
-      
+
       // Safety check: if no items returned, stop pagination
       if (items.length === 0) {
         hasMorePages = false;
@@ -169,33 +169,33 @@ export class CloudflareAPI {
 
     // Stringify body if it exists
     if (options.body) {
-      fetchOptions.body = typeof options.body === 'string' 
-        ? options.body 
+      fetchOptions.body = typeof options.body === 'string'
+        ? options.body
         : JSON.stringify(options.body);
     }
 
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? process.env.VERCEL_URL 
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : window.location.origin
       : 'http://localhost:3000';
-    
+
     const response = await fetch(`${baseUrl}/api/cloudflare${endpoint}`, fetchOptions);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      
+
       // Handle HTTP 429 (Too Many Requests) with retry logic
       if (response.status === 429 && retryCount < maxRetries) {
         const retryAfter = response.headers.get('retry-after');
         const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : Math.pow(2, retryCount) * 5; // Default: exponential backoff (5s, 10s, 20s)
         const waitTime = Math.min(retryAfterSeconds * 1000, 300000); // Cap at 5 minutes
-        
+
         console.warn(`Rate limit exceeded (429). Retrying after ${retryAfterSeconds} seconds... (attempt ${retryCount + 1}/${maxRetries})`);
-        
+
         // Wait for retry-after period before retrying
         await new Promise(resolve => setTimeout(resolve, waitTime));
-        
+
         // Retry the request
         return this.makeRequest(endpoint, options, retryCount + 1);
       }
@@ -215,20 +215,20 @@ export class CloudflareAPI {
         await new Promise(resolve => setTimeout(resolve, waitTime));
         return this.makeRequest(endpoint, options, retryCount + 1);
       }
-      
+
       // Create error with rate limit information
       const error = new Error(`API request failed: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`) as any;
       error.status = response.status;
       error.statusText = response.statusText;
       error.errorData = errorData;
-      
+
       // Add retry-after information for 429 errors
       if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after');
         error.retryAfter = retryAfter ? parseInt(retryAfter, 10) : null;
         error.isRateLimit = true;
       }
-      
+
       throw error;
     }
 
@@ -452,14 +452,14 @@ export class CloudflareAPI {
   async setHSTS(zoneId: string, enabled: boolean = true) {
     const hstsValue = enabled
       ? {
-          enabled: true,
-          max_age: 31536000, // 1 year
-          include_subdomains: true,
-          preload: true,
-        }
+        enabled: true,
+        max_age: 31536000, // 1 year
+        include_subdomains: true,
+        preload: true,
+      }
       : {
-          enabled: false,
-        };
+        enabled: false,
+      };
     try {
       const response = await this.makeRequest(`/zones/${zoneId}/settings/security_header`, {
         method: 'PATCH',
@@ -501,7 +501,7 @@ export class CloudflareAPI {
           fight_mode: enabled,
           ai_bots_protection: "block",
           is_robots_txt_managed: false
-          
+
         },
       });
       return response.result;
@@ -549,7 +549,7 @@ export class CloudflareAPI {
           rules: [ruleData],
         },
       });
-      
+
       return response.result;
     } catch (error: any) {
       // If ruleset already exists, try to get it and add the rule
@@ -575,7 +575,7 @@ export class CloudflareAPI {
                 body: ruleData,
               }
             );
-            
+
             return addRuleResponse.result;
           } else {
             throw new Error('Entrypoint ruleset not found');
@@ -666,11 +666,11 @@ export class CloudflareAPI {
         }
       } catch (error: any) {
         // Check for authentication errors (401, 403 status codes)
-        const isAuthError = 
-          error?.status === 401 || 
+        const isAuthError =
+          error?.status === 401 ||
           error?.status === 403 ||
           (error?.message && (
-            error.message.includes('401') || 
+            error.message.includes('401') ||
             error.message.includes('403') ||
             error.message.toLowerCase().includes('authentication') ||
             error.message.toLowerCase().includes('unauthorized') ||
@@ -684,11 +684,11 @@ export class CloudflareAPI {
         const errorMessage = error?.message || String(error);
         errors.push(setting.name);
         console.error(`Failed to set ${setting.name}:`, error);
-        
+
         // Mark as error
         if (onProgress) {
-          onProgress({ 
-            name: setting.name, 
+          onProgress({
+            name: setting.name,
             status: 'error',
             error: errorMessage,
             variable: setting.variable

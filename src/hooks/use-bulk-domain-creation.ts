@@ -192,11 +192,11 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 			if (rootIPAddress.trim() && zone?.id) {
 				updateQueue(prev => prev.map(item => {
 					if (item.domain !== domain) return item;
-					
+
 					const existingSteps = item.steps || [];
 					const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
 					const cnameStepStatus = cnameStep?.status || 'success';
-					
+
 					return {
 						...item,
 						steps: [
@@ -222,11 +222,11 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 
 					updateQueue(prev => prev.map(item => {
 						if (item.domain !== domain) return item;
-						
+
 						const existingSteps = item.steps || [];
 						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
 						const cnameStepStatus = cnameStep?.status || 'success';
-						
+
 						return {
 							...item,
 							steps: [
@@ -241,11 +241,11 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 					const errorMessage = formatCloudflareError(error);
 					updateQueue(prev => prev.map(item => {
 						if (item.domain !== domain) return item;
-						
+
 						const existingSteps = item.steps || [];
 						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
 						const cnameStepStatus = cnameStep?.status || 'success';
-						
+
 						return {
 							...item,
 							steps: [
