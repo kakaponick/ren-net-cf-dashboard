@@ -6,8 +6,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import type { CloudflareAccount, ProxyAccount } from "@/types/cloudflare"
 import { AccountsFilters } from "./accounts-filters"
@@ -71,26 +70,7 @@ export function AccountsTable({
   return (
     <Card className="shadow-sm">
       <CardHeader className="space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              All Credentials
-              {filteredCount !== totalCount && (
-                <Badge variant="secondary" className="ml-2">
-                  {filteredCount} of {totalCount}
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription>
-              Manage your credentials with secure token storage and easy access
-            </CardDescription>
-          </div>
-        </div>
-
-        <Separator />
-
-        <AccountsFilters {...filterProps} />
+        <AccountsFilters {...filterProps} filteredCount={filteredCount} totalCount={totalCount} />
       </CardHeader>
 
       <CardContent>

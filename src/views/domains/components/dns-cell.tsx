@@ -43,10 +43,10 @@ function ARecordDisplay({ record }: { record: DNSRecord }) {
 	);
 }
 
-function EmptyARecordTrigger({ 
+function EmptyARecordTrigger({
 	canEdit,
 	onClick
-}: { 
+}: {
 	canEdit: boolean;
 	onClick?: () => void;
 }) {
@@ -373,11 +373,18 @@ export const SSLTlsCell = memo(function SSLTlsCell({
 	accountId,
 	zoneName,
 	isLoading,
-	currentMode = 'strict',
+	currentMode,
 	onModeChange
 }: SSLTlsCellProps) {
 	const [isUpdating, setIsUpdating] = useState(false);
 	const [selectedMode, setSelectedMode] = useState(currentMode);
+
+	// Update selectedMode when currentMode changes (e.g., after fetching from API)
+	useEffect(() => {
+		if (currentMode) {
+			setSelectedMode(currentMode);
+		}
+	}, [currentMode]);
 
 	const handleModeChange = useCallback(async (newMode: string) => {
 		setSelectedMode(newMode);
@@ -397,11 +404,11 @@ export const SSLTlsCell = memo(function SSLTlsCell({
 
 			const api = new CloudflareAPI(account.apiToken);
 			await api.setSSLMode(zoneId, newMode as 'off' | 'flexible' | 'full' | 'strict');
-			
+
 			toast.success(`SSL/TLS mode updated to ${SSL_TLS_MODES.find(m => m.value === newMode)?.label}`, {
 				description: `Domain: ${zoneName}`
 			});
-			
+
 			onModeChange?.();
 		} catch (error) {
 			console.error('Error updating SSL/TLS mode:', error);
@@ -415,7 +422,7 @@ export const SSLTlsCell = memo(function SSLTlsCell({
 		}
 	}, [zoneId, accountId, zoneName, currentMode, onModeChange]);
 
-	if (isLoading) {
+	if (isLoading || !currentMode) {
 		return <Skeleton className="h-6 w-24" />;
 	}
 
@@ -423,8 +430,8 @@ export const SSLTlsCell = memo(function SSLTlsCell({
 	const displayLabel = currentModeConfig?.label.split('(')[0].trim() || 'Select mode';
 
 	return (
-		<Select 
-			value={selectedMode} 
+		<Select
+			value={selectedMode}
 			onValueChange={handleModeChange}
 			disabled={isUpdating}
 		>

@@ -2,6 +2,7 @@ import { Cloud, Globe, Server, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { Badge } from "@/components/ui/badge"
 import type { AccountCategory } from "@/types/cloudflare"
 
 interface AccountsFiltersProps {
@@ -10,6 +11,8 @@ interface AccountsFiltersProps {
   searchQuery: string
   setSearchQuery: (query: string) => void
   clearSearch: () => void
+  filteredCount?: number
+  totalCount?: number
 }
 
 export function AccountsFilters({
@@ -18,10 +21,13 @@ export function AccountsFilters({
   searchQuery,
   setSearchQuery,
   clearSearch,
+  filteredCount,
+  totalCount,
 }: AccountsFiltersProps) {
   return (
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-      <ButtonGroup>
+      <div className="flex items-center gap-4">
+        <ButtonGroup>
         <Button
           variant={categoryFilter === "all" ? "default" : "outline"}
           size="sm"
@@ -54,6 +60,12 @@ export function AccountsFilters({
           Proxy
         </Button>
       </ButtonGroup>
+      {filteredCount !== undefined && totalCount !== undefined && filteredCount !== totalCount && (
+        <Badge variant="secondary">
+          {filteredCount} of {totalCount}
+        </Badge>
+      )}
+      </div>
 
       <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
