@@ -284,7 +284,7 @@ export const DomainRow = memo(function DomainRow({
 						zoneId={item.zone.id}
 						accountId={item.accountId}
 						zoneName={item.zone.name}
-						isLoading={item.dnsLoading}
+						isLoading={item.sslLoading}
 						currentMode={item.sslMode}
 						onModeChange={handleRefreshDNS}
 					/>

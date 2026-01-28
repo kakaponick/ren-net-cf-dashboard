@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
+import type { CloudflareAccount, ProxyAccount, SSHAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
 
 export interface AccountFormData {
   email: string
@@ -15,6 +15,12 @@ export interface AccountFormData {
   proxyPort: string
   proxyUsername: string
   proxyPassword: string
+  sshName: string
+  sshHost: string
+  sshPort: string
+  sshUsername: string
+  sshPrivateKey: string
+  sshPassphrase: string
 }
 
 const initialFormData: AccountFormData = {
@@ -29,14 +35,20 @@ const initialFormData: AccountFormData = {
   proxyPort: "",
   proxyUsername: "",
   proxyPassword: "",
+  sshName: "",
+  sshHost: "",
+  sshPort: "22",
+  sshUsername: "",
+  sshPrivateKey: "",
+  sshPassphrase: "",
 }
 
-export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccount | null) {
-  const { addAccount, addProxyAccount, updateAccount, updateProxyAccount } = useAccountStore()
+export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccount | SSHAccount | null, initialCategory?: AccountCategory) {
+  const { addAccount, addProxyAccount, addSSHAccount, updateAccount, updateProxyAccount, updateSSHAccount } = useAccountStore()
   const [formData, setFormData] = useState<AccountFormData>(initialFormData)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Initialize form data when existingAccount changes
+  // Initialize form data when existingAccount or initialCategory changes
   useEffect(() => {
     if (existingAccount) {
       if (existingAccount.category === 'proxy') {
@@ -49,6 +61,18 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           proxyPort: proxy.port.toString(),
           proxyUsername: proxy.username || "",
           proxyPassword: proxy.password || "",
+        })
+      } else if (existingAccount.category === 'ssh') {
+        const ssh = existingAccount as SSHAccount
+        setFormData({
+          ...initialFormData,
+          category: 'ssh',
+          sshName: ssh.name,
+          sshHost: ssh.host,
+          sshPort: ssh.port.toString(),
+          sshUsername: ssh.username,
+          sshPrivateKey: ssh.privateKey,
+          sshPassphrase: ssh.passphrase || '',
         })
       } else {
         const account = existingAccount as CloudflareAccount
@@ -64,12 +88,19 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
         })
       }
     } else {
-      setFormData(initialFormData)
+      // If no existing account, use initialCategory if provided, otherwise default
+      setFormData({
+        ...initialFormData,
+        category: initialCategory || 'cloudflare'
+      })
     }
-  }, [existingAccount])
+  }, [existingAccount, initialCategory])
 
   const resetForm = () => {
-    setFormData(initialFormData)
+    setFormData({
+      ...initialFormData,
+      category: initialCategory || 'cloudflare'
+    })
     setIsLoading(false)
   }
 
@@ -77,6 +108,11 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
     if (formData.category === 'proxy') {
       if (!formData.proxyHost || !formData.proxyPort) {
         toast.error('Please fill in proxy host and port')
+        return false
+      }
+    } else if (formData.category === 'ssh') {
+      if (!formData.sshName || !formData.sshHost || !formData.sshUsername || !formData.sshPrivateKey) {
+        toast.error('Please fill in all required SSH fields')
         return false
       }
     } else {
@@ -104,6 +140,16 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
             password: formData.proxyPassword || undefined,
           })
           toast.success('Proxy account updated successfully')
+        } else if (existingAccount.category === 'ssh') {
+          updateSSHAccount(existingAccount.id, {
+            name: formData.sshName,
+            host: formData.sshHost,
+            port: parseInt(formData.sshPort) || 22,
+            username: formData.sshUsername,
+            privateKey: formData.sshPrivateKey,
+            passphrase: formData.sshPassphrase || undefined,
+          })
+          toast.success('SSH server updated successfully')
         } else {
           updateAccount(existingAccount.id, {
             email: formData.email,
@@ -130,6 +176,20 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           }
           addProxyAccount(newProxyAccount)
           toast.success('Proxy account added successfully')
+        } else if (formData.category === 'ssh') {
+          const newSSHAccount: SSHAccount = {
+            id: crypto.randomUUID(),
+            name: formData.sshName,
+            host: formData.sshHost,
+            port: parseInt(formData.sshPort) || 22,
+            username: formData.sshUsername,
+            privateKey: formData.sshPrivateKey,
+            passphrase: formData.sshPassphrase || undefined,
+            category: 'ssh',
+            createdAt: new Date(),
+          }
+          addSSHAccount(newSSHAccount)
+          toast.success('SSH server added successfully')
         } else {
           const defaultUsername = formData.email.split('@')[0].replaceAll('.', '')
           const newAccount: CloudflareAccount = {
@@ -146,7 +206,7 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           toast.success('Account added successfully')
         }
       }
-      
+
       resetForm()
       onSuccess?.()
     } catch (error) {

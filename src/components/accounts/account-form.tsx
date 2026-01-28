@@ -1,6 +1,7 @@
 import { useEffect } from "react"
-import { Cloud, Globe, Server, X } from "lucide-react"
+import { Cloud, Globe, Server, Terminal, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAccountStore } from '@/store/account-store'
@@ -37,8 +38,9 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             {formData.category === 'cloudflare' && <Cloud className="h-4 w-4 text-orange-600" />}
             {formData.category === 'registrar' && <Globe className="h-4 w-4 text-purple-600" />}
             {formData.category === 'proxy' && <Server className="h-4 w-4 text-green-600" />}
+            {formData.category === 'ssh' && <Terminal className="h-4 w-4 text-blue-600" />}
             <span className="font-medium capitalize">
-              {formData.category === 'proxy' ? 'SOCKS5 Proxy' : formData.category}
+              {formData.category === 'proxy' ? 'SOCKS5 Proxy' : formData.category === 'ssh' ? 'SSH Server' : formData.category}
             </span>
           </div>
         ) : (
@@ -47,12 +49,12 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             onValueChange={(value) => {
               const newCategory = value as AccountCategory
               const updates: Partial<AccountFormData> = { category: newCategory }
-              
+
               // Auto-set username when switching to registrar if email is available
               if (newCategory === 'registrar' && formData.email && !formData.username) {
                 updates.username = formData.email.split('@')[0].replaceAll('.', '')
               }
-              
+
               setFormData({ ...formData, ...updates })
             }}
           >
@@ -78,6 +80,12 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
                   SOCKS5 Proxy
                 </div>
               </SelectItem>
+              <SelectItem value="ssh">
+                <div className="flex items-center gap-2">
+                  <Terminal className="h-4 w-4" />
+                  SSH Server
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -89,7 +97,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
       </div>
 
       {/* Basic Account Information */}
-      {formData.category !== 'proxy' && (
+      {formData.category !== 'proxy' && formData.category !== 'ssh' && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
@@ -104,18 +112,18 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
                 const newEmail = e.target.value
                 const oldEmailPrefix = formData.email.split('@')[0].replaceAll('.', '')
                 const currentUsername = formData.username || ''
-                
+
                 // Auto-update username if it matches the old email prefix or is empty
-                const shouldUpdateUsername = 
-                  formData.category === 'registrar' && 
+                const shouldUpdateUsername =
+                  formData.category === 'registrar' &&
                   (!currentUsername || currentUsername === oldEmailPrefix)
-                
+
                 const newUsername = shouldUpdateUsername && newEmail.includes('@')
                   ? newEmail.split('@')[0].replaceAll('.', '')
                   : currentUsername
-                
-                setFormData({ 
-                  ...formData, 
+
+                setFormData({
+                  ...formData,
                   email: newEmail,
                   username: newUsername
                 })
@@ -309,8 +317,104 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
         </>
       )}
 
+      {/* SSH Configuration */}
+      {formData.category === 'ssh' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="ssh-name" className="text-sm font-medium">
+              Server Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="ssh-name"
+              placeholder="Production Server"
+              value={formData.sshName || ''}
+              onChange={(e) => setFormData({ ...formData, sshName: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Friendly name for this SSH server
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="ssh-host" className="text-sm font-medium">
+                Host <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="ssh-host"
+                placeholder="192.168.1.1 or server.com"
+                value={formData.sshHost || ''}
+                onChange={(e) => setFormData({ ...formData, sshHost: e.target.value })}
+                className="transition-colors focus:ring-2"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ssh-port" className="text-sm font-medium">
+                Port
+              </Label>
+              <Input
+                id="ssh-port"
+                type="number"
+                placeholder="22"
+                value={formData.sshPort || '22'}
+                onChange={(e) => setFormData({ ...formData, sshPort: e.target.value })}
+                className="transition-colors focus:ring-2"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ssh-username" className="text-sm font-medium">
+              Username <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="ssh-username"
+              placeholder="root or ubuntu"
+              value={formData.sshUsername || ''}
+              onChange={(e) => setFormData({ ...formData, sshUsername: e.target.value })}
+              className="font-mono text-sm transition-colors focus:ring-2"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ssh-private-key" className="text-sm font-medium">
+              Private Key <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="ssh-private-key"
+              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+              value={formData.sshPrivateKey || ''}
+              onChange={(e) => setFormData({ ...formData, sshPrivateKey: e.target.value })}
+              className="font-mono text-xs transition-colors focus:ring-2 min-h-[120px]"
+              rows={6}
+            />
+            <p className="text-xs text-muted-foreground">
+              Paste your SSH private key in PEM format (begins with <code className="bg-muted px-1 py-0.5 rounded">-----BEGIN ... PRIVATE KEY-----</code>)
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ssh-passphrase" className="text-sm font-medium">
+              Passphrase (Optional)
+            </Label>
+            <Input
+              id="ssh-passphrase"
+              type="password"
+              placeholder="Enter passphrase if key is encrypted"
+              value={formData.sshPassphrase || ''}
+              onChange={(e) => setFormData({ ...formData, sshPassphrase: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Only required if your private key is encrypted with a passphrase
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* API Token for non-proxy accounts */}
-      {formData.category !== 'proxy' && (
+      {formData.category !== 'proxy' && formData.category !== 'ssh' && (
         <div className="space-y-2">
           <Label htmlFor="apiToken" className="text-sm font-medium">
             API Token <span className="text-destructive">*</span>

@@ -1,4 +1,4 @@
-import type { CloudflareAccount, ProxyAccount } from '@/types/cloudflare';
+import type { CloudflareAccount, ProxyAccount, SSHAccount } from '@/types/cloudflare';
 
 const STORAGE_KEY = 'cloudflare-accounts';
 
@@ -156,6 +156,77 @@ export const storage = {
 
   getProxyAccount(id: string): ProxyAccount | undefined {
     const accounts = this.getProxyAccounts();
+    return accounts.find(acc => acc.id === id);
+  },
+
+  // SSH account management
+  getSSHAccounts(): SSHAccount[] {
+    if (typeof window === 'undefined') {
+      return [];
+    }
+    try {
+      const stored = localStorage.getItem('ssh-accounts');
+      const accounts = stored ? JSON.parse(stored) : [];
+
+      // Migrate existing accounts to include timestamps
+      const migratedAccounts = accounts.map((account: any) => {
+        const migratedAccount = { ...account };
+
+        if (!account.createdAt) {
+          migratedAccount.createdAt = new Date();
+        } else {
+          migratedAccount.createdAt = new Date(account.createdAt);
+        }
+
+        return migratedAccount;
+      });
+
+      // Save migrated accounts back if migration occurred
+      if (migratedAccounts.length > 0) {
+        this.saveSSHAccounts(migratedAccounts);
+      }
+
+      return migratedAccounts;
+    } catch (error) {
+      console.error('Error reading SSH accounts from storage:', error);
+      return [];
+    }
+  },
+
+  saveSSHAccounts(accounts: SSHAccount[]): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.setItem('ssh-accounts', JSON.stringify(accounts));
+    } catch (error) {
+      console.error('Error saving SSH accounts to storage:', error);
+    }
+  },
+
+  addSSHAccount(account: SSHAccount): void {
+    const accounts = this.getSSHAccounts();
+    accounts.push(account);
+    this.saveSSHAccounts(accounts);
+  },
+
+  updateSSHAccount(id: string, updates: Partial<SSHAccount>): void {
+    const accounts = this.getSSHAccounts();
+    const index = accounts.findIndex(acc => acc.id === id);
+    if (index !== -1) {
+      accounts[index] = { ...accounts[index], ...updates };
+      this.saveSSHAccounts(accounts);
+    }
+  },
+
+  removeSSHAccount(id: string): void {
+    const accounts = this.getSSHAccounts();
+    const filtered = accounts.filter(acc => acc.id !== id);
+    this.saveSSHAccounts(filtered);
+  },
+
+  getSSHAccount(id: string): SSHAccount | undefined {
+    const accounts = this.getSSHAccounts();
     return accounts.find(acc => acc.id === id);
   },
 };

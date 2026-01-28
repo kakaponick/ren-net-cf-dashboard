@@ -50,8 +50,28 @@ export function RegistrarPageHeader({
 	onRegistrarChange,
 	domainCounts,
 }: RegistrarPageHeaderProps) {
-	const allAccounts = [...namecheapAccounts, ...njallaAccounts];
+	// Filter accounts based on selected registrar
+	const filteredNamecheapAccounts =
+		selectedRegistrar === 'all' || selectedRegistrar === 'namecheap'
+			? namecheapAccounts
+			: [];
+	const filteredNjallaAccounts =
+		selectedRegistrar === 'all' || selectedRegistrar === 'njalla'
+			? njallaAccounts
+			: [];
+
+	const allAccounts = [...filteredNamecheapAccounts, ...filteredNjallaAccounts];
 	const totalDomains = Object.values(domainCounts).reduce((a, b) => a + b, 0);
+
+	// Calculate total domains for filtered accounts
+	const namecheapTotalDomains = filteredNamecheapAccounts.reduce(
+		(total, account) => total + (domainCounts[account.id] || 0),
+		0
+	);
+	const njallaTotalDomains = filteredNjallaAccounts.reduce(
+		(total, account) => total + (domainCounts[account.id] || 0),
+		0
+	);
 
 	return (
 		<div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b py-3 -mx-6 px-6">
@@ -115,18 +135,44 @@ export function RegistrarPageHeader({
 						<SelectTrigger className="w-xs h-9">
 							<SelectValue placeholder="All Accounts" />
 						</SelectTrigger>
-						<SelectContent>
+						<SelectContent position="popper" align="end">
 							<SelectItem value="all">
 								All Accounts <span className="text-muted-foreground ml-1">({totalDomains})</span>
 							</SelectItem>
-							{allAccounts.map((account) => (
-								<SelectItem key={account.id} value={account.id}>
-									{account.name || account.email}
-									<span className="text-muted-foreground ml-2">
-										({domainCounts[account.id] || 0})
-									</span>
-								</SelectItem>
-							))}
+
+							{/* Namecheap Accounts Group */}
+							{filteredNamecheapAccounts.length > 0 && (
+								<>
+									<div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+										Namecheap <span className="text-muted-foreground/60">({namecheapTotalDomains})</span>
+									</div>
+									{filteredNamecheapAccounts.map((account) => (
+										<SelectItem key={account.id} value={account.id} className="pl-4">
+											{account.name || account.email}
+											<span className="text-muted-foreground ml-2">
+												({domainCounts[account.id] || 0})
+											</span>
+										</SelectItem>
+									))}
+								</>
+							)}
+
+							{/* Njalla Accounts Group */}
+							{filteredNjallaAccounts.length > 0 && (
+								<>
+									<div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+										Njalla <span className="text-muted-foreground/60">({njallaTotalDomains})</span>
+									</div>
+									{filteredNjallaAccounts.map((account) => (
+										<SelectItem key={account.id} value={account.id} className="pl-4">
+											{account.name || account.email}
+											<span className="text-muted-foreground ml-2">
+												({domainCounts[account.id] || 0})
+											</span>
+										</SelectItem>
+									))}
+								</>
+							)}
 						</SelectContent>
 					</Select>
 

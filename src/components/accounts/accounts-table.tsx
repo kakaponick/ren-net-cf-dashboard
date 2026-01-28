@@ -1,33 +1,33 @@
 import { useState } from "react"
-import { 
-  User, Plus, Eye, EyeOff, Pencil, Trash2, Copy, Check, 
-  ArrowUpDown, ArrowUp, ArrowDown, Cloud, Globe, Server 
+import {
+  User, Plus, Eye, EyeOff, Pencil, Trash2, Copy, Check,
+  ArrowUpDown, ArrowUp, ArrowDown, Cloud, Globe, Server, Terminal
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-import type { CloudflareAccount, ProxyAccount } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, AccountCategory } from "@/types/cloudflare"
 import { AccountsFilters } from "./accounts-filters"
 import type { SortField, SortDirection } from "@/hooks/use-accounts-view"
 
 interface AccountsTableProps {
-  accounts: (CloudflareAccount | ProxyAccount)[]
+  accounts: (CloudflareAccount | ProxyAccount | SSHAccount)[]
   totalCount: number
   filteredCount: number
-  
+
   // Filter props
   filterProps: any // Passing through props for AccountsFilters
-  
+
   // Sorting props
   sortField: SortField
   sortDirection: SortDirection
   onToggleSort: (field: SortField) => void
-  
+
   // Actions
-  onAddClick: () => void
-  onEditClick: (account: CloudflareAccount | ProxyAccount) => void
+  onAddClick: (category?: AccountCategory) => void
+  onEditClick: (account: CloudflareAccount | ProxyAccount | SSHAccount) => void
   onDeleteClick: (id: string) => void
 }
 
@@ -91,7 +91,7 @@ export function AccountsTable({
                 Clear search
               </Button>
             ) : (
-              <Button onClick={onAddClick}>
+              <Button onClick={() => onAddClick(filterProps.categoryFilter !== 'all' ? (filterProps.categoryFilter as AccountCategory) : undefined)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Your First Account
               </Button>
@@ -121,40 +121,51 @@ export function AccountsTable({
                 {accounts.map((account) => {
                   const accountId = account.id
                   const isProxy = account.category === 'proxy'
-                  const emailOrName = isProxy 
-                    ? (account as ProxyAccount).name || `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}`
-                    : (account as CloudflareAccount).email
+                  const isSSH = account.category === 'ssh'
+                  const emailOrName = isSSH
+                    ? (account as SSHAccount).name
+                    : isProxy
+                      ? (account as ProxyAccount).name || `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}`
+                      : (account as CloudflareAccount).email
 
-                  const apiToken = isProxy
-                    ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}${(account as ProxyAccount).username ? `:${(account as ProxyAccount).username}` : ''}${(account as ProxyAccount).password ? `:${(account as ProxyAccount).password}` : ''}`
-                    : (account as CloudflareAccount).apiToken
+                  const apiToken = isSSH
+                    ? `${(account as SSHAccount).host}:${(account as SSHAccount).port}:${(account as SSHAccount).username}`
+                    : isProxy
+                      ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}${(account as ProxyAccount).username ? `:${(account as ProxyAccount).username}` : ''}${(account as ProxyAccount).password ? `:${(account as ProxyAccount).password}` : ''}`
+                      : (account as CloudflareAccount).apiToken
 
-                  const displayToken = isProxy
-                    ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}••••••••••••`
-                    : `${apiToken.substring(0, 12)}••••••••••••`
+                  const displayToken = isSSH
+                    ? `${(account as SSHAccount).username}@${(account as SSHAccount).host}:${(account as SSHAccount).port}••••••••••••`
+                    : isProxy
+                      ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}••••••••••••`
+                      : `${apiToken.substring(0, 12)}••••••••••••`
 
                   return (
                     <TableRow key={accountId} className="hover:bg-muted/30 transition-colors">
                       <TableCell>
                         <Badge
                           variant="secondary"
-                          className={`${
-                            account.category === 'cloudflare'
-                              ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                              : account.category === 'registrar'
+                          className={`${account.category === 'cloudflare'
+                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                            : account.category === 'registrar'
                               ? 'bg-purple-100 text-purple-800 hover:bg-purple-200'
                               : account.category === 'proxy'
-                              ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                          }`}
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : account.category === 'ssh'
+                                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                            }`}
                         >
                           <div className="flex items-center gap-1">
                             {(account.category || 'cloudflare') === 'cloudflare' && <Cloud className="h-3 w-3" />}
                             {(account.category || 'cloudflare') === 'registrar' && <Globe className="h-3 w-3" />}
                             {(account.category || 'cloudflare') === 'proxy' && <Server className="h-3 w-3" />}
+                            {account.category === 'ssh' && <Terminal className="h-3 w-3" />}
                             {account.category === 'registrar' && (account as CloudflareAccount).registrarName
                               ? `${(account as CloudflareAccount).registrarName!.charAt(0).toUpperCase() + (account as CloudflareAccount).registrarName!.slice(1)}`
-                              : (account.category || 'cloudflare').charAt(0).toUpperCase() + (account.category || 'cloudflare').slice(1)
+                              : account.category === 'ssh'
+                                ? 'SSH'
+                                : (account.category || 'cloudflare').charAt(0).toUpperCase() + (account.category || 'cloudflare').slice(1)
                             }
                           </div>
                         </Badge>

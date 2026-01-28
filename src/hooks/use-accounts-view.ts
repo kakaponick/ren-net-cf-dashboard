@@ -1,16 +1,18 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAccountStore } from '@/store/account-store'
-import type { AccountCategory, CloudflareAccount, ProxyAccount } from '@/types/cloudflare'
+import type { AccountCategory, CloudflareAccount, ProxyAccount, SSHAccount } from '@/types/cloudflare'
 
 export type SortField = 'email'
 export type SortDirection = 'asc' | 'desc'
 
 export function useAccountsView() {
-  const { 
-    accounts, 
-    proxyAccounts, 
-    loadAccounts, 
-    loadProxyAccounts 
+  const {
+    accounts,
+    proxyAccounts,
+    sshAccounts,
+    loadAccounts,
+    loadProxyAccounts,
+    loadSSHAccounts
   } = useAccountStore()
 
   // View state
@@ -18,18 +20,19 @@ export function useAccountsView() {
   const [categoryFilter, setCategoryFilter] = useState<AccountCategory | "all">("all")
   const [sortField, setSortField] = useState<SortField>("email")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
-  
+
   // Dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingAccount, setEditingAccount] = useState<CloudflareAccount | ProxyAccount | null>(null)
+  const [editingAccount, setEditingAccount] = useState<CloudflareAccount | ProxyAccount | SSHAccount | null>(null)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null)
-  
+
   // Loading data on mount
   useEffect(() => {
     loadAccounts()
     loadProxyAccounts()
+    loadSSHAccounts()
   }, [])
 
   // Filtering and Sorting
@@ -48,6 +51,16 @@ export function useAccountsView() {
         proxyPort: proxy.port,
         proxyUsername: proxy.username,
         proxyPassword: proxy.password,
+      })),
+      ...sshAccounts.map(ssh => ({
+        ...ssh,
+        // Map SSH fields to account fields for uniform filtering
+        email: ssh.name,
+        apiToken: `${ssh.host}:${ssh.port}`,
+        // Keep original SSH fields accessible
+        sshHost: ssh.host,
+        sshPort: ssh.port,
+        sshUsername: ssh.username,
       }))
     ];
 
@@ -77,7 +90,7 @@ export function useAccountsView() {
     })
 
     return filtered
-  }, [accounts, proxyAccounts, searchQuery, categoryFilter, sortField, sortDirection])
+  }, [accounts, proxyAccounts, sshAccounts, searchQuery, categoryFilter, sortField, sortDirection])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -90,13 +103,13 @@ export function useAccountsView() {
 
   const clearSearch = () => setSearchQuery("")
 
-  const totalAccounts = accounts.length + proxyAccounts.length
+  const totalAccounts = accounts.length + proxyAccounts.length + sshAccounts.length
 
   return {
     // Data
     accounts: filteredAndSortedAccounts,
     totalAccounts,
-    
+
     // View State
     searchQuery,
     setSearchQuery,
@@ -106,7 +119,7 @@ export function useAccountsView() {
     sortDirection,
     toggleSort,
     clearSearch,
-    
+
     // Dialog State
     isAddDialogOpen,
     setIsAddDialogOpen,
@@ -118,9 +131,10 @@ export function useAccountsView() {
     setIsImportDialogOpen,
     deleteAccountId,
     setDeleteAccountId,
-    
+
     // Raw Data access if needed
     rawAccounts: accounts,
     rawProxyAccounts: proxyAccounts,
+    rawSSHAccounts: sshAccounts,
   }
 }

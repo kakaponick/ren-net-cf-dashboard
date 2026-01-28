@@ -1,4 +1,4 @@
-import { Cloud, Globe, Server, Search, X } from "lucide-react"
+import { Cloud, Globe, Server, Terminal, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -28,43 +28,51 @@ export function AccountsFilters({
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div className="flex items-center gap-4">
         <ButtonGroup>
-        <Button
-          variant={categoryFilter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setCategoryFilter("all")}
-        >
-          All
-        </Button>
-        <Button
-          variant={categoryFilter === "cloudflare" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setCategoryFilter("cloudflare")}
-        >
-          <Cloud className="mr-1.5 h-3.5 w-3.5" />
-          Cloudflare
-        </Button>
-        <Button
-          variant={categoryFilter === "registrar" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setCategoryFilter("registrar")}
-        >
-          <Globe className="mr-1.5 h-3.5 w-3.5" />
-          Registrar
-        </Button>
-        <Button
-          variant={categoryFilter === "proxy" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setCategoryFilter("proxy")}
-        >
-          <Server className="mr-1.5 h-3.5 w-3.5" />
-          Proxy
-        </Button>
-      </ButtonGroup>
-      {filteredCount !== undefined && totalCount !== undefined && filteredCount !== totalCount && (
-        <Badge variant="secondary">
-          {filteredCount} of {totalCount}
-        </Badge>
-      )}
+          <Button
+            variant={categoryFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={categoryFilter === "cloudflare" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("cloudflare")}
+          >
+            <Cloud className="mr-1.5 h-3.5 w-3.5" />
+            Cloudflare
+          </Button>
+          <Button
+            variant={categoryFilter === "registrar" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("registrar")}
+          >
+            <Globe className="mr-1.5 h-3.5 w-3.5" />
+            Registrar
+          </Button>
+          <Button
+            variant={categoryFilter === "proxy" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("proxy")}
+          >
+            <Server className="mr-1.5 h-3.5 w-3.5" />
+            Proxy
+          </Button>
+          <Button
+            variant={categoryFilter === "ssh" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("ssh")}
+          >
+            <Terminal className="mr-1.5 h-3.5 w-3.5" />
+            SSH
+          </Button>
+        </ButtonGroup>
+        {filteredCount !== undefined && totalCount !== undefined && filteredCount !== totalCount && (
+          <Badge variant="secondary">
+            {filteredCount} of {totalCount}
+          </Badge>
+        )}
       </div>
 
       <div className="relative flex-1 max-w-md">

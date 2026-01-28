@@ -10,6 +10,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { ServerMonitor } from '@/components/server-monitor';
 
 interface NavigationProps {
   children: ReactNode;
@@ -53,6 +54,7 @@ export function Navigation({ children }: NavigationProps) {
                   );
                 })}
               </nav>
+              <ServerMonitor />
             </div>
 
 

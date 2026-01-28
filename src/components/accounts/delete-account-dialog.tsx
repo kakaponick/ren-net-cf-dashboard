@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount } from "@/types/cloudflare"
 
 interface DeleteAccountDialogProps {
   accountId: string | null
@@ -20,15 +20,19 @@ interface DeleteAccountDialogProps {
 }
 
 export function DeleteAccountDialog({ accountId, onClose }: DeleteAccountDialogProps) {
-  const { accounts, proxyAccounts, removeAccount, removeProxyAccount } = useAccountStore()
+  const { accounts, proxyAccounts, sshAccounts, removeAccount, removeProxyAccount, removeSSHAccount } = useAccountStore()
 
   const handleDelete = async () => {
     if (!accountId) return
 
     try {
       const isProxy = proxyAccounts.some(p => p.id === accountId)
-      
-      if (isProxy) {
+      const isSSH = sshAccounts.some(s => s.id === accountId)
+
+      if (isSSH) {
+        removeSSHAccount(accountId)
+        toast.success('SSH credentials deleted successfully')
+      } else if (isProxy) {
         removeProxyAccount(accountId)
         toast.success('Proxy configuration deleted successfully')
       } else {
@@ -44,10 +48,12 @@ export function DeleteAccountDialog({ accountId, onClose }: DeleteAccountDialogP
 
   const account = accounts.find(a => a.id === accountId)
   const proxy = proxyAccounts.find(p => p.id === accountId)
-  
+  const ssh = sshAccounts.find(s => s.id === accountId)
+
   const displayText = (() => {
     if (account) return `Email: ${account.email}`
     if (proxy) return `Proxy: ${proxy.name || `${proxy.host}:${proxy.port}`}`
+    if (ssh) return `SSH: ${ssh.name || `${ssh.username}@${ssh.host}:${ssh.port}`}`
     return 'Unknown Account'
   })()
 

@@ -11,14 +11,16 @@ import {
 
 import { useAccountForm } from "@/hooks/use-account-form"
 import { AccountForm } from "./account-form"
+import type { AccountCategory } from "@/types/cloudflare"
 
 interface AddAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialCategory?: AccountCategory
 }
 
-export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) {
-  const { formData, setFormData, isLoading, handleSubmit, resetForm } = useAccountForm()
+export function AddAccountDialog({ open, onOpenChange, initialCategory }: AddAccountDialogProps) {
+  const { formData, setFormData, isLoading, handleSubmit, resetForm } = useAccountForm(null, initialCategory)
 
   const handleClose = () => {
     resetForm()
@@ -33,7 +35,7 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
@@ -43,10 +45,10 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
             Add a new account or proxy configuration for secure access to external services.
           </DialogDescription>
         </DialogHeader>
-        
-        <AccountForm 
-          formData={formData} 
-          setFormData={setFormData} 
+
+        <AccountForm
+          formData={formData}
+          setFormData={setFormData}
           isEditing={false}
         />
 
@@ -59,12 +61,14 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
             disabled={
               (formData.category === 'proxy'
                 ? !formData.proxyHost || !formData.proxyPort
-                : !formData.email || !formData.apiToken ||
+                : formData.category === 'ssh'
+                  ? !formData.sshName || !formData.sshHost || !formData.sshUsername || !formData.sshPrivateKey
+                  : !formData.email || !formData.apiToken ||
                   (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
               isLoading
             }
           >
-            {isLoading ? 'Adding...' : `Add ${formData.category === 'proxy' ? 'Proxy' : 'Account'}`}
+            {isLoading ? 'Adding...' : `Add ${formData.category === 'proxy' ? 'Proxy' : formData.category === 'ssh' ? 'SSH Server' : 'Account'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

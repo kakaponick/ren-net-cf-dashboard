@@ -422,8 +422,12 @@ export const SSLTlsCell = memo(function SSLTlsCell({
 		}
 	}, [zoneId, accountId, zoneName, currentMode, onModeChange]);
 
-	if (isLoading || !currentMode) {
+	if (isLoading) {
 		return <Skeleton className="h-6 w-24" />;
+	}
+
+	if (!currentMode) {
+		return <span className="text-sm text-muted-foreground">-</span>;
 	}
 
 	const currentModeConfig = SSL_TLS_MODES.find(m => m.value === selectedMode);

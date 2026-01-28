@@ -1,5 +1,5 @@
-import { Suspense } from "react"
-import type { CloudflareAccount, ProxyAccount } from "@/types/cloudflare"
+import { Suspense, useState } from "react"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, AccountCategory } from "@/types/cloudflare"
 import { useAccountsView } from "@/hooks/use-accounts-view"
 import { AccountsHeader } from "@/components/accounts/accounts-header"
 import { AccountsTable } from "@/components/accounts/accounts-table"
@@ -13,7 +13,7 @@ function CredentialsContent() {
     // Data
     accounts,
     totalAccounts,
-    
+
     // View State
     searchQuery,
     setSearchQuery,
@@ -23,7 +23,7 @@ function CredentialsContent() {
     sortDirection,
     toggleSort,
     clearSearch,
-    
+
     // Dialog State
     isAddDialogOpen,
     setIsAddDialogOpen,
@@ -37,7 +37,14 @@ function CredentialsContent() {
     setDeleteAccountId,
   } = useAccountsView()
 
-  const handleEditClick = (account: CloudflareAccount | ProxyAccount) => {
+  const [initialCategory, setInitialCategory] = useState<AccountCategory | undefined>()
+
+  const handleAddClick = (category?: AccountCategory) => {
+    setInitialCategory(category)
+    setIsAddDialogOpen(true)
+  }
+
+  const handleEditClick = (account: CloudflareAccount | ProxyAccount | SSHAccount) => {
     setEditingAccount(account)
     setIsEditDialogOpen(true)
   }
@@ -49,9 +56,9 @@ function CredentialsContent() {
   return (
     <div className="container mx-auto max-w-6xl px-4 mt-8 sm:px-6 lg:px-8 space-y-8">
       {/* Header Section */}
-      <AccountsHeader 
+      <AccountsHeader
         onImportClick={() => setIsImportDialogOpen(true)}
-        onAddClick={() => setIsAddDialogOpen(true)}
+        onAddClick={() => handleAddClick()}
       />
 
       {/* Accounts Table */}
@@ -59,7 +66,7 @@ function CredentialsContent() {
         accounts={accounts}
         totalCount={totalAccounts}
         filteredCount={accounts.length}
-        
+
         filterProps={{
           categoryFilter,
           setCategoryFilter,
@@ -67,36 +74,40 @@ function CredentialsContent() {
           setSearchQuery,
           clearSearch,
         }}
-        
+
         sortField={sortField}
         sortDirection={sortDirection}
         onToggleSort={toggleSort}
-        
-        onAddClick={() => setIsAddDialogOpen(true)}
+
+        onAddClick={handleAddClick}
         onEditClick={handleEditClick}
         onDeleteClick={handleDeleteClick}
       />
 
       {/* Dialogs */}
-      <AddAccountDialog 
-        open={isAddDialogOpen} 
-        onOpenChange={setIsAddDialogOpen} 
+      <AddAccountDialog
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open)
+          if (!open) setInitialCategory(undefined)
+        }}
+        initialCategory={initialCategory}
       />
-      
-      <EditAccountDialog 
-        open={isEditDialogOpen} 
-        onOpenChange={setIsEditDialogOpen} 
+
+      <EditAccountDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
         account={editingAccount}
       />
-      
-      <BulkImportDialog 
-        open={isImportDialogOpen} 
-        onOpenChange={setIsImportDialogOpen} 
+
+      <BulkImportDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
       />
-      
-      <DeleteAccountDialog 
-        accountId={deleteAccountId} 
-        onClose={() => setDeleteAccountId(null)} 
+
+      <DeleteAccountDialog
+        accountId={deleteAccountId}
+        onClose={() => setDeleteAccountId(null)}
       />
     </div>
   )

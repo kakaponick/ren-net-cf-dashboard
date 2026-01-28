@@ -2,11 +2,12 @@ import { create } from 'zustand';
 import { storage } from '@/lib/storage';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
-import type { CloudflareAccount, ProxyAccount } from '@/types/cloudflare';
+import type { CloudflareAccount, ProxyAccount, SSHAccount } from '@/types/cloudflare';
 
 interface AccountStore {
   accounts: CloudflareAccount[];
   proxyAccounts: ProxyAccount[];
+  sshAccounts: SSHAccount[];
   isLoading: boolean;
   error: string | null;
   domainNameservers: Record<string, string[]>; // domain -> nameservers mapping
@@ -14,12 +15,16 @@ interface AccountStore {
   // Actions
   loadAccounts: () => void;
   loadProxyAccounts: () => void;
+  loadSSHAccounts: () => void;
   addAccount: (account: CloudflareAccount) => void;
   addProxyAccount: (account: ProxyAccount) => void;
+  addSSHAccount: (account: SSHAccount) => void;
   updateAccount: (id: string, updates: Partial<CloudflareAccount>) => void;
   updateProxyAccount: (id: string, updates: Partial<ProxyAccount>) => void;
+  updateSSHAccount: (id: string, updates: Partial<SSHAccount>) => void;
   removeAccount: (id: string) => void;
   removeProxyAccount: (id: string) => void;
+  removeSSHAccount: (id: string) => void;
   fetchAndCacheCloudflareAccounts: (accountId: string) => Promise<void>;
   setDomainNameservers: (domain: string, nameservers: string[]) => void;
   getDomainNameservers: (domain: string) => string[] | undefined;
@@ -55,6 +60,7 @@ const saveNameservers = (nameservers: Record<string, string[]>) => {
 export const useAccountStore = create<AccountStore>((set, get) => ({
   accounts: [],
   proxyAccounts: [],
+  sshAccounts: [],
   isLoading: false,
   error: null,
   domainNameservers: loadNameservers(),
@@ -65,9 +71,9 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
       const accounts = storage.getAccounts();
       set({ accounts, isLoading: false });
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to load accounts',
-        isLoading: false 
+        isLoading: false
       });
     }
   },
@@ -202,11 +208,68 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
     }
   },
 
+  loadSSHAccounts: () => {
+    set({ isLoading: true, error: null });
+    try {
+      const sshAccounts = storage.getSSHAccounts();
+      set({ sshAccounts, isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load SSH accounts',
+        isLoading: false
+      });
+    }
+  },
+
+  addSSHAccount: (account) => {
+    try {
+      const accountWithTimestamps = {
+        ...account,
+        createdAt: account.createdAt || new Date(),
+      };
+      storage.addSSHAccount(accountWithTimestamps);
+      const sshAccounts = storage.getSSHAccounts();
+      set({ sshAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to add SSH account'
+      });
+    }
+  },
+
+  updateSSHAccount: (id, updates) => {
+    try {
+      const updatesWithTimestamp = {
+        ...updates,
+        lastUpdated: new Date(),
+      };
+      storage.updateSSHAccount(id, updatesWithTimestamp);
+      const sshAccounts = storage.getSSHAccounts();
+      set({ sshAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update SSH account'
+      });
+    }
+  },
+
+  removeSSHAccount: (id) => {
+    try {
+      storage.removeSSHAccount(id);
+      const sshAccounts = storage.getSSHAccounts();
+      set({ sshAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to remove SSH account'
+      });
+    }
+  },
+
   fetchAndCacheCloudflareAccounts: async (accountId: string) => {
     try {
       const accounts = storage.getAccounts();
       const account = accounts.find(acc => acc.id === accountId);
-      
+
       if (!account) {
         console.error('Account not found:', accountId);
         return;
@@ -220,7 +283,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
       console.log('Fetching Cloudflare accounts for account:', accountId);
       const api = new CloudflareAPI(account.apiToken);
       let cfAccounts: any[] = [];
-      
+
       // Try to fetch accounts directly first
       try {
         cfAccounts = await api.getAccounts();
@@ -236,7 +299,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
         try {
           const zones = await api.getZones();
           console.log('Fetched zones:', zones.length);
-          
+
           // Extract unique account IDs from zones
           const accountMap = new Map<string, string>();
           zones.forEach((zone: any) => {
@@ -244,7 +307,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
               accountMap.set(zone.account.id, zone.account.name || zone.account.id);
             }
           });
-          
+
           if (accountMap.size > 0) {
             cfAccounts = Array.from(accountMap.entries()).map(([id, name]) => ({
               id,

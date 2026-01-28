@@ -1,4 +1,4 @@
-export type AccountCategory = "registrar" | "cloudflare" | "proxy"
+export type AccountCategory = "registrar" | "cloudflare" | "proxy" | "ssh"
 
 export type RegistrarType = "namecheap" | "njalla"
 
@@ -26,6 +26,18 @@ export interface ProxyAccount {
   username?: string;
   password?: string;
   category: "proxy";
+  createdAt: Date;
+}
+
+export interface SSHAccount {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  privateKey: string; // SSH private key in PEM format
+  passphrase?: string; // Optional passphrase for encrypted keys
+  category: "ssh";
   createdAt: Date;
 }
 
