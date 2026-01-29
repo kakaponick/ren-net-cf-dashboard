@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import type { UnifiedDomain } from '@/types/registrar';
 import { ActivityBoundary } from '@/components/activity-boundary';
+import { NameserversCell } from './nameservers-cell';
 
 type SortField = 'name' | 'registrar' | 'expires' | 'status';
 
@@ -17,6 +18,11 @@ type RegistrarDomainsTableProps = {
 	onToggleAll: () => void;
 	allSelected: boolean;
 	selectedCount: number;
+	// Nameservers props
+	nameserversCache: Record<string, { nameservers: string[], isUsingOurDNS: boolean }>;
+	nameserversLoading: Record<string, boolean>;
+	onRefreshNameservers: (domain: string) => void;
+	onEditNameservers: (domain: UnifiedDomain) => void;
 };
 
 export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
@@ -28,7 +34,11 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 	onToggle,
 	onToggleAll,
 	allSelected,
-	selectedCount
+	selectedCount,
+	nameserversCache,
+	nameserversLoading,
+	onRefreshNameservers,
+	onEditNameservers,
 }: RegistrarDomainsTableProps) {
 	const getStatusTextColor = useCallback((status: string) => {
 		if (status === 'expired') return 'text-destructive';
@@ -107,6 +117,9 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 						</div>
 					</TableHead>
 					<ActivityBoundary mode="visible">
+						<TableHead className="text-center">Nameservers</TableHead>
+					</ActivityBoundary>
+					<ActivityBoundary mode="visible">
 						<TableHead
 							className="cursor-pointer hover:bg-muted/50"
 							onClick={() => onSort('registrar')}
@@ -149,6 +162,7 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 					<ActivityBoundary mode="visible">
 						<TableHead className="text-center">DNS</TableHead>
 					</ActivityBoundary>
+
 				</TableRow>
 			</TableHeader>
 			<TableBody>
@@ -166,6 +180,16 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 							</TableCell>
 							<TableCell className="font-medium">
 								{domain.name}
+							</TableCell>
+							<TableCell className="text-center">
+								<NameserversCell
+									domain={domain}
+									nameservers={nameserversCache[domain.name]?.nameservers || null}
+									isUsingOurDNS={nameserversCache[domain.name]?.isUsingOurDNS ?? null}
+									isLoading={nameserversLoading[domain.name] || false}
+									onRefresh={onRefreshNameservers}
+									onEdit={onEditNameservers}
+								/>
 							</TableCell>
 							<TableCell className="capitalize">
 								<span className="px-2 py-1 bg-muted/50 rounded text-xs font-medium">
@@ -194,6 +218,7 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 							<TableCell className="text-center">
 								{domain.ncDomain?.IsOurDNS ? 'Namecheap' : domain.ncDomain ? 'External' : '—'}
 							</TableCell>
+
 						</TableRow>
 					);
 				})}

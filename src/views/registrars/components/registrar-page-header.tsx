@@ -1,7 +1,9 @@
-import { Search, RefreshCw, X } from 'lucide-react';
+import { Search, RefreshCw, X, Globe, Server } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
 	Select,
 	SelectContent,
@@ -25,7 +27,9 @@ interface RegistrarPageHeaderProps {
 	onSearchChange: (value: string) => void;
 	onClearSearch: () => void;
 	onRefresh: () => void;
+	onRefreshNameservers: () => void;
 	isRefreshing: boolean;
+	isNameserversLoading?: boolean;
 	namecheapAccounts: NamecheapAccount[];
 	njallaAccounts: NjallaAccount[];
 	selectedAccount: string;
@@ -41,7 +45,9 @@ export function RegistrarPageHeader({
 	onSearchChange,
 	onClearSearch,
 	onRefresh,
+	onRefreshNameservers,
 	isRefreshing,
+	isNameserversLoading = false,
 	namecheapAccounts,
 	njallaAccounts,
 	selectedAccount,
@@ -176,15 +182,54 @@ export function RegistrarPageHeader({
 						</SelectContent>
 					</Select>
 
-					<Button
-						onClick={onRefresh}
-						disabled={isRefreshing}
-						variant="outline"
-						size="sm"
-					>
-						<RefreshCw className={cn(isRefreshing && 'animate-spin', 'h-4 w-4 mr-2')} />
-						{stats.total === 0 ? 'Load Domains' : 'Refresh'}
-					</Button>
+					<ButtonGroup className="flex">
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										onClick={onRefresh}
+										disabled={isRefreshing || isNameserversLoading}
+										variant="outline"
+										size="sm"
+										className="px-2"
+									>
+										All
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Refresh domains & nameservers</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										onClick={() => onRefresh()}
+										disabled={isRefreshing}
+										variant="outline"
+										size="sm"
+										className="px-2"
+									>
+										<Globe className={cn("h-3.5 w-3.5", isRefreshing && "animate-pulse")} />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Refresh domains only</TooltipContent>
+							</Tooltip>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										onClick={onRefreshNameservers}
+										disabled={isNameserversLoading}
+										variant="outline"
+										size="sm"
+										className="px-2"
+									>
+										<Server className={cn("h-3.5 w-3.5", isNameserversLoading && "animate-pulse")} />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Refresh nameservers</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</ButtonGroup>
 				</div>
 			</div>
 		</div>

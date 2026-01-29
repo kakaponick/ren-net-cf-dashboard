@@ -63,3 +63,16 @@ export interface NamecheapDomainsResponse {
   };
   account: NamecheapAccount;
 }
+
+export interface NamecheapNameservers {
+  domain: string; // Full domain name (e.g., example.com)
+  sld: string; // Second-level domain
+  tld: string; // Top-level domain
+  nameservers: string[];
+  isUsingOurDNS: boolean;
+}
+
+export interface NamecheapNameserversResponse {
+  nameservers: string[];
+  isUsingOurDNS: boolean;
+}

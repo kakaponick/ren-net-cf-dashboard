@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAccountStore } from '@/store/account-store'
 import type { AccountCategory, CloudflareAccount, ProxyAccount, SSHAccount } from '@/types/cloudflare'
 
@@ -6,6 +7,7 @@ export type SortField = 'email'
 export type SortDirection = 'asc' | 'desc'
 
 export function useAccountsView() {
+  const searchParams = useSearchParams()
   const {
     accounts,
     proxyAccounts,
@@ -17,7 +19,13 @@ export function useAccountsView() {
 
   // View state
   const [searchQuery, setSearchQuery] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState<AccountCategory | "all">("all")
+  const [categoryFilter, setCategoryFilter] = useState<AccountCategory | "all">(() => {
+    const tab = searchParams.get('tab')
+    if (tab && ['registrar', 'cloudflare', 'proxy', 'ssh'].includes(tab)) {
+      return tab as AccountCategory
+    }
+    return "all"
+  })
   const [sortField, setSortField] = useState<SortField>("email")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 

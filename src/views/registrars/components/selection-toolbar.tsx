@@ -2,6 +2,7 @@ import { CheckCircle2, X, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { BulkImportDialog } from './bulk-import-dialog';
+import { SetNameserversDialog } from './set-nameservers-dialog';
 import type { UnifiedDomain } from '@/types/registrar';
 
 interface SelectionToolbarProps {
@@ -9,6 +10,7 @@ interface SelectionToolbarProps {
 	selectedDomains: UnifiedDomain[];
 	onCopySelected: () => void;
 	onClearSelection: () => void;
+	onSetNameservers: (domains: string[], nameservers: string[]) => Promise<boolean>;
 }
 
 export function SelectionToolbar({
@@ -16,6 +18,7 @@ export function SelectionToolbar({
 	selectedDomains,
 	onCopySelected,
 	onClearSelection,
+	onSetNameservers,
 }: SelectionToolbarProps) {
 	if (selectedCount === 0) return null;
 
@@ -61,6 +64,10 @@ export function SelectionToolbar({
 							<Copy className="h-3.5 w-3.5" />
 							Copy selected
 						</Button>
+						<SetNameserversDialog
+							selectedDomains={selectedDomains}
+							onSetNameservers={onSetNameservers}
+						/>
 						<BulkImportDialog selectedDomains={selectedDomains} onComplete={onClearSelection} />
 						<Button size="sm" variant="outline" onClick={onClearSelection} className="gap-2">
 							<X className="h-3.5 w-3.5" />

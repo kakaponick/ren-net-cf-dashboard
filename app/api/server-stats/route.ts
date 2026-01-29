@@ -25,93 +25,138 @@ interface ServerStats {
     };
 }
 
-// Get CPU usage using pooled connection
-async function getCPUUsage(credentials: SSHCredentials): Promise<{ usage: number; cores: number }> {
-    try {
-        const pool = getSSHPool();
+// Combined stats gathering using a single SSH connection and efficient raw file reading
+async function getServerStats(credentials: SSHCredentials): Promise<ServerStats> {
+    const pool = getSSHPool();
 
-        // Get CPU usage percentage
-        const cpuCommand = `top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//'`;
-        const cpuOutput = await pool.executeCommand(credentials, cpuCommand);
-        const cpuUsage = parseFloat(cpuOutput) || 0;
+    // Command to read all necessary files twice with a 1 second delay
+    // We read: /proc/net/dev (network), /proc/stat (cpu), /proc/meminfo (ram), /proc/cpuinfo (cores check)
+    // Structure:
+    // [Snapshot 1 of Net & CPU]
+    // [MemInfo]
+    // [Core Count]
+    // [Sleep 1s]
+    // [Snapshot 2 of Net & CPU]
+    const command = `
+        cat /proc/net/dev /proc/stat /proc/meminfo; 
+        grep -c processor /proc/cpuinfo;
+        sleep 1; 
+        echo "===SAMPLE_2==="; 
+        cat /proc/net/dev /proc/stat
+    `;
 
-        // Get number of CPU cores
-        const coresCommand = `nproc`;
-        const coresOutput = await pool.executeCommand(credentials, coresCommand);
-        const cores = parseInt(coresOutput) || 1;
+    const output = await pool.executeCommand(credentials, command.replace(/\n/g, ' '));
+    const lines = output.split('\n');
+    const separatorIndex = lines.findIndex(l => l.includes('===SAMPLE_2==='));
 
-        return { usage: Math.round(cpuUsage * 10) / 10, cores };
-    } catch (error) {
-        console.error('Error getting CPU usage:', error);
-        return { usage: 0, cores: 1 };
+    if (separatorIndex === -1) {
+        throw new Error('Failed to get second sample');
     }
-}
 
-// Get RAM usage using pooled connection
-async function getRAMUsage(credentials: SSHCredentials): Promise<{ used: number; total: number; percentage: number }> {
-    try {
-        const pool = getSSHPool();
-        const ramCommand = `free -m | awk 'NR==2{printf "%.2f,%.2f", $3/1024,$2/1024}'`;
-        const ramOutput = await pool.executeCommand(credentials, ramCommand);
-        const [used, total] = ramOutput.split(',').map(parseFloat);
+    const sample1Lines = lines.slice(0, separatorIndex);
+    const sample2Lines = lines.slice(separatorIndex + 1);
 
-        const percentage = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
+    // --- PARSING HELPERS ---
 
+    const parseCpuLine = (lines: string[]) => {
+        const line = lines.find(l => l.startsWith('cpu '));
+        if (!line) return null;
+        const parts = line.split(/\s+/).filter(Boolean);
+        // /proc/stat: cpu user nice system idle iowait irq softirq steal guest guest_nice
+        // Indices:     0   1    2    3      4    5      6   7       8     9     10
+        const user = parseInt(parts[1]) || 0;
+        const nice = parseInt(parts[2]) || 0;
+        const system = parseInt(parts[3]) || 0;
+        const idle = parseInt(parts[4]) || 0;
+        const iowait = parseInt(parts[5]) || 0;
+        const irq = parseInt(parts[6]) || 0;
+        const softirq = parseInt(parts[7]) || 0;
+        const steal = parseInt(parts[8]) || 0;
+
+        const total = user + nice + system + idle + iowait + irq + softirq + steal;
+        const work = total - idle;
+        return { total, work };
+    };
+
+    const parseMemVal = (key: string) => {
+        const line = sample1Lines.find(l => l.startsWith(key));
+        if (!line) return 0;
+        return parseInt(line.split(/\s+/)[1]) || 0; // kB
+    };
+
+    // Auto-detect interface: exclude lo, prioritize standard names or first valid one
+    const findInterfaceBytes = (lines: string[]) => {
+        // Filter valid interface lines (containing ':') and exclude invalid lines
+        const candidates = lines.filter(l => l.includes(':') && !l.trim().startsWith('lo:') && !l.includes('Inter-'));
+        // Try to find common primary interfaces first
+        let line = candidates.find(l => /eth0|ens|enp|wlan/.test(l));
+        // Fallback to first candidate
+        if (!line) line = candidates[0];
+
+        if (!line) return { rx: 0, tx: 0 };
+
+        const parts = line.split(':')[1].trim().split(/\s+/);
         return {
-            used: Math.round(used * 100) / 100,
-            total: Math.round(total * 100) / 100,
-            percentage
+            rx: parseInt(parts[0]) || 0,
+            tx: parseInt(parts[8]) || 0
         };
-    } catch (error) {
-        console.error('Error getting RAM usage:', error);
-        return { used: 0, total: 0, percentage: 0 };
+    };
+
+    // --- CALCULATIONS ---
+
+    // 1. CPU Parsing
+    const cpu1 = parseCpuLine(sample1Lines);
+    const cpu2 = parseCpuLine(sample2Lines);
+    let cpuUsage = 0;
+
+    if (cpu1 && cpu2) {
+        const totalDelta = cpu2.total - cpu1.total;
+        const workDelta = cpu2.work - cpu1.work;
+        cpuUsage = totalDelta > 0 ? (workDelta / totalDelta) * 100 : 0;
     }
-}
 
-// Get network usage using pooled connection with real-time sampling
-async function getNetworkUsage(credentials: SSHCredentials): Promise<{ rx: string; tx: string }> {
-    try {
-        const pool = getSSHPool();
-        // Command to get network bytes from main interface
-        const netCommand = `cat /proc/net/dev | grep -E "eth0|ens|enp|wlan" | head -1 | awk '{printf "%s,%s", $2, $10}'`;
+    // Cores - find the single number line in sample1
+    const coresLine = sample1Lines.slice(-1)[0]; // grep -c is the last command before sleep
+    const cores = parseInt(coresLine) || 1;
 
-        // First sample
-        const sample1 = await pool.executeCommand(credentials, netCommand);
-        if (!sample1 || !sample1.includes(',')) {
-            return { rx: '0 B/s', tx: '0 B/s' };
+    // 2. RAM Parsing
+    const memTotal = parseMemVal('MemTotal:');
+    const memAvailable = parseMemVal('MemAvailable:'); // Available is better than Free
+    // If MemAvailable missing (old kernels), fallback to MemFree + Buffers + Cached (approx)
+    const memUsedKb = memTotal - memAvailable;
+
+    const ramStats = {
+        used: Math.round((memUsedKb / 1024 / 1024) * 100) / 100, // GB
+        total: Math.round((memTotal / 1024 / 1024) * 100) / 100, // GB
+        percentage: memTotal > 0 ? Math.round((memUsedKb / memTotal) * 1000) / 10 : 0
+    };
+
+    // 3. Network Parsing
+    const net1 = findInterfaceBytes(sample1Lines);
+    const net2 = findInterfaceBytes(sample2Lines);
+
+    // Calculate B/s
+    const rxRate = Math.max(0, net2.rx - net1.rx);
+    const txRate = Math.max(0, net2.tx - net1.tx);
+
+    const formatBytes = (bytes: number): string => {
+        if (bytes < 1024) return `${bytes} B/s`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
+    };
+
+    return {
+        cpu: {
+            usage: Math.round(cpuUsage * 10) / 10,
+            cores
+        },
+        ram: ramStats,
+        network: {
+            rx: formatBytes(rxRate),
+            tx: formatBytes(txRate)
         }
-        const [rx1, tx1] = sample1.split(',').map(val => parseInt(val) || 0);
-
-        // Wait 1 second
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Second sample
-        const sample2 = await pool.executeCommand(credentials, netCommand);
-        if (!sample2 || !sample2.includes(',')) {
-            return { rx: '0 B/s', tx: '0 B/s' };
-        }
-        const [rx2, tx2] = sample2.split(',').map(val => parseInt(val) || 0);
-
-        // Calculate bytes per second (difference over 1 second)
-        const rxBytesPerSec = Math.max(0, rx2 - rx1);
-        const txBytesPerSec = Math.max(0, tx2 - tx1);
-
-        // Format bytes to human readable
-        const formatBytes = (bytes: number): string => {
-            if (bytes < 1024) return `${bytes} B/s`;
-            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
-            if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
-            return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
-        };
-
-        return {
-            rx: formatBytes(rxBytesPerSec),
-            tx: formatBytes(txBytesPerSec)
-        };
-    } catch (error) {
-        console.error('Error getting network usage:', error);
-        return { rx: '0 B/s', tx: '0 B/s' };
-    }
+    };
 }
 
 export async function POST(request: Request) {
@@ -145,17 +190,7 @@ export async function POST(request: Request) {
 
         // Gather stats using connection pool (connections are reused automatically)
         try {
-            const [cpu, ram, network] = await Promise.all([
-                getCPUUsage(credentials),
-                getRAMUsage(credentials),
-                getNetworkUsage(credentials)
-            ]);
-
-            const stats: ServerStats = {
-                cpu,
-                ram,
-                network
-            };
+            const stats = await getServerStats(credentials);
 
             return NextResponse.json({
                 success: true,

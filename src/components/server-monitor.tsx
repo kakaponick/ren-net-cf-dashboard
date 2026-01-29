@@ -38,6 +38,22 @@ export function ServerMonitor() {
     const [monitoredServerIds, setMonitoredServerIds] = useState<string[]>([]);
     const [serverStats, setServerStats] = useState<Map<string, MonitoredServerStats>>(new Map());
     const [isOpen, setIsOpen] = useState(false);
+    const [view, setView] = useState<'monitor' | 'add'>('monitor');
+
+    // Get available servers (not yet monitored)
+    const availableServers = sshAccounts.filter(
+        server => !monitoredServerIds.includes(server.id)
+    );
+
+    // Reset view when popover closes
+    useEffect(() => {
+        if (!isOpen) {
+            setView('monitor');
+        }
+    }, [isOpen]);
+
+    // Construct "Add" view automatically if no servers monitored and we have servers available
+    const effectiveView = (monitoredServerIds.length === 0 && availableServers.length > 0) ? 'add' : view;
 
     // Load SSH accounts and monitored servers from localStorage
     useEffect(() => {
@@ -148,6 +164,10 @@ export function ServerMonitor() {
     const addServer = (serverId: string) => {
         if (!monitoredServerIds.includes(serverId)) {
             setMonitoredServerIds(prev => [...prev, serverId]);
+            // If we added the last available server, switch back to monitor view automatically
+            if (availableServers.length <= 1) {
+                setView('monitor');
+            }
         }
     };
 
@@ -170,11 +190,6 @@ export function ServerMonitor() {
         if (percentage >= threshold) return 'bg-yellow-500';
         return 'bg-green-500';
     };
-
-    // Get available servers (not yet monitored)
-    const availableServers = sshAccounts.filter(
-        server => !monitoredServerIds.includes(server.id)
-    );
 
     // Calculate aggregate status for trigger button
     const getAggregateStatus = () => {
@@ -219,7 +234,7 @@ export function ServerMonitor() {
             <div className="flex items-center gap-2 h-8 px-3 rounded-md border bg-card text-card-foreground shadow-sm">
                 <Server className="h-3.5 w-3.5 text-muted-foreground" />
                 <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-xs ml-1">
-                    <Link href="/credentials">Add</Link>
+                    <Link href="/credentials?tab=ssh">Add</Link>
                 </Button>
             </div>
         );
@@ -246,9 +261,9 @@ export function ServerMonitor() {
                         <>
                             <div className="h-4 w-[1px] bg-border mx-1" />
                             <div className={`w-2 h-2 rounded-full ${aggregateStatus === 'error' ? 'bg-red-500' :
-                                    aggregateStatus === 'warning' ? 'bg-yellow-500' :
-                                        aggregateStatus === 'healthy' ? 'bg-green-500' :
-                                            'bg-muted'
+                                aggregateStatus === 'warning' ? 'bg-yellow-500' :
+                                    aggregateStatus === 'healthy' ? 'bg-green-500' :
+                                        'bg-muted'
                                 }`} />
                         </>
                     )}
@@ -261,47 +276,74 @@ export function ServerMonitor() {
                 {/* Header */}
                 <div className="flex items-center justify-between p-2 bg-muted/40 border-b">
                     <div className="flex items-center gap-2">
+                        {effectiveView === 'add' && monitoredServerIds.length > 0 && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-5 w-5 mr-1"
+                                onClick={() => setView('monitor')}
+                            >
+                                <ChevronDown className="h-4 w-4 rotate-90" />
+                            </Button>
+                        )}
                         <Server className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-semibold">Server Monitor</span>
+                        <span className="text-xs font-semibold">
+                            {effectiveView === 'add' ? 'Add Servers' : 'Server Monitor'}
+                        </span>
                     </div>
-                    {availableServers.length > 0 && (
-                        <Select onValueChange={addServer}>
-                            <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent shadow-none focus:ring-0 text-xs font-medium hover:bg-muted/50 rounded-sm px-2">
-                                <Plus className="h-3 w-3" />
-                                <span>Add</span>
-                            </SelectTrigger>
-                            <SelectContent align="end">
-                                {availableServers.map((server) => (
-                                    <SelectItem key={server.id} value={server.id} className="text-xs">
-                                        {server.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+
+                    {/* Header Actions */}
+                    {effectiveView === 'monitor' && availableServers.length > 0 && (
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs gap-1 hover:bg-muted/50"
+                            onClick={() => setView('add')}
+                        >
+                            <Plus className="h-3 w-3" />
+                            <span>Add</span>
+                        </Button>
                     )}
                 </div>
 
                 {/* Content */}
                 <div className="max-h-[500px] overflow-y-auto">
-                    {monitoredServerIds.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                            <Server className="h-10 w-10 text-muted-foreground/20 mb-3" />
-                            <p className="text-sm font-medium mb-1">No Servers Monitored</p>
-                            <p className="text-xs text-muted-foreground mb-3">Add servers to monitor their stats</p>
-                            {availableServers.length > 0 && (
-                                <Select onValueChange={addServer}>
-                                    <SelectTrigger className="h-8 w-auto text-xs">
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        Add Server
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {availableServers.map((server) => (
-                                            <SelectItem key={server.id} value={server.id} className="text-xs">
-                                                {server.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                    {effectiveView === 'add' ? (
+                        <div className="divide-y">
+                            {availableServers.length === 0 ? (
+                                <div className="p-4 text-center text-xs text-muted-foreground">
+                                    No more servers to add
+                                </div>
+                            ) : (
+                                availableServers.map((server) => (
+                                    <div key={server.id} className="flex items-center justify-between p-2 hover:bg-muted/20 transition-colors">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-muted flex-shrink-0" />
+                                            <span className="text-xs font-medium truncate">{server.name}</span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            className="h-6 text-[10px] px-2"
+                                            onClick={() => addServer(server.id)}
+                                        >
+                                            Add
+                                        </Button>
+                                    </div>
+                                ))
+                            )}
+
+                            {monitoredServerIds.length > 0 && availableServers.length > 0 && (
+                                <div className="p-2 bg-muted/10 border-t">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full h-7 text-xs text-muted-foreground"
+                                        onClick={() => setView('monitor')}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
                             )}
                         </div>
                     ) : (
@@ -318,8 +360,8 @@ export function ServerMonitor() {
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2 flex-1 min-w-0">
                                                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${serverStat?.error ? 'bg-red-500' :
-                                                        serverStat?.stats ? 'bg-green-500' :
-                                                            'bg-muted animate-pulse'
+                                                    serverStat?.stats ? 'bg-green-500' :
+                                                        'bg-muted animate-pulse'
                                                     }`} />
                                                 <span className="text-xs font-medium truncate">{server.name}</span>
                                             </div>
@@ -409,6 +451,21 @@ export function ServerMonitor() {
                                     </div>
                                 );
                             })}
+
+                            {/* Explicit Add Button at Bottom if we have more servers */}
+                            {availableServers.length > 0 && (
+                                <div className="p-2 bg-muted/10 border-t">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full h-8 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10 dashed border border-dashed border-primary/20"
+                                        onClick={() => setView('add')}
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Add Another Server
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

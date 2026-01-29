@@ -377,6 +377,7 @@ export default function DomainsPage() {
 
               <ButtonGroup className="flex">
                 <TooltipProvider>
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -390,6 +391,21 @@ export default function DomainsPage() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Refresh zones, DNS & SSL</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={handleRefreshZones}
+                        disabled={isLoading}
+                        variant="outline"
+                        size="sm"
+                        className="px-2"
+                      >
+                        <Globe className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Refresh zones only</TooltipContent>
                   </Tooltip>
 
                   <Tooltip>
@@ -422,20 +438,6 @@ export default function DomainsPage() {
                     <TooltipContent>Refresh SSL settings</TooltipContent>
                   </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={handleRefreshZones}
-                        disabled={isLoading}
-                        variant="outline"
-                        size="sm"
-                        className="px-2"
-                      >
-                        <Globe className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Refresh zones only</TooltipContent>
-                  </Tooltip>
                 </TooltipProvider>
               </ButtonGroup>
 

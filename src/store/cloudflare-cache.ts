@@ -45,6 +45,12 @@ interface NjallaDomainData {
   domains: any[];
 }
 
+interface NameserverData {
+  domain: string;
+  nameservers: string[];
+  isUsingOurDNS: boolean;
+}
+
 interface CloudflareCacheState {
   // Zones cache
   zones: ZoneData[];
@@ -73,7 +79,11 @@ interface CloudflareCacheState {
   // Njalla Domains cache (keyed by accountId)
   njallaDomains: Record<string, NjallaDomainData>;
   njallaDomainLastUpdated: Record<string, number>;
-  
+
+  // Nameservers cache (keyed by domain name)
+  nameservers: Record<string, NameserverData>;
+  nameserversLastUpdated: Record<string, number>;
+
   // Loading states
   isLoading: {
     zones: boolean;
@@ -83,8 +93,9 @@ interface CloudflareCacheState {
     registrarData: Record<string, boolean>;
     namecheapDomains: Record<string, boolean>;
     njallaDomains: Record<string, boolean>;
+    nameservers: Record<string, boolean>;
   };
-  
+
   // Cache management
   setZones: (zones: ZoneData[]) => void;
   addZone: (zone: any, accountId: string, accountName: string) => void;
@@ -95,14 +106,15 @@ interface CloudflareCacheState {
   setRegistrarData: (accountId: string, registrarName: string, domains?: string[]) => void;
   setNamecheapDomains: (accountId: string, accountName: string, domains: any[]) => void;
   setNjallaDomains: (accountId: string, accountName: string, domains: any[]) => void;
-  
+  setNameserversCache: (domain: string, nameservers: string[], isUsingOurDNS: boolean) => void;
+
   setLoading: (type: string, key: string, loading: boolean) => void;
-  
+
   clearCache: () => void;
   clearZoneCache: (zoneId: string, accountId: string) => void;
-  
+
   isCacheValid: (type: string, key?: string) => boolean;
-  
+
   // Getters
   getZones: () => ZoneData[];
   getDNSRecords: (zoneId: string, accountId: string) => any[];
@@ -111,6 +123,7 @@ interface CloudflareCacheState {
   getRegistrarData: (accountId: string) => RegistrarData | null;
   getNamecheapDomains: (accountId: string) => NamecheapDomainData | null;
   getNjallaDomains: (accountId: string) => NjallaDomainData | null;
+  getNameserversCache: (domain: string) => NameserverData | null;
 }
 
 interface CloudflareCacheStateWithHydration extends CloudflareCacheState {
@@ -126,13 +139,13 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
       // Initial state
       zones: [],
       zonesLastUpdated: null,
-      
+
       dnsRecords: {},
       dnsRecordsLastUpdated: {},
-      
+
       sslData: {},
       sslDataLastUpdated: {},
-      
+
       zoneDetails: {},
       zoneDetailsLastUpdated: {},
 
@@ -145,6 +158,9 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
       njallaDomains: {},
       njallaDomainLastUpdated: {},
 
+      nameservers: {},
+      nameserversLastUpdated: {},
+
       isLoading: {
         zones: false,
         dnsRecords: {},
@@ -153,14 +169,15 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         registrarData: {},
         namecheapDomains: {},
         njallaDomains: {},
+        nameservers: {},
       },
-      
+
       // Setters
-      setZones: (zones) => set({ 
-        zones, 
-        zonesLastUpdated: Date.now() 
+      setZones: (zones) => set({
+        zones,
+        zonesLastUpdated: Date.now()
       }),
-      
+
       addZone: (zone, accountId, accountName) => {
         set((state) => {
           // Check if zone already exists to avoid duplicates
@@ -168,7 +185,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           const exists = state.zones.some(
             (z) => `${z.accountId}-${z.zone.id}` === zoneKey
           );
-          
+
           if (exists) {
             // Update existing zone
             return {
@@ -188,14 +205,14 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           }
         });
       },
-      
+
       removeZone: (zoneId, accountId) => {
         set((state) => {
           // Remove zone from zones array
           const updatedZones = state.zones.filter(
             (z) => !(z.zone.id === zoneId && z.accountId === accountId)
           );
-          
+
           // Also clear all related cache for this zone
           const key = `${zoneId}-${accountId}`;
           const newState = { ...state };
@@ -208,7 +225,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           delete newState.isLoading.dnsRecords[key];
           delete newState.isLoading.sslData[key];
           delete newState.isLoading.zoneDetails[key];
-          
+
           return {
             ...newState,
             zones: updatedZones,
@@ -216,7 +233,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           };
         });
       },
-      
+
       setDNSRecords: (zoneId, accountId, records) => {
         const key = `${zoneId}-${accountId}`;
         set((state) => ({
@@ -230,7 +247,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           }
         }));
       },
-      
+
       setSSLData: (zoneId, accountId, certificates, sslSetting) => {
         const key = `${zoneId}-${accountId}`;
         set((state) => ({
@@ -244,7 +261,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           }
         }));
       },
-      
+
       setZoneDetails: (zoneId, accountId, zone) => {
         const key = `${zoneId}-${accountId}`;
         set((state) => ({
@@ -297,7 +314,20 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           }
         }));
       },
-      
+
+      setNameserversCache: (domain, nameservers, isUsingOurDNS) => {
+        set((state) => ({
+          nameservers: {
+            ...state.nameservers,
+            [domain]: { domain, nameservers, isUsingOurDNS }
+          },
+          nameserversLastUpdated: {
+            ...state.nameserversLastUpdated,
+            [domain]: Date.now()
+          }
+        }));
+      },
+
       setLoading: (type, key, loading) => {
         set((state) => ({
           isLoading: {
@@ -309,7 +339,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           }
         }));
       },
-      
+
       // Cache management
       clearCache: () => set({
         zones: [],
@@ -326,6 +356,8 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         namecheapDomainsLastUpdated: {},
         njallaDomains: {},
         njallaDomainLastUpdated: {},
+        nameservers: {},
+        nameserversLastUpdated: {},
         isLoading: {
           zones: false,
           dnsRecords: {},
@@ -334,9 +366,10 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           registrarData: {},
           namecheapDomains: {},
           njallaDomains: {},
+          nameservers: {},
         }
       }),
-      
+
       clearZoneCache: (zoneId, accountId) => {
         const key = `${zoneId}-${accountId}`;
         set((state) => {
@@ -353,7 +386,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           return newState;
         });
       },
-      
+
       // Cache validation - cache never expires automatically, only updates manually
       isCacheValid: (type, key) => {
         const state = get();
@@ -369,6 +402,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           case 'registrarData':
           case 'namecheapDomains':
           case 'njallaDomains':
+          case 'nameservers':
             if (!key) return false;
             const lastUpdated = state[`${type}LastUpdated` as keyof typeof state] as Record<string, number> | undefined;
             const cacheData = state[type as keyof typeof state] as Record<string, any> | undefined;
@@ -385,21 +419,21 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
             return false;
         }
       },
-      
+
       // Getters
       getZones: () => get().zones,
-      
+
       getDNSRecords: (zoneId, accountId) => {
         const key = `${zoneId}-${accountId}`;
         return get().dnsRecords[key]?.records || [];
       },
-      
+
       getSSLData: (zoneId, accountId) => {
         const key = `${zoneId}-${accountId}`;
         const data = get().sslData[key];
         return data ? { certificates: data.certificates, sslSetting: data.sslSetting } : null;
       },
-      
+
       getZoneDetails: (zoneId, accountId) => {
         const key = `${zoneId}-${accountId}`;
         return get().zoneDetails[key]?.zone || null;
@@ -415,6 +449,10 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
 
       getNjallaDomains: (accountId) => {
         return get().njallaDomains[accountId] || null;
+      },
+
+      getNameserversCache: (domain) => {
+        return get().nameservers[domain] || null;
       },
     }),
     {
@@ -434,6 +472,8 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         namecheapDomainsLastUpdated: state.namecheapDomainsLastUpdated,
         njallaDomains: state.njallaDomains,
         njallaDomainLastUpdated: state.njallaDomainLastUpdated,
+        nameservers: state.nameservers,
+        nameserversLastUpdated: state.nameserversLastUpdated,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

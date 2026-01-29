@@ -83,7 +83,7 @@ export class NamecheapAPI {
     });
 
     const proxyAgent = this.createProxyAgent();
-    
+
     let response;
     try {
       response = await fetch(url, {
@@ -92,7 +92,7 @@ export class NamecheapAPI {
         ...(proxyAgent && { agent: proxyAgent as any }),
       });
     } catch (error) {
-       throw new Error(`Failed to connect to Namecheap API: ${error instanceof Error ? error.message : 'Unknown network error'}`);
+      throw new Error(`Failed to connect to Namecheap API: ${error instanceof Error ? error.message : 'Unknown network error'}`);
     }
 
     if (!response.ok) {
@@ -107,8 +107,8 @@ export class NamecheapAPI {
       this.handleApiError(ApiResponse);
     }
 
-    const commandResponse = Array.isArray(ApiResponse.CommandResponse) 
-      ? ApiResponse.CommandResponse[0] 
+    const commandResponse = Array.isArray(ApiResponse.CommandResponse)
+      ? ApiResponse.CommandResponse[0]
       : ApiResponse.CommandResponse;
 
     if (!commandResponse) {
@@ -124,8 +124,8 @@ export class NamecheapAPI {
       // If no result, it might mean no domains found or empty list. 
       // Namecheap sometimes returns empty DomainGetListResult if no domains.
       return {
-          domains: [],
-          paging: { totalItems: 0, currentPage: page, pageSize }
+        domains: [],
+        paging: { totalItems: 0, currentPage: page, pageSize }
       };
     }
 
@@ -134,8 +134,8 @@ export class NamecheapAPI {
       ? (Array.isArray(commandResponse.Paging) ? commandResponse.Paging[0] : commandResponse.Paging)
       : undefined;
 
-    const rawDomains = Array.isArray(domainGetListResult.Domain) 
-      ? domainGetListResult.Domain 
+    const rawDomains = Array.isArray(domainGetListResult.Domain)
+      ? domainGetListResult.Domain
       : (domainGetListResult.Domain?.$ ? [domainGetListResult.Domain] : []);
 
     const domains = rawDomains.map((d: any) => {
@@ -161,6 +161,127 @@ export class NamecheapAPI {
       pageSize: domains.length,
     };
 
+
     return { domains, paging: pagingInfo };
   }
+
+  async getNameservers(sld: string, tld: string): Promise<{ nameservers: string[], isUsingOurDNS: boolean }> {
+    const url = this.buildUrl('namecheap.domains.dns.getList', {
+      SLD: sld,
+      TLD: tld,
+    });
+
+    const proxyAgent = this.createProxyAgent();
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/xml' },
+        ...(proxyAgent && { agent: proxyAgent as any }),
+      });
+    } catch (error) {
+      throw new Error(`Failed to connect to Namecheap API: ${error instanceof Error ? error.message : 'Unknown network error'}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Namecheap API HTTP error: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+    const parsedData = await this.parseXmlResponse(xmlText);
+    const { ApiResponse } = parsedData;
+
+    if (ApiResponse.$.Status !== 'OK') {
+      this.handleApiError(ApiResponse);
+    }
+
+    const commandResponse = Array.isArray(ApiResponse.CommandResponse)
+      ? ApiResponse.CommandResponse[0]
+      : ApiResponse.CommandResponse;
+
+    if (!commandResponse) {
+      throw new Error('No command response found in Namecheap API response');
+    }
+
+    const dnsGetListResult = Array.isArray(commandResponse.DomainDNSGetListResult)
+      ? commandResponse.DomainDNSGetListResult[0]
+      : commandResponse.DomainDNSGetListResult;
+
+    if (!dnsGetListResult) {
+      throw new Error('No DNS list result found in response');
+    }
+
+    // Check if using Namecheap DNS
+    const isUsingOurDNS = this.parseBoolean(dnsGetListResult.$.IsUsingOurDNS);
+
+    // Extract nameservers
+    let nameservers: string[] = [];
+    if (dnsGetListResult.Nameserver) {
+      const nsData = Array.isArray(dnsGetListResult.Nameserver)
+        ? dnsGetListResult.Nameserver
+        : [dnsGetListResult.Nameserver];
+      nameservers = nsData.map((ns: any) => typeof ns === 'string' ? ns : ns._);
+    }
+
+    return { nameservers, isUsingOurDNS };
+  }
+
+  async setNameservers(sld: string, tld: string, nameservers: string[]): Promise<{ success: boolean }> {
+    // Namecheap expects comma-separated nameservers
+    const nameserversParam = nameservers.join(',');
+
+    const url = this.buildUrl('namecheap.domains.dns.setCustom', {
+      SLD: sld,
+      TLD: tld,
+      Nameservers: nameserversParam,
+    });
+
+    const proxyAgent = this.createProxyAgent();
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/xml' },
+        ...(proxyAgent && { agent: proxyAgent as any }),
+      });
+    } catch (error) {
+      throw new Error(`Failed to connect to Namecheap API: ${error instanceof Error ? error.message : 'Unknown network error'}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Namecheap API HTTP error: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+    const parsedData = await this.parseXmlResponse(xmlText);
+    const { ApiResponse } = parsedData;
+
+    if (ApiResponse.$.Status !== 'OK') {
+      this.handleApiError(ApiResponse);
+    }
+
+    const commandResponse = Array.isArray(ApiResponse.CommandResponse)
+      ? ApiResponse.CommandResponse[0]
+      : ApiResponse.CommandResponse;
+
+    if (!commandResponse) {
+      throw new Error('No command response found in Namecheap API response');
+    }
+
+    const dnsSetCustomResult = Array.isArray(commandResponse.DomainDNSSetCustomResult)
+      ? commandResponse.DomainDNSSetCustomResult[0]
+      : commandResponse.DomainDNSSetCustomResult;
+
+    if (!dnsSetCustomResult) {
+      throw new Error('No DNS set custom result found in response');
+    }
+
+    // Check if update was successful
+    const updated = this.parseBoolean(dnsSetCustomResult.$.Updated);
+
+    return { success: updated };
+  }
 }
+
