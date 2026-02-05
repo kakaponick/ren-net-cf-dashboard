@@ -1,4 +1,4 @@
-import { Search, RefreshCw, X, Globe, Server } from 'lucide-react';
+import { Search, RefreshCw, X, Globe, Server, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import {
 import type { NamecheapAccount } from '@/types/namecheap';
 import type { NjallaAccount } from '@/types/njalla';
 import type { RegistrarType } from '@/types/registrar';
+import { ColumnVisibilityMenu, type ColumnVisibilityItem } from '@/components/table/column-visibility-menu';
 
 interface Stats {
 	visible: number;
@@ -37,6 +38,7 @@ interface RegistrarPageHeaderProps {
 	selectedRegistrar: RegistrarType | 'all';
 	onRegistrarChange: (value: RegistrarType | 'all') => void;
 	domainCounts: Record<string, number>;
+	columnVisibilityItems: ColumnVisibilityItem[];
 }
 
 export function RegistrarPageHeader({
@@ -55,6 +57,7 @@ export function RegistrarPageHeader({
 	selectedRegistrar,
 	onRegistrarChange,
 	domainCounts,
+	columnVisibilityItems,
 }: RegistrarPageHeaderProps) {
 	// Filter accounts based on selected registrar
 	const filteredNamecheapAccounts =
@@ -230,6 +233,8 @@ export function RegistrarPageHeader({
 							</Tooltip>
 						</TooltipProvider>
 					</ButtonGroup>
+
+					<ColumnVisibilityMenu items={columnVisibilityItems} />
 				</div>
 			</div>
 		</div>

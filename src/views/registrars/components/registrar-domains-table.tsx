@@ -6,7 +6,9 @@ import type { UnifiedDomain } from '@/types/registrar';
 import { ActivityBoundary } from '@/components/activity-boundary';
 import { NameserversCell } from './nameservers-cell';
 
-type SortField = 'name' | 'registrar' | 'expires' | 'status';
+import { REGISTRAR_COLUMN_LABELS, type RegistrarColumnVisibility } from '../registrar-columns';
+
+type SortField = 'name' | 'registrar' | 'expires' | 'status' | 'email';
 
 type RegistrarDomainsTableProps = {
 	domains: UnifiedDomain[];
@@ -23,6 +25,8 @@ type RegistrarDomainsTableProps = {
 	nameserversLoading: Record<string, boolean>;
 	onRefreshNameservers: (domain: string) => void;
 	onEditNameservers: (domain: UnifiedDomain) => void;
+	visibleColumns: RegistrarColumnVisibility;
+	accountEmails: Record<string, string>;
 };
 
 export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
@@ -39,6 +43,8 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 	nameserversLoading,
 	onRefreshNameservers,
 	onEditNameservers,
+	visibleColumns,
+	accountEmails,
 }: RegistrarDomainsTableProps) {
 	const getStatusTextColor = useCallback((status: string) => {
 		if (status === 'expired') return 'text-destructive';
@@ -116,51 +122,64 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 							{getSortIcon('name')}
 						</div>
 					</TableHead>
-					<ActivityBoundary mode="visible">
-						<TableHead className="text-center">Nameservers</TableHead>
+					<ActivityBoundary mode={visibleColumns.nameservers ? 'visible' : 'hidden'}>
+						<TableHead className="text-center">{REGISTRAR_COLUMN_LABELS.nameservers}</TableHead>
 					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
+					<ActivityBoundary mode={visibleColumns.registrar ? 'visible' : 'hidden'}>
 						<TableHead
 							className="cursor-pointer hover:bg-muted/50"
 							onClick={() => onSort('registrar')}
 						>
 							<div className="flex items-center space-x-2">
-								<span>Registrar</span>
+								<span>{REGISTRAR_COLUMN_LABELS.registrar}</span>
 								{getSortIcon('registrar')}
 							</div>
 						</TableHead>
 					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
+					<ActivityBoundary mode={visibleColumns.email ? 'visible' : 'hidden'}>
+						<TableHead
+							className="cursor-pointer hover:bg-muted/50"
+							onClick={() => onSort('email')}
+						>
+							<div className="flex items-center space-x-2">
+								<span>{REGISTRAR_COLUMN_LABELS.email}</span>
+								{getSortIcon('email')}
+							</div>
+						</TableHead>
+					</ActivityBoundary>
+					<ActivityBoundary mode={visibleColumns.status ? 'visible' : 'hidden'}>
 						<TableHead
 							className="cursor-pointer hover:bg-muted/50"
 							onClick={() => onSort('status')}
 						>
 							<div className="flex items-center space-x-2">
-								<span>Status</span>
+								<span>{REGISTRAR_COLUMN_LABELS.status}</span>
 								{getSortIcon('status')}
 							</div>
 						</TableHead>
 					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
+					<ActivityBoundary mode={visibleColumns.expires ? 'visible' : 'hidden'}>
 						<TableHead
 							className="cursor-pointer hover:bg-muted/50"
 							onClick={() => onSort('expires')}
 						>
 							<div className="flex items-center space-x-2">
-								<span>Expires</span>
+								<span>{REGISTRAR_COLUMN_LABELS.expires}</span>
 								{getSortIcon('expires')}
 							</div>
 						</TableHead>
 					</ActivityBoundary>
-					<TableHead className="text-center">Auto Renew</TableHead>
-					<ActivityBoundary mode="visible">
-						<TableHead className="text-center">Privacy</TableHead>
+					<ActivityBoundary mode={visibleColumns.autorenew ? 'visible' : 'hidden'}>
+						<TableHead className="text-center">{REGISTRAR_COLUMN_LABELS.autorenew}</TableHead>
 					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
-						<TableHead className="text-center">Premium</TableHead>
+					<ActivityBoundary mode={visibleColumns.privacy ? 'visible' : 'hidden'}>
+						<TableHead className="text-center">{REGISTRAR_COLUMN_LABELS.privacy}</TableHead>
 					</ActivityBoundary>
-					<ActivityBoundary mode="visible">
-						<TableHead className="text-center">DNS</TableHead>
+					<ActivityBoundary mode={visibleColumns.premium ? 'visible' : 'hidden'}>
+						<TableHead className="text-center">{REGISTRAR_COLUMN_LABELS.premium}</TableHead>
+					</ActivityBoundary>
+					<ActivityBoundary mode={visibleColumns.dns ? 'visible' : 'hidden'}>
+						<TableHead className="text-center">{REGISTRAR_COLUMN_LABELS.dns}</TableHead>
 					</ActivityBoundary>
 
 				</TableRow>
@@ -181,43 +200,64 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 							<TableCell className="font-medium">
 								{domain.name}
 							</TableCell>
-							<TableCell className="text-center">
-								<NameserversCell
-									domain={domain}
-									nameservers={nameserversCache[domain.name]?.nameservers || null}
-									isUsingOurDNS={nameserversCache[domain.name]?.isUsingOurDNS ?? null}
-									isLoading={nameserversLoading[domain.name] || false}
-									onRefresh={onRefreshNameservers}
-									onEdit={onEditNameservers}
-								/>
-							</TableCell>
-							<TableCell className="capitalize">
-								<span className="px-2 py-1 bg-muted/50 rounded text-xs font-medium">
-									{domain.registrar}
-								</span>
-							</TableCell>
-							<TableCell>
-								<span className={getStatusTextColor(domain.status)}>
-									{getStatusText(domain.status)}
-								</span>
-							</TableCell>
-							<TableCell className="text-muted-foreground">
-								{formatDate(domain.expiry)}
-							</TableCell>
-							<TableCell className="text-center">
-								{domain.autorenew ? 'Yes' : 'No'}
-							</TableCell>
-							<TableCell className="text-center">
-								<div className="flex justify-center">
-									{getWhoisGuardIcon(domain)}
-								</div>
-							</TableCell>
-							<TableCell className="text-center">
-								{domain.ncDomain?.IsPremium ? 'Premium' : domain.ncDomain ? 'Standard' : '—'}
-							</TableCell>
-							<TableCell className="text-center">
-								{domain.ncDomain?.IsOurDNS ? 'Namecheap' : domain.ncDomain ? 'External' : '—'}
-							</TableCell>
+							<ActivityBoundary mode={visibleColumns.nameservers ? 'visible' : 'hidden'}>
+								<TableCell className="text-center">
+									<NameserversCell
+										domain={domain}
+										nameservers={nameserversCache[domain.name]?.nameservers || null}
+										isUsingOurDNS={nameserversCache[domain.name]?.isUsingOurDNS ?? null}
+										isLoading={nameserversLoading[domain.name] || false}
+										onRefresh={onRefreshNameservers}
+										onEdit={onEditNameservers}
+									/>
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.registrar ? 'visible' : 'hidden'}>
+								<TableCell className="capitalize">
+									<span className="px-2 py-1 bg-muted/50 rounded text-xs font-medium">
+										{domain.registrar}
+									</span>
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.email ? 'visible' : 'hidden'}>
+								<TableCell className="text-muted-foreground text-xs">
+									{accountEmails[domain.accountId] || '—'}
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.status ? 'visible' : 'hidden'}>
+								<TableCell>
+									<span className={getStatusTextColor(domain.status)}>
+										{getStatusText(domain.status)}
+									</span>
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.expires ? 'visible' : 'hidden'}>
+								<TableCell className="text-muted-foreground">
+									{formatDate(domain.expiry)}
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.autorenew ? 'visible' : 'hidden'}>
+								<TableCell className="text-center">
+									{domain.autorenew ? 'Yes' : 'No'}
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.privacy ? 'visible' : 'hidden'}>
+								<TableCell className="text-center">
+									<div className="flex justify-center">
+										{getWhoisGuardIcon(domain)}
+									</div>
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.premium ? 'visible' : 'hidden'}>
+								<TableCell className="text-center">
+									{domain.ncDomain?.IsPremium ? 'Premium' : domain.ncDomain ? 'Standard' : '—'}
+								</TableCell>
+							</ActivityBoundary>
+							<ActivityBoundary mode={visibleColumns.dns ? 'visible' : 'hidden'}>
+								<TableCell className="text-center">
+									{domain.ncDomain?.IsOurDNS ? 'Namecheap' : domain.ncDomain ? 'External' : '—'}
+								</TableCell>
+							</ActivityBoundary>
 
 						</TableRow>
 					);

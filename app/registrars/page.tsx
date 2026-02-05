@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { useSelection } from '@/hooks/use-selection';
@@ -18,6 +18,14 @@ import { useLoadingToast } from '@/views/registrars/hooks/use-loading-toast';
 import { useNameservers } from '@/hooks/use-nameservers';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { SetNameserversDialog } from '@/views/registrars/components/set-nameservers-dialog';
+import {
+  loadRegistrarColumnVisibility,
+  saveRegistrarColumnVisibility,
+  REGISTRAR_COLUMN_KEYS,
+  REGISTRAR_COLUMN_LABELS,
+  type RegistrarColumnKey,
+  type RegistrarColumnVisibility
+} from '@/views/registrars/registrar-columns';
 
 export default function RegistrarsPage() {
   const router = useRouter();
@@ -49,6 +57,13 @@ export default function RegistrarsPage() {
   // State for editing single domain
   const [editingDomain, setEditingDomain] = useState<UnifiedDomain | null>(null);
 
+  const accountEmails = useMemo(() => {
+    const emails: Record<string, string> = {};
+    namecheapAccounts.forEach(acc => emails[acc.id] = acc.email);
+    njallaAccounts.forEach(acc => emails[acc.id] = acc.email);
+    return emails;
+  }, [namecheapAccounts, njallaAccounts]);
+
   const {
     searchTerm,
     setSearchTerm,
@@ -61,7 +76,33 @@ export default function RegistrarsPage() {
     sortDirection,
     handleSort,
     sortedDomains,
-  } = useRegistrarFilterSort(domains);
+  } = useRegistrarFilterSort(domains, accountEmails);
+
+  const [columnVisibility, setColumnVisibility] = useState<RegistrarColumnVisibility>(() =>
+    loadRegistrarColumnVisibility()
+  );
+
+  useEffect(() => {
+    saveRegistrarColumnVisibility(columnVisibility);
+  }, [columnVisibility]);
+
+  const handleToggleColumn = useCallback((column: RegistrarColumnKey, isVisible: boolean) => {
+    setColumnVisibility((prev) => ({
+      ...prev,
+      [column]: isVisible
+    }));
+  }, []);
+
+  const columnVisibilityItems = useMemo(
+    () =>
+      REGISTRAR_COLUMN_KEYS.map((column) => ({
+        id: column,
+        label: REGISTRAR_COLUMN_LABELS[column],
+        isVisible: columnVisibility[column],
+        onToggle: (isVisible: boolean) => handleToggleColumn(column, isVisible)
+      })),
+    [columnVisibility, handleToggleColumn]
+  );
 
   const domainCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -187,6 +228,7 @@ export default function RegistrarsPage() {
         selectedRegistrar={selectedRegistrar}
         onRegistrarChange={setSelectedRegistrar}
         domainCounts={domainCounts}
+        columnVisibilityItems={columnVisibilityItems}
       />
 
       {/* Main content */}
@@ -235,6 +277,8 @@ export default function RegistrarsPage() {
               nameserversLoading={nsLoadingStates}
               onRefreshNameservers={handleRefreshSingleNameserver}
               onEditNameservers={handleEditNameservers}
+              visibleColumns={columnVisibility}
+              accountEmails={accountEmails}
             />
           </div>
         </Card>

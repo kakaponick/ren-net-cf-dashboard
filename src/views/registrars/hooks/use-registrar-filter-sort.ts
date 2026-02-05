@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { UnifiedDomain, RegistrarType } from '@/types/registrar';
 
-type SortField = 'name' | 'registrar' | 'expires' | 'status';
+type SortField = 'name' | 'registrar' | 'expires' | 'status' | 'email';
 type SortDirection = 'asc' | 'desc';
 
 const DEBOUNCE_DELAY = 200;
@@ -19,7 +19,7 @@ function getDomainStatus(domain: UnifiedDomain): keyof typeof STATUS_ORDER {
 	return statusMap[domain.status] || 'Active';
 }
 
-export function useRegistrarFilterSort(domains: UnifiedDomain[]) {
+export function useRegistrarFilterSort(domains: UnifiedDomain[], accountEmails: Record<string, string> = {}) {
 	const [searchTerm, setSearchTerm] = useLocalStorage<string>('registrar-search-term', '');
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 	const [selectedAccount, setSelectedAccount] = useLocalStorage<string>('registrar-account-filter', 'all');
@@ -53,7 +53,8 @@ export function useRegistrarFilterSort(domains: UnifiedDomain[]) {
 			const lowerSearch = debouncedSearchTerm.toLowerCase();
 			result = result.filter(
 				(domain) =>
-					domain.name.toLowerCase().includes(lowerSearch)
+					domain.name.toLowerCase().includes(lowerSearch) ||
+					(accountEmails[domain.accountId] || '').toLowerCase().includes(lowerSearch)
 			);
 		}
 
@@ -81,6 +82,10 @@ export function useRegistrarFilterSort(domains: UnifiedDomain[]) {
 				case 'status':
 					aValue = STATUS_ORDER[getDomainStatus(a)];
 					bValue = STATUS_ORDER[getDomainStatus(b)];
+					break;
+				case 'email':
+					aValue = (accountEmails[a.accountId] || '').toLowerCase();
+					bValue = (accountEmails[b.accountId] || '').toLowerCase();
 					break;
 				default:
 					return 0;
