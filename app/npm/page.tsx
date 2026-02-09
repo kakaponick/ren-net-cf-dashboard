@@ -422,7 +422,9 @@ export default function NPMPage() {
         return parseNginxLocations(filteredRedirects);
     }, [filteredRedirects]);
 
-    const parsedLocations = parseResult.locations;
+    const parsedLocations = useMemo(() => {
+        return [...parseResult.locations].reverse();
+    }, [parseResult.locations]);
 
     // Show error if duplicates are found
     useEffect(() => {

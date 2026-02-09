@@ -83,10 +83,9 @@ export function parseNginxLocations(redirects: NPMRedirectListResponse[]): Parse
         });
     });
 
-    // Sort locations by location path
-    const sortedLocations = allLocations.sort((a, b) =>
-        a.location.localeCompare(b.location)
-    );
+    // Return locations in order of appearance (which usually correlates with creation date)
+    // instead of sorting alphabetically.
+    const sortedLocations = allLocations;
 
     return {
         locations: sortedLocations,
