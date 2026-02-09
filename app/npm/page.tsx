@@ -229,6 +229,102 @@ export default function NPMPage() {
         }
     };
 
+    const handleDeleteLocations = async (indices: number[]) => {
+        if (!npmCredentials) return;
+
+        try {
+            // Group locations by redirect ID to perform bulk updates efficiently
+            const updatesByRedirectId: Record<string, { redirect: any, linesToRemove: string[] }> = {};
+
+            // Process indices
+            for (const index of indices) {
+                const loc = parsedLocations[index];
+                if (!loc) continue;
+
+                const redirect = redirects.find(r =>
+                    r.domain_names.includes(loc.sourceDomain) &&
+                    r.advanced_config?.includes(loc.location)
+                );
+
+                if (!redirect || !redirect.advanced_config) continue;
+
+                if (!updatesByRedirectId[redirect.id]) {
+                    updatesByRedirectId[redirect.id] = {
+                        redirect,
+                        linesToRemove: []
+                    };
+                }
+
+                const lineToRemove = `location = ${loc.location} { return 301 ${loc.destination}; }`;
+                updatesByRedirectId[redirect.id].linesToRemove.push(lineToRemove);
+            }
+
+            // Perform updates sequentially
+            const client = new NPMAPIClient(
+                npmCredentials,
+                npmToken?.token,
+                (newToken, expires) => setNpmToken({ token: newToken, expires })
+            );
+
+            let deletedCount = 0;
+
+            for (const redirectId in updatesByRedirectId) {
+                const { redirect, linesToRemove } = updatesByRedirectId[redirectId];
+
+                let updatedConfig = redirect.advanced_config;
+
+                updatedConfig = updatedConfig
+                    .split('\n')
+                    .filter((line: string) => !linesToRemove.some(rem => line.includes(rem)))
+                    .join('\n');
+
+                if (updatedConfig === redirect.advanced_config) continue;
+
+                await client.updateRedirect(redirect.id, {
+                    domain_names: redirect.domain_names,
+                    forward_scheme: redirect.forward_scheme,
+                    forward_domain_name: redirect.forward_domain_name,
+                    forward_http_code: redirect.forward_http_code,
+                    certificate_id: redirect.certificate_id,
+                    meta: {
+                        letsencrypt_agree: Boolean(redirect.meta.letsencrypt_agree),
+                        dns_challenge: Boolean(redirect.meta.dns_challenge),
+                    },
+                    advanced_config: updatedConfig,
+                    block_exploits: Boolean(redirect.block_exploits),
+                    preserve_path: Boolean(redirect.preserve_path),
+                    http2_support: Boolean(redirect.http2_support),
+                    hsts_enabled: Boolean(redirect.hsts_enabled),
+                    hsts_subdomains: Boolean(redirect.hsts_subdomains),
+                    ssl_forced: Boolean(redirect.ssl_forced),
+                });
+
+                deletedCount += linesToRemove.length;
+            }
+
+            if (deletedCount > 0) {
+                toast.success(`Successfully deleted ${deletedCount} locations`);
+                await loadRedirects(true);
+            }
+        } catch (error) {
+            console.error('Failed to delete locations:', error);
+
+            const nginxErr = extractNginxError(error);
+            if (nginxErr) {
+                const formatted = formatNginxError(nginxErr);
+                toast.error(formatted.title, {
+                    description: formatted.description,
+                    duration: Infinity,
+                    closeButton: true,
+                });
+            } else {
+                toast.error('Failed to delete locations', {
+                    description: error instanceof Error ? error.message : 'Unknown error',
+                });
+            }
+        }
+    };
+
     const handleAddRedirects = async (domain: string, urls: string[]) => {
         if (!npmCredentials) return;
 
@@ -433,6 +529,7 @@ export default function NPMPage() {
                             locations={parsedLocations}
                             onUpdate={handleUpdateLocation}
                             onDelete={handleDeleteLocation}
+                            onDeleteMultiple={handleDeleteLocations}
                         />
                     </div>
                 </Card>

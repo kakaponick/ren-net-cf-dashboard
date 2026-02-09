@@ -24,6 +24,7 @@ interface NginxLocationsTableProps {
     locations: ParsedNginxLocation[];
     onUpdate?: (index: number, location: string, destination: string) => void;
     onDelete?: (index: number) => void;
+    onDeleteMultiple?: (indices: number[]) => void;
 }
 
 interface EditingState {
@@ -193,7 +194,7 @@ const LocationRow = memo(function LocationRow({
     );
 });
 
-export function NginxLocationsTable({ locations, onUpdate, onDelete }: NginxLocationsTableProps) {
+export function NginxLocationsTable({ locations, onUpdate, onDelete, onDeleteMultiple }: NginxLocationsTableProps) {
     const [editingRow, setEditingRow] = useState<EditingState | null>(null);
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
@@ -328,6 +329,16 @@ export function NginxLocationsTable({ locations, onUpdate, onDelete }: NginxLoca
         }
     };
 
+
+    const handleDeleteSelected = () => {
+        if (!onDeleteMultiple) return;
+
+        if (window.confirm(`Are you sure you want to delete ${selectedRows.size} selected locations?`)) {
+            onDeleteMultiple(Array.from(selectedRows));
+            setSelectedRows(new Set());
+        }
+    };
+
     return (
         <div className="space-y-3">
             {/* Search and Filters */}
@@ -396,6 +407,16 @@ export function NginxLocationsTable({ locations, onUpdate, onDelete }: NginxLoca
                         <Copy className="h-4 w-4 mr-2" />
                         Copy All URLs
                     </Button>
+                    {onDeleteMultiple && (
+                        <Button
+                            onClick={handleDeleteSelected}
+                            size="sm"
+                            variant="destructive"
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Selected
+                        </Button>
+                    )}
                     <Button
                         onClick={() => setSelectedRows(new Set())}
                         size="sm"
