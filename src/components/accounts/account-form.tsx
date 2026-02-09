@@ -429,7 +429,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             </Label>
             <Input
               id="npm-name"
-              placeholder="My  NPM Instance"
+              placeholder="My NPM Instance"
               value={formData.npmName || ''}
               onChange={(e) => setFormData({ ...formData, npmName: e.target.value })}
               className="transition-colors focus:ring-2"
