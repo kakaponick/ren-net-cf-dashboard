@@ -340,6 +340,8 @@ export default function NPMPage() {
 
             // Generate unique slugs for each URL
             const newLines: string[] = [];
+            const createdUrls: string[] = [];
+
             for (const url of urls) {
                 const slug = generateUniqueSlug(existingLocations.concat(newLines.map(line => {
                     const match = line.match(/location = (\/\S+)/);
@@ -347,6 +349,7 @@ export default function NPMPage() {
                 })));
                 const line = `location = /${slug} { return 301 ${url}; }`;
                 newLines.push(line);
+                createdUrls.push(`https://${domain}/${slug}`);
             }
 
             // Append new lines to advanced_config
@@ -380,6 +383,14 @@ export default function NPMPage() {
                 hsts_subdomains: Boolean(redirect.hsts_subdomains),
                 ssl_forced: Boolean(redirect.ssl_forced),
             });
+
+            // Copy created URLs to clipboard
+            if (createdUrls.length > 0) {
+                navigator.clipboard.writeText(createdUrls.join('\n'));
+                toast.success(`Added ${createdUrls.length} redirects and copied to clipboard`);
+            } else {
+                toast.success('Redirects added successfully');
+            }
 
             // Reload redirects to reflect changes
             await loadRedirects(true);
