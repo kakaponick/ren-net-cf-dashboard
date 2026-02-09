@@ -5,22 +5,29 @@ interface NjallaConfig {
   apiKey: string;
 }
 
-interface NjallaListDomainsRequest {
-  method: 'list-domains';
+interface NjallaRequest {
+  method: string;
   params: Record<string, unknown>;
 }
 
-interface NjallaListDomainsResponse {
-  result: {
-    domains: Array<{
-      name: string;
-      status: string;
-      expiry: string;
-      autorenew: boolean;
-    }>;
-  };
+interface NjallaResponse<T> {
+  result: T;
   jsonrpc: '2.0';
+  id?: string | number | null;
 }
+
+interface NjallaDomainInfo {
+  name: string;
+  status: string;
+  expiry: string;
+  autorenew: boolean;
+  nameservers?: string[];
+}
+
+interface NjallaListDomainsResult {
+  domains: NjallaDomainInfo[];
+}
+
 
 interface NjallaErrorResponse {
   error: {
@@ -38,7 +45,7 @@ export class NjallaAPI {
     this.config = config;
   }
 
-  private async makeRequest(request: NjallaListDomainsRequest): Promise<NjallaListDomainsResponse> {
+  private async makeRequest<T>(request: NjallaRequest): Promise<NjallaResponse<T>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Authorization': `Njalla ${this.config.apiKey}`,
@@ -47,7 +54,11 @@ export class NjallaAPI {
     const response = await fetch(this.baseUrl, {
       method: 'POST',
       headers,
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        ...request,
+        id: Date.now(),
+        jsonrpc: '2.0'
+      }),
     });
 
     if (!response.ok) {
@@ -56,19 +67,19 @@ export class NjallaAPI {
       throw new Error(errorMessage);
     }
 
-    const data = await response.json() as NjallaListDomainsResponse | NjallaErrorResponse;
+    const data = await response.json() as NjallaResponse<T> | NjallaErrorResponse;
 
     // Check for JSONRPC error response
     if ('error' in data && data.error) {
       throw new Error(data.error.message || 'JSONRPC API error');
     }
 
-    return data as NjallaListDomainsResponse;
+    return data as NjallaResponse<T>;
   }
 
   async getDomains(): Promise<NjallaDomain[]> {
     try {
-      const response = await this.makeRequest({
+      const response = await this.makeRequest<NjallaListDomainsResult>({
         method: 'list-domains',
         params: {},
       });
@@ -77,7 +88,7 @@ export class NjallaAPI {
         return [];
       }
 
-      return response.result.domains.map((d: any) => ({
+      return response.result.domains.map((d) => ({
         name: d.name,
         status: d.status,
         expiry: d.expiry,
@@ -85,6 +96,40 @@ export class NjallaAPI {
       }));
     } catch (error) {
       console.error('Error fetching Njalla domains:', error);
+      throw error;
+    }
+  }
+
+  async editDomain(domain: string, params: {
+    nameservers?: string[];
+    mailforwarding?: boolean;
+    dnssec?: boolean;
+    lock?: boolean;
+    contacts?: any; // Define usage if known
+  }): Promise<void> {
+    try {
+      await this.makeRequest<void>({
+        method: 'edit-domain',
+        params: {
+          domain,
+          ...params
+        }
+      });
+    } catch (error) {
+      console.error(`Error editing Njalla domain ${domain}:`, error);
+      throw error;
+    }
+  }
+
+  async getDomain(domain: string): Promise<NjallaDomainInfo> {
+    try {
+      const response = await this.makeRequest<NjallaDomainInfo>({
+        method: 'get-domain',
+        params: { domain }
+      });
+      return response.result;
+    } catch (error) {
+      console.error(`Error getting Njalla domain ${domain}:`, error);
       throw error;
     }
   }

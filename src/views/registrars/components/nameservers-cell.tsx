@@ -43,8 +43,8 @@ export function NameserversCell({
         onEdit(domain);
     }, [domain, onEdit]);
 
-    // Only show for Namecheap domains
-    if (domain.registrar !== 'namecheap') {
+    // Allow both Namecheap and Njalla domains
+    if (domain.registrar !== 'namecheap' && domain.registrar !== 'njalla') {
         return <div className="text-center text-muted-foreground">—</div>;
     }
 

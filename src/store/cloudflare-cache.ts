@@ -78,7 +78,7 @@ interface CloudflareCacheState {
 
   // Njalla Domains cache (keyed by accountId)
   njallaDomains: Record<string, NjallaDomainData>;
-  njallaDomainLastUpdated: Record<string, number>;
+  njallaDomainsLastUpdated: Record<string, number>;
 
   // Nameservers cache (keyed by domain name)
   nameservers: Record<string, NameserverData>;
@@ -156,7 +156,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
       namecheapDomainsLastUpdated: {},
 
       njallaDomains: {},
-      njallaDomainLastUpdated: {},
+      njallaDomainsLastUpdated: {},
 
       nameservers: {},
       nameserversLastUpdated: {},
@@ -308,8 +308,8 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
             ...state.njallaDomains,
             [accountId]: { accountId, accountName, domains }
           },
-          njallaDomainLastUpdated: {
-            ...state.njallaDomainLastUpdated,
+          njallaDomainsLastUpdated: {
+            ...state.njallaDomainsLastUpdated,
             [accountId]: Date.now()
           }
         }));
@@ -355,7 +355,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         namecheapDomains: {},
         namecheapDomainsLastUpdated: {},
         njallaDomains: {},
-        njallaDomainLastUpdated: {},
+        njallaDomainsLastUpdated: {},
         nameservers: {},
         nameserversLastUpdated: {},
         isLoading: {
@@ -471,7 +471,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         namecheapDomains: state.namecheapDomains,
         namecheapDomainsLastUpdated: state.namecheapDomainsLastUpdated,
         njallaDomains: state.njallaDomains,
-        njallaDomainLastUpdated: state.njallaDomainLastUpdated,
+        njallaDomainsLastUpdated: state.njallaDomainsLastUpdated,
         nameservers: state.nameservers,
         nameserversLastUpdated: state.nameserversLastUpdated,
       }),

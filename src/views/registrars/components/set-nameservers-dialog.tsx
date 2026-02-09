@@ -27,9 +27,9 @@ export function SetNameserversDialog({
     const [nameserversInput, setNameserversInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Filter only Namecheap domains
-    const namecheapDomains = selectedDomains.filter((d) => d.registrar === 'namecheap');
-    const isBulk = namecheapDomains.length > 1;
+    // Filter Namecheap and Njalla domains
+    const updatableDomains = selectedDomains.filter((d) => d.registrar === 'namecheap' || d.registrar === 'njalla');
+    const isBulk = updatableDomains.length > 1;
 
     // Pre-fill with current nameservers when dialog opens
     useEffect(() => {
@@ -46,8 +46,8 @@ export function SetNameserversDialog({
 
     // Validation
     const getValidationError = () => {
-        if (namecheapDomains.length === 0) {
-            return 'No Namecheap domains selected';
+        if (updatableDomains.length === 0) {
+            return 'No domains selected';
         }
 
         if (parsedNameservers.length === 0) {
@@ -77,7 +77,7 @@ export function SetNameserversDialog({
 
         setIsSubmitting(true);
         try {
-            const domainNames = namecheapDomains.map((d) => d.name);
+            const domainNames = updatableDomains.map((d) => d.name);
             const success = await onSetNameservers(domainNames, parsedNameservers);
 
             if (success) {
@@ -103,8 +103,8 @@ export function SetNameserversDialog({
                     <DialogTitle>Set Nameservers</DialogTitle>
                     <DialogDescription>
                         {isBulk
-                            ? `Update nameservers for ${namecheapDomains.length} selected domains`
-                            : `Update nameservers for ${namecheapDomains[0]?.name || 'domain'}`}
+                            ? `Update nameservers for ${updatableDomains.length} selected domains`
+                            : `Update nameservers for ${updatableDomains[0]?.name || 'domain'}`}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -122,7 +122,7 @@ export function SetNameserversDialog({
                         <Alert>
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                                This will overwrite nameservers for all {namecheapDomains.length} selected domains.
+                                This will overwrite nameservers for all {updatableDomains.length} selected domains.
                             </AlertDescription>
                         </Alert>
                     )}

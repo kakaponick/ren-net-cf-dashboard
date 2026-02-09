@@ -28,6 +28,7 @@ interface RegistrarPageHeaderProps {
 	onSearchChange: (value: string) => void;
 	onClearSearch: () => void;
 	onRefresh: () => void;
+	onRefreshDomains: () => void;
 	onRefreshNameservers: () => void;
 	isRefreshing: boolean;
 	isNameserversLoading?: boolean;
@@ -47,6 +48,7 @@ export function RegistrarPageHeader({
 	onSearchChange,
 	onClearSearch,
 	onRefresh,
+	onRefreshDomains,
 	onRefreshNameservers,
 	isRefreshing,
 	isNameserversLoading = false,
@@ -205,7 +207,7 @@ export function RegistrarPageHeader({
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<Button
-										onClick={() => onRefresh()}
+										onClick={onRefreshDomains}
 										disabled={isRefreshing}
 										variant="outline"
 										size="sm"

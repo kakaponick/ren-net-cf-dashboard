@@ -255,7 +255,13 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 							</ActivityBoundary>
 							<ActivityBoundary mode={visibleColumns.dns ? 'visible' : 'hidden'}>
 								<TableCell className="text-center">
-									{domain.ncDomain?.IsOurDNS ? 'Namecheap' : domain.ncDomain ? 'External' : '—'}
+									{nameserversCache[domain.name]
+										? (nameserversCache[domain.name].isUsingOurDNS
+											? (domain.registrar === 'namecheap' ? 'Namecheap' : 'Njalla')
+											: 'External')
+										: (domain.registrar === 'namecheap' && domain.ncDomain
+											? (domain.ncDomain.IsOurDNS ? 'Namecheap' : 'External')
+											: '—')}
 								</TableCell>
 							</ActivityBoundary>
 

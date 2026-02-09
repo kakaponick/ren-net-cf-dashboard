@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import type { NamecheapAccount } from '@/types/namecheap';
+import type { NjallaAccount } from '@/types/njalla';
 import type { ProxyAccount } from '@/types/cloudflare';
 
 interface UseNameserversReturn {
@@ -19,7 +20,8 @@ interface NameserversAccount {
 
 export function useNameservers(
     accounts: NamecheapAccount[],
-    proxyAccounts: ProxyAccount[]
+    proxyAccounts: ProxyAccount[],
+    njallaAccounts: NjallaAccount[] = []
 ): UseNameserversReturn {
     const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
     const { setNameserversCache, getNameserversCache } = useCloudflareCache();
@@ -71,45 +73,66 @@ export function useNameservers(
             }
         }
 
-        const account = accounts.find((a) => a.id === accountId);
-        if (!account) {
+        const namecheapAccount = accounts.find((a) => a.id === accountId);
+        const njallaAccount = njallaAccounts.find((a) => a.id === accountId);
+
+        if (!namecheapAccount && !njallaAccount) {
             toast.error(`Account not found for domain ${domain}`);
-            return null;
-        }
-
-        if (!account.proxyId) {
-            toast.error(`Proxy missing for account ${account.name || account.email}`);
-            return null;
-        }
-
-        const proxy = proxyAccounts.find((p) => p.id === account.proxyId);
-        if (!proxy) {
-            toast.error(`Proxy not found for account ${account.name || account.email}`);
-            return null;
-        }
-
-        const parsed = parseDomain(domain);
-        if (!parsed) {
-            toast.error(`Invalid domain format: ${domain}`);
             return null;
         }
 
         setLoadingStates((prev) => ({ ...prev, [domain]: true }));
 
         try {
-            const headers = buildHeaders(account, proxy);
-            const response = await fetch(`/api/namecheap/nameservers?sld=${parsed.sld}&tld=${parsed.tld}`, {
-                method: 'GET',
-                headers,
-            });
+            let nameservers: string[] = [];
+            let isUsingOurDNS = false;
 
-            const data = await response.json();
+            if (namecheapAccount) {
+                if (!namecheapAccount.proxyId) {
+                    throw new Error(`Proxy missing for account ${namecheapAccount.name || namecheapAccount.email}`);
+                }
 
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || 'Failed to fetch nameservers');
+                const proxy = proxyAccounts.find((p) => p.id === namecheapAccount.proxyId);
+                if (!proxy) {
+                    throw new Error(`Proxy not found for account ${namecheapAccount.name || namecheapAccount.email}`);
+                }
+
+                const parsed = parseDomain(domain);
+                if (!parsed) {
+                    throw new Error(`Invalid domain format: ${domain}`);
+                }
+
+                const headers = buildHeaders(namecheapAccount, proxy);
+                const response = await fetch(`/api/namecheap/nameservers?sld=${parsed.sld}&tld=${parsed.tld}`, {
+                    method: 'GET',
+                    headers,
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to fetch nameservers');
+                }
+
+                nameservers = data.data.nameservers;
+                isUsingOurDNS = data.data.isUsingOurDNS;
+            } else if (njallaAccount) {
+                const response = await fetch(`/api/njalla/nameservers?domain=${domain}`, {
+                    method: 'GET',
+                    headers: {
+                        'x-api-key': njallaAccount.apiKey
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to fetch nameservers');
+                }
+
+                nameservers = data.data.nameservers;
+                isUsingOurDNS = data.data.isUsingOurDNS;
             }
-
-            const { nameservers, isUsingOurDNS } = data.data;
 
             // Cache the result
             setNameserversCache(domain, nameservers, isUsingOurDNS);
@@ -122,7 +145,7 @@ export function useNameservers(
         } finally {
             setLoadingStates((prev) => ({ ...prev, [domain]: false }));
         }
-    }, [accounts, proxyAccounts, parseDomain, buildHeaders, getNameserversCache, setNameserversCache]);
+    }, [accounts, proxyAccounts, njallaAccounts, parseDomain, buildHeaders, getNameserversCache, setNameserversCache]);
 
     /**
      * Set nameservers for multiple domains
@@ -132,48 +155,74 @@ export function useNameservers(
         nameservers: string[],
         accountId: string
     ): Promise<boolean> => {
-        const account = accounts.find((a) => a.id === accountId);
-        if (!account) {
+        const namecheapAccount = accounts.find((a) => a.id === accountId);
+        const njallaAccount = njallaAccounts.find((a) => a.id === accountId);
+
+        if (!namecheapAccount && !njallaAccount) {
             toast.error('Account not found');
             return false;
         }
 
-        if (!account.proxyId) {
-            toast.error(`Proxy missing for account ${account.name || account.email}`);
-            return false;
-        }
+        const headers: Record<string, string> = {};
+        let isNamecheap = false;
 
-        const proxy = proxyAccounts.find((p) => p.id === account.proxyId);
-        if (!proxy) {
-            toast.error(`Proxy not found for account ${account.name || account.email}`);
-            return false;
-        }
+        if (namecheapAccount) {
+            if (!namecheapAccount.proxyId) {
+                toast.error(`Proxy missing for account ${namecheapAccount.name || namecheapAccount.email}`);
+                return false;
+            }
 
-        const headers = buildHeaders(account, proxy);
+            const proxy = proxyAccounts.find((p) => p.id === namecheapAccount.proxyId);
+            if (!proxy) {
+                toast.error(`Proxy not found for account ${namecheapAccount.name || namecheapAccount.email}`);
+                return false;
+            }
+
+            Object.assign(headers, buildHeaders(namecheapAccount, proxy));
+            isNamecheap = true;
+        } else if (njallaAccount) {
+            headers['x-api-key'] = njallaAccount.apiKey;
+        }
 
         // Process each domain
         const results = await Promise.allSettled(
             domains.map(async (domain) => {
-                const parsed = parseDomain(domain);
-                if (!parsed) {
-                    throw new Error(`Invalid domain format: ${domain}`);
-                }
-
                 setLoadingStates((prev) => ({ ...prev, [domain]: true }));
 
                 try {
-                    const response = await fetch('/api/namecheap/nameservers', {
-                        method: 'POST',
-                        headers: {
-                            ...headers,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            sld: parsed.sld,
-                            tld: parsed.tld,
-                            nameservers,
-                        }),
-                    });
+                    let response;
+                    if (isNamecheap) {
+                        const parsed = parseDomain(domain);
+                        if (!parsed) {
+                            throw new Error(`Invalid domain format: ${domain}`);
+                        }
+
+                        response = await fetch('/api/namecheap/nameservers', {
+                            method: 'POST',
+                            headers: {
+                                ...headers,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                sld: parsed.sld,
+                                tld: parsed.tld,
+                                nameservers,
+                            }),
+                        });
+                    } else {
+                        // Njalla
+                        response = await fetch('/api/njalla/nameservers', {
+                            method: 'POST',
+                            headers: {
+                                'x-api-key': headers['x-api-key'],
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                domain,
+                                nameservers,
+                            }),
+                        });
+                    }
 
                     const data = await response.json();
 
@@ -217,7 +266,7 @@ export function useNameservers(
             });
             return true;
         }
-    }, [accounts, proxyAccounts, parseDomain, buildHeaders, setNameserversCache]);
+    }, [accounts, proxyAccounts, njallaAccounts, parseDomain, buildHeaders, setNameserversCache]);
 
     return {
         fetchNameservers,

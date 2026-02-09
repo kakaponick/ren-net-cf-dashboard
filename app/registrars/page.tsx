@@ -50,7 +50,8 @@ export default function RegistrarsPage() {
   const { accounts, proxyAccounts } = useAccountStore();
   const { fetchNameservers, setNameservers, loadingStates: nsLoadingStates } = useNameservers(
     namecheapAccounts,
-    proxyAccounts
+    proxyAccounts,
+    njallaAccounts
   );
   const { nameservers: nameserversCache } = useCloudflareCache();
 
@@ -158,20 +159,26 @@ export default function RegistrarsPage() {
     );
   };
 
-  const handleRefresh = () => {
+  const handleRefreshDomains = () => {
     if (selectedAccount && selectedAccount !== 'all') {
       refreshAccount(selectedAccount);
     } else {
       loadDomains(true);
     }
+  };
+
+  const handleRefresh = () => {
+    handleRefreshDomains();
     // Also refresh nameservers for visible domains
     handleRefreshNameservers();
   };
 
   const handleRefreshNameservers = () => {
-    // Fetch nameservers for all visible Namecheap domains
-    const namecheapDomains = sortedDomains.filter(d => d.registrar === 'namecheap');
-    namecheapDomains.forEach(domain => {
+    // Fetch nameservers for all visible domains (Namecheap and Njalla)
+    const registrarsWithNameservers = ['namecheap', 'njalla'];
+    const domainsToUpdate = sortedDomains.filter(d => registrarsWithNameservers.includes(d.registrar));
+
+    domainsToUpdate.forEach(domain => {
       if (domain.accountId) {
         void fetchNameservers(domain.name, domain.accountId, true);
       }
@@ -218,6 +225,7 @@ export default function RegistrarsPage() {
         onSearchChange={setSearchTerm}
         onClearSearch={clearSearch}
         onRefresh={handleRefresh}
+        onRefreshDomains={handleRefreshDomains}
         onRefreshNameservers={handleRefreshNameservers}
         isRefreshing={isRefreshing}
         isNameserversLoading={isNameserversLoading}
