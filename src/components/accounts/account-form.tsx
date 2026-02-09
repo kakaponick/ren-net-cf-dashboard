@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Cloud, Globe, Server, Terminal, X } from "lucide-react"
+import { Cloud, Globe, Server, Terminal, X, ArrowRightLeft } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -39,8 +39,9 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             {formData.category === 'registrar' && <Globe className="h-4 w-4 text-purple-600" />}
             {formData.category === 'proxy' && <Server className="h-4 w-4 text-green-600" />}
             {formData.category === 'ssh' && <Terminal className="h-4 w-4 text-blue-600" />}
+            {formData.category === 'npm' && <ArrowRightLeft className="h-4 w-4 text-cyan-600" />}
             <span className="font-medium capitalize">
-              {formData.category === 'proxy' ? 'SOCKS5 Proxy' : formData.category === 'ssh' ? 'SSH Server' : formData.category}
+              {formData.category === 'proxy' ? 'SOCKS5 Proxy' : formData.category === 'ssh' ? 'SSH Server' : formData.category === 'npm' ? 'Nginx Proxy Manager' : formData.category}
             </span>
           </div>
         ) : (
@@ -86,6 +87,12 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
                   SSH Server
                 </div>
               </SelectItem>
+              <SelectItem value="npm">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Nginx Proxy Manager
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -97,7 +104,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
       </div>
 
       {/* Basic Account Information */}
-      {formData.category !== 'proxy' && formData.category !== 'ssh' && (
+      {formData.category !== 'proxy' && formData.category !== 'ssh' && formData.category !== 'npm' && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
@@ -413,8 +420,76 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
         </div>
       )}
 
+      {/* NPM Configuration */}
+      {formData.category === 'npm' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="npm-name" className="text-sm font-medium">
+              Instance Name
+            </Label>
+            <Input
+              id="npm-name"
+              placeholder="My  NPM Instance"
+              value={formData.npmName || ''}
+              onChange={(e) => setFormData({ ...formData, npmName: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional friendly name for this NPM instance
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="npm-host" className="text-sm font-medium">
+              Host URL <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="npm-host"
+              placeholder="https://npm.example.com"
+              value={formData.npmHost || ''}
+              onChange={(e) => setFormData({ ...formData, npmHost: e.target.value })}
+              className="font-mono text-sm transition-colors focus:ring-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Full URL to your Nginx Proxy Manager instance
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="npm-identity" className="text-sm font-medium">
+              Login Email <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="npm-identity"
+              type="email"
+              placeholder="admin@example.com"
+              value={formData.npmIdentity || ''}
+              onChange={(e) => setFormData({ ...formData, npmIdentity: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="npm-secret" className="text-sm font-medium">
+              Password <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="npm-secret"
+              type="password"
+              placeholder="Your NPM password"
+              value={formData.npmSecret || ''}
+              onChange={(e) => setFormData({ ...formData, npmSecret: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Your NPM login password will be encrypted and stored securely.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* API Token for non-proxy accounts */}
-      {formData.category !== 'proxy' && formData.category !== 'ssh' && (
+      {formData.category !== 'proxy' && formData.category !== 'ssh' && formData.category !== 'npm' && (
         <div className="space-y-2">
           <Label htmlFor="apiToken" className="text-sm font-medium">
             API Token <span className="text-destructive">*</span>

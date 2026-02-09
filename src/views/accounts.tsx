@@ -1,5 +1,5 @@
 import { Suspense, useState } from "react"
-import type { CloudflareAccount, ProxyAccount, SSHAccount, AccountCategory } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount, AccountCategory } from "@/types/cloudflare"
 import { useAccountsView } from "@/hooks/use-accounts-view"
 import { AccountsHeader } from "@/components/accounts/accounts-header"
 import { AccountsTable } from "@/components/accounts/accounts-table"
@@ -44,7 +44,7 @@ function CredentialsContent() {
     setIsAddDialogOpen(true)
   }
 
-  const handleEditClick = (account: CloudflareAccount | ProxyAccount | SSHAccount) => {
+  const handleEditClick = (account: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount) => {
     setEditingAccount(account)
     setIsEditDialogOpen(true)
   }

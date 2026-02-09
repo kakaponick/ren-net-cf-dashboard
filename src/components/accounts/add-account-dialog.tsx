@@ -63,12 +63,14 @@ export function AddAccountDialog({ open, onOpenChange, initialCategory }: AddAcc
                 ? !formData.proxyHost || !formData.proxyPort
                 : formData.category === 'ssh'
                   ? !formData.sshName || !formData.sshHost || !formData.sshUsername || !formData.sshPrivateKey
-                  : !formData.email || !formData.apiToken ||
-                  (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
+                  : formData.category === 'npm'
+                    ? !formData.npmHost || !formData.npmIdentity || !formData.npmSecret
+                    : !formData.email || !formData.apiToken ||
+                    (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
               isLoading
             }
           >
-            {isLoading ? 'Adding...' : `Add ${formData.category === 'proxy' ? 'Proxy' : formData.category === 'ssh' ? 'SSH Server' : 'Account'}`}
+            {isLoading ? 'Adding...' : `Add ${formData.category === 'proxy' ? 'Proxy' : formData.category === 'ssh' ? 'SSH Server' : formData.category === 'npm' ? 'NPM Account' : 'Account'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

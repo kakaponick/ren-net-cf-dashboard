@@ -11,12 +11,12 @@ import {
 
 import { useAccountForm } from "@/hooks/use-account-form"
 import { AccountForm } from "./account-form"
-import type { CloudflareAccount, ProxyAccount, SSHAccount } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount } from "@/types/cloudflare"
 
 interface EditAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  account: CloudflareAccount | ProxyAccount | SSHAccount | null
+  account: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | null
 }
 
 export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDialogProps) {
@@ -67,12 +67,14 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
                 ? !formData.proxyHost || !formData.proxyPort
                 : formData.category === 'ssh'
                   ? !formData.sshName || !formData.sshHost || !formData.sshUsername || !formData.sshPrivateKey
-                  : !formData.email || !formData.apiToken ||
-                  (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
+                  : formData.category === 'npm'
+                    ? !formData.npmHost || !formData.npmIdentity || !formData.npmSecret
+                    : !formData.email || !formData.apiToken ||
+                    (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
               isLoading
             }
           >
-            {isLoading ? 'Saving...' : `Save ${formData.category === 'ssh' ? 'SSH Server' : formData.category === 'proxy' ? 'Proxy' : 'Account'}`}
+            {isLoading ? 'Saving...' : `Save ${formData.category === 'ssh' ? 'SSH Server' : formData.category === 'proxy' ? 'Proxy' : formData.category === 'npm' ? 'NPM Account' : 'Account'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

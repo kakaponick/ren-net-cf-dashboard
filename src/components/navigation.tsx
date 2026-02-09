@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import {
   AtSign,
   Globe,
-  KeyRound
+  KeyRound,
+  ArrowRightLeft
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ServerMonitor } from '@/components/server-monitor';
@@ -19,6 +20,7 @@ interface NavigationProps {
 const navigation = [
   { name: 'Cloudflare', href: '/', icon: Globe },
   { name: 'Registrars', href: '/registrars', icon: AtSign },
+  { name: 'NPM', href: '/npm', icon: ArrowRightLeft },
   { name: 'Credentials', href: '/credentials', icon: KeyRound },
 ];
 

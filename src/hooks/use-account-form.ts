@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount, SSHAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
+import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
 
 export interface AccountFormData {
   email: string
@@ -21,6 +21,10 @@ export interface AccountFormData {
   sshUsername: string
   sshPrivateKey: string
   sshPassphrase: string
+  npmName: string
+  npmHost: string
+  npmIdentity: string
+  npmSecret: string
 }
 
 const initialFormData: AccountFormData = {
@@ -41,9 +45,13 @@ const initialFormData: AccountFormData = {
   sshUsername: "",
   sshPrivateKey: "",
   sshPassphrase: "",
+  npmName: "",
+  npmHost: "",
+  npmIdentity: "",
+  npmSecret: "",
 }
 
-export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccount | SSHAccount | null, initialCategory?: AccountCategory) {
+export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | null, initialCategory?: AccountCategory) {
   const { addAccount, addProxyAccount, addSSHAccount, updateAccount, updateProxyAccount, updateSSHAccount } = useAccountStore()
   const [formData, setFormData] = useState<AccountFormData>(initialFormData)
   const [isLoading, setIsLoading] = useState(false)
@@ -74,6 +82,26 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           sshPrivateKey: ssh.privateKey,
           sshPassphrase: ssh.passphrase || '',
         })
+      } else if (existingAccount.category === 'npm') {
+        // NPM accounts are stored as CloudflareAccounts, need to decode
+        const account = existingAccount as CloudflareAccount
+        try {
+          const decoded = JSON.parse(account.apiToken)
+          setFormData({
+            ...initialFormData,
+            category: 'npm',
+            npmName: account.name || '',
+            npmHost: decoded.host || '',
+            npmIdentity: account.email,
+            npmSecret: decoded.secret || '',
+          })
+        } catch {
+          // Fallback if decode fails
+          setFormData({
+            ...initialFormData,
+            category: 'npm',
+          })
+        }
       } else {
         const account = existingAccount as CloudflareAccount
         const defaultUsername = account.email.split('@')[0].replaceAll('.', '')
@@ -115,6 +143,11 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
         toast.error('Please fill in all required SSH fields')
         return false
       }
+    } else if (formData.category === 'npm') {
+      if (!formData.npmHost || !formData.npmIdentity || !formData.npmSecret) {
+        toast.error('Please fill in all required NPM fields')
+        return false
+      }
     } else {
       if (!formData.email || !formData.apiToken) {
         toast.error('Please fill in all required fields')
@@ -150,6 +183,14 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
             passphrase: formData.sshPassphrase || undefined,
           })
           toast.success('SSH server updated successfully')
+        } else if (existingAccount.category === 'npm') {
+          // NPM accounts are stored as CloudflareAccounts with special encoding
+          updateAccount(existingAccount.id, {
+            email: formData.npmIdentity, // Store identity in email field
+            apiToken: JSON.stringify({ host: formData.npmHost, secret: formData.npmSecret }), // Store host+secret in apiToken
+            category: 'npm',
+          })
+          toast.success('NPM account updated successfully')
         } else {
           updateAccount(existingAccount.id, {
             email: formData.email,
@@ -190,6 +231,18 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           }
           addSSHAccount(newSSHAccount)
           toast.success('SSH server added successfully')
+        } else if (formData.category === 'npm') {
+          // NPM accounts are stored as CloudflareAccounts with special encoding
+          const newNPMAccount: CloudflareAccount = {
+            id: crypto.randomUUID(),
+            name: formData.npmName || `NPM ${formData.npmHost}`,
+            email: formData.npmIdentity, // Store identity in email field
+            apiToken: JSON.stringify({ host: formData.npmHost, secret: formData.npmSecret }), // Store host+secret in apiToken  
+            category: 'npm',
+            createdAt: new Date(),
+          }
+          addAccount(newNPMAccount)
+          toast.success('NPM account added successfully')
         } else {
           const defaultUsername = formData.email.split('@')[0].replaceAll('.', '')
           const newAccount: CloudflareAccount = {

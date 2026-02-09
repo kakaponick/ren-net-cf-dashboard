@@ -1,4 +1,4 @@
-import { Cloud, Globe, Server, Terminal, Search, X } from "lucide-react"
+import { Cloud, Globe, Server, Terminal, Search, X, ArrowRightLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -66,6 +66,14 @@ export function AccountsFilters({
           >
             <Terminal className="mr-1.5 h-3.5 w-3.5" />
             SSH
+          </Button>
+          <Button
+            variant={categoryFilter === "npm" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("npm")}
+          >
+            <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+            NPM
           </Button>
         </ButtonGroup>
         {filteredCount !== undefined && totalCount !== undefined && filteredCount !== totalCount && (
