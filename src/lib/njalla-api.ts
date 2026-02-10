@@ -51,14 +51,16 @@ export class NjallaAPI {
       'Authorization': `Njalla ${this.config.apiKey}`,
     };
 
+    const payload = {
+      ...request,
+      id: Date.now().toString(),
+      jsonrpc: '2.0' as const
+    };
+
     const response = await fetch(this.baseUrl, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        ...request,
-        id: Date.now(),
-        jsonrpc: '2.0'
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -71,7 +73,18 @@ export class NjallaAPI {
 
     // Check for JSONRPC error response
     if ('error' in data && data.error) {
-      throw new Error(data.error.message || 'JSONRPC API error');
+      console.error('Njalla API Error Response:', JSON.stringify(data, null, 2));
+
+      let errorMessage: string;
+      if (typeof data.error === 'string') {
+        errorMessage = data.error;
+      } else if (data.error.message) {
+        errorMessage = data.error.message;
+      } else {
+        errorMessage = `JSONRPC API error (Code: ${data.error.code}): ${JSON.stringify(data.error)}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
     return data as NjallaResponse<T>;
