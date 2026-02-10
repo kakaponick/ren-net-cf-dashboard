@@ -33,6 +33,49 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
     })
   }
 
+  // Centralized validation logic for all account types
+  const isFormValid = (): boolean => {
+    switch (formData.category) {
+      case 'proxy':
+        return !!(formData.proxyHost && formData.proxyPort);
+
+      case 'ssh':
+        return !!(
+          formData.sshName &&
+          formData.sshHost &&
+          formData.sshUsername &&
+          formData.sshPrivateKey
+        );
+
+      case 'npm':
+        return !!(
+          formData.npmHost &&
+          formData.npmIdentity &&
+          formData.npmSecret
+        );
+
+      case 'vps':
+        return !!(formData.vpsName && formData.vpsIp);
+
+      case 'cloudflare':
+      case 'registrar':
+      default:
+        // For cloudflare and registrar: email + apiToken required
+        if (!formData.email || !formData.apiToken) {
+          return false;
+        }
+        // For namecheap registrar: username also required
+        if (
+          formData.category === 'registrar' &&
+          formData.registrarName === 'namecheap' &&
+          !formData.username
+        ) {
+          return false;
+        }
+        return true;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]" onInteractOutside={(e) => e.preventDefault()}>
@@ -63,17 +106,7 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
           </Button>
           <Button
             onClick={onSubmit}
-            disabled={
-              (formData.category === 'proxy'
-                ? !formData.proxyHost || !formData.proxyPort
-                : formData.category === 'ssh'
-                  ? !formData.sshName || !formData.sshHost || !formData.sshUsername || !formData.sshPrivateKey
-                  : formData.category === 'npm'
-                    ? !formData.npmHost || !formData.npmIdentity || !formData.npmSecret
-                    : !formData.email || !formData.apiToken ||
-                    (formData.category === 'registrar' && formData.registrarName === 'namecheap' && !formData.username)) ||
-              isLoading
-            }
+            disabled={!isFormValid() || isLoading}
           >
             {isLoading ? 'Saving...' : `Save ${getCategoryLabel(formData.category)}`}
           </Button>

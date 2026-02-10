@@ -54,9 +54,13 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               const newCategory = value as AccountCategory
               const updates: Partial<AccountFormData> = { category: newCategory }
 
-              // Auto-set username when switching to registrar if email is available
-              if (newCategory === 'registrar' && formData.email && !formData.username) {
-                updates.username = formData.email.split('@')[0].replaceAll('.', '')
+              // Auto-set registrar defaults when switching to registrar
+              if (newCategory === 'registrar') {
+                updates.registrarName = 'namecheap'
+                // Auto-set username when switching to registrar if email is available
+                if (formData.email && !formData.username) {
+                  updates.username = formData.email.split('@')[0].replaceAll('.', '')
+                }
               }
 
               setFormData({ ...formData, ...updates })
