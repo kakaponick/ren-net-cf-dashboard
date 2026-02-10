@@ -13,13 +13,13 @@ import {
 	DrawerTrigger,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
@@ -275,14 +275,14 @@ export function DNSDrawer({
 		<Drawer open={open} onOpenChange={setOpen}>
 			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
 			<DrawerContent className="max-h-[96vh] flex flex-col" closeDuration={100}>
-				<DrawerHeader className="border-b pb-4 px-6 shrink-0">
+				<DrawerHeader className="border-b pb-3 px-4 shrink-0">
 					<div className="flex items-start justify-between gap-4">
 						<div className="flex-1 min-w-0">
 							<DrawerTitle className="text-xl font-bold flex items-center gap-2">
 								<Globe className="h-5 w-5 shrink-0" />
 								<span className="truncate">DNS Records</span>
 							</DrawerTitle>
-							<DrawerDescription className="mt-2 line-clamp-2">
+							<DrawerDescription className="mt-1.5 line-clamp-2 text-sm">
 								{zone ? (
 									<span>
 										Managing DNS records for <strong className="font-semibold">{zone.name}</strong>
@@ -303,74 +303,56 @@ export function DNSDrawer({
 					</div>
 				</DrawerHeader>
 
-				<div className="flex-1 min-h-0 px-6 overflow-hidden flex flex-col" style={{ height: 0 }}>
-					<div className="space-y-6 py-4 overflow-y-auto flex-1">
-						{/* Nameservers Section */}
-						{zone && nameservers && nameservers.length > 0 && (
-							<Card>
-								<CardContent className="pt-6">
-									<NameserversSection
-										nameservers={nameservers}
-										description="Use these Cloudflare nameservers to configure your domain's DNS settings:"
-									/>
-								</CardContent>
-							</Card>
-						)}
-
-						{/* DNS Records Section */}
-						<div className="space-y-4">
-							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-								<h3 className="text-lg font-semibold">DNS Records</h3>
-								<div className="flex items-center gap-2 flex-wrap">
+				<div className="flex-1 min-h-0 px-4 overflow-hidden flex flex-col" style={{ height: 0 }}>
+					<div className="py-3 overflow-y-auto flex-1">
+						<div className="space-y-3">
+							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+								<div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+									<h3 className="text-base font-semibold shrink-0">DNS Records</h3>
+									{isLoadingZone || !zone ? (
+										<div className="flex flex-wrap gap-1.5 min-h-[28px]" aria-hidden>
+											<Skeleton className="h-7 w-36" />
+											<Skeleton className="h-7 w-36" />
+										</div>
+									) : nameservers && nameservers.length > 0 ? (
+										<NameserversSection nameservers={nameservers} inline />
+									) : null}
+								</div>
+								<div className="flex items-center gap-2 shrink-0">
 									<Button
 										onClick={() => loadRecords(true)}
 										disabled={isLoadingRecords || isLoadingZone}
 										variant="outline"
 										size="sm"
-										className="flex-1 sm:flex-initial"
 									>
 										<RefreshCw
-											className={`h-3! w-3! mr-2 ${isLoadingRecords || isLoadingZone ? 'animate-spin' : ''
-												}`}
+											className={`h-3 w-3 mr-1.5 ${isLoadingRecords || isLoadingZone ? 'animate-spin' : ''}`}
 										/>
 										Refresh
 									</Button>
-									<Button
-										onClick={() => setIsAddDialogOpen(true)}
-										size="sm"
-										className="flex-1 sm:flex-initial"
-									>
-										<Plus className="h-4 w-4 mr-2" />
+									<Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+										<Plus className="h-4 w-4 mr-1.5" />
 										Add Record
 									</Button>
 								</div>
 							</div>
 
 							{isLoadingRecords ? (
-								<Card>
-									<CardContent className="py-12">
-										<div className="text-center">
-											<RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-											<p className="text-sm text-muted-foreground">Loading DNS records...</p>
-										</div>
-									</CardContent>
-								</Card>
+								<div className="py-8 text-center">
+									<RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+									<p className="text-xs text-muted-foreground">Loading DNS records...</p>
+								</div>
 							) : records.length === 0 ? (
-								<Card>
-									<CardContent className="flex flex-col items-center justify-center py-12">
-										<Globe className="h-12 w-12 text-muted-foreground mb-4" />
-										<h3 className="text-lg font-medium mb-2">No DNS records found</h3>
-										<p className="text-muted-foreground mb-4 text-center">
-											This zone doesn&apos;t have any DNS records yet
-										</p>
-										<Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-											<Plus className="h-4 w-4 mr-2" />
-											Add First Record
-										</Button>
-									</CardContent>
-								</Card>
+								<div className="py-8 flex flex-col items-center justify-center text-center">
+									<Globe className="h-10 w-10 text-muted-foreground mb-2" />
+									<p className="text-sm font-medium mb-1">No DNS records found</p>
+									<Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+										<Plus className="h-4 w-4 mr-1.5" />
+										Add First Record
+									</Button>
+								</div>
 							) : (
-								<Card className="overflow-hidden">
+								<div className="overflow-hidden rounded-lg border">
 									<div className="overflow-y-auto max-h-[50vh]">
 										<Table>
 											<TableHeader className="sticky top-0 bg-background z-10 border-b">
@@ -434,13 +416,13 @@ export function DNSDrawer({
 											</TableBody>
 										</Table>
 									</div>
-								</Card>
+								</div>
 							)}
 						</div>
 					</div>
 				</div>
 
-				<DrawerFooter className="border-t pt-4 px-6 shrink-0">
+				<DrawerFooter className="border-t pt-3 px-4 shrink-0">
 					<DrawerClose asChild>
 						<Button variant="outline" className="w-full">
 							Close

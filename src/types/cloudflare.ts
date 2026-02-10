@@ -22,6 +22,8 @@ export interface VPSAccount {
   id: string;
   name: string;
   ip: string;
+  email?: string; // Login/Email for VPS
+  password?: string; // Password for VPS
   expirationDate?: string;
   category: "vps";
   createdAt: Date;

@@ -26,6 +26,7 @@ import {
   type RegistrarColumnKey,
   type RegistrarColumnVisibility
 } from '@/views/registrars/registrar-columns';
+import { processInParallel } from '@/lib/utils';
 
 export default function RegistrarsPage() {
   const router = useRouter();
@@ -173,16 +174,38 @@ export default function RegistrarsPage() {
     handleRefreshNameservers();
   };
 
-  const handleRefreshNameservers = () => {
+  const handleRefreshNameservers = async () => {
     // Fetch nameservers for all visible domains (Namecheap and Njalla)
     const registrarsWithNameservers = ['namecheap', 'njalla'];
     const domainsToUpdate = sortedDomains.filter(d => registrarsWithNameservers.includes(d.registrar));
 
+    // Group domains by account
+    const domainsByAccount: Record<string, UnifiedDomain[]> = {};
     domainsToUpdate.forEach(domain => {
       if (domain.accountId) {
-        void fetchNameservers(domain.name, domain.accountId, true);
+        if (!domainsByAccount[domain.accountId]) {
+          domainsByAccount[domain.accountId] = [];
+        }
+        domainsByAccount[domain.accountId].push(domain);
       }
     });
+
+    // Process each account in parallel, but limit concurrency within each account
+    const processAccount = async (accountDomains: UnifiedDomain[]) => {
+      await processInParallel(
+        accountDomains,
+        async (domain: UnifiedDomain) => {
+          if (domain.accountId) {
+            await fetchNameservers(domain.name, domain.accountId, true);
+          }
+        },
+        3 // Limit to 3 concurrent requests per account
+      );
+    };
+
+    await Promise.all(
+      Object.values(domainsByAccount).map(domains => processAccount(domains))
+    );
   };
 
   const handleRefreshSingleNameserver = (domain: string) => {

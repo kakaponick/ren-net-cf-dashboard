@@ -4,6 +4,7 @@ import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import type { NamecheapDomain, NamecheapAccount } from '@/types/namecheap';
 import type { ProxyAccount } from '@/types/cloudflare';
+import { processInParallel } from '@/lib/utils';
 
 interface UseNamecheapDomainsReturn {
 	domains: NamecheapDomain[];
@@ -36,7 +37,7 @@ export function useNamecheapDomains(): UseNamecheapDomainsReturn {
 				// Use stored username if available, otherwise default to email prefix
 				const defaultApiUser = account.email.split('@')[0].replaceAll('.', '');
 				const apiUser = account.username || defaultApiUser;
-				
+
 				// Ensure all required fields for NamecheapAccount are present
 				return {
 					id: account.id,
@@ -177,9 +178,12 @@ export function useNamecheapDomains(): UseNamecheapDomainsReturn {
 			setLoadingState(true);
 
 			try {
-				// Fetch all accounts in parallel using Promise.all
-				// We won't use allSettled because fetchAccountDomains catches its own errors and returns a structure
-				const results = await Promise.all(namecheapAccounts.map(fetchAccountDomains));
+				// Fetch all accounts in parallel using processInParallel
+				const results = await processInParallel(
+					namecheapAccounts,
+					fetchAccountDomains,
+					3 // Limit concurrency
+				);
 
 				const allDomains: NamecheapDomain[] = [];
 				const errors: string[] = [];

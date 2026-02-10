@@ -431,10 +431,7 @@ export default function DNSRecordsPage() {
       {zone && nameservers && nameservers.length > 0 && (
         <Card>
           <CardContent className="pt-6">
-            <NameserversSection 
-              nameservers={nameservers}
-              description="Use these Cloudflare nameservers to configure your domain's DNS settings:"
-            />
+            <NameserversSection nameservers={nameservers} />
           </CardContent>
         </Card>
       )}

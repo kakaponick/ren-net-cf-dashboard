@@ -195,26 +195,31 @@ export function useDomainsData() {
 		try {
 			const fetchedZones: any[] = [];
 
-			const promises = accountsToLoad.map(async (account) => {
-				try {
-					const api = new CloudflareAPI(account.apiToken);
-					const zonesData = await api.getZones();
-					console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
-					return zonesData.map((zone: any) => ({
-						zone,
-						accountId: account.id,
-						accountName: account.name || account.email,
-					}));
-				} catch (error) {
-					console.error(`Error loading zones for account ${account.name}:`, error);
-					toast.error(`Failed to load zones for ${account.name}`);
-					return [];
-				}
-			});
+			const results = await processInParallel(
+				accountsToLoad,
+				async (account) => {
+					try {
+						const api = new CloudflareAPI(account.apiToken);
+						const zonesData = await api.getZones();
+						console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
+						return zonesData.map((zone: any) => ({
+							zone,
+							accountId: account.id,
+							accountName: account.name || account.email,
+						}));
+					} catch (error) {
+						console.error(`Error loading zones for account ${account.name}:`, error);
+						toast.error(`Failed to load zones for ${account.name}`);
+						return [];
+					}
+				},
+				5 // Limit concurrent account fetches
+			);
 
-			const results = await Promise.all(promises);
-			results.forEach((accountZones: any[]) => {
-				fetchedZones.push(...accountZones);
+			results.forEach((result) => {
+				if (Array.isArray(result)) {
+					fetchedZones.push(...result);
+				}
 			});
 
 			// If targetAccountId is set, merge with existing zones from other accounts
@@ -263,26 +268,31 @@ export function useDomainsData() {
 		try {
 			const fetchedZones: any[] = [];
 
-			const promises = accountsToLoad.map(async (account) => {
-				try {
-					const api = new CloudflareAPI(account.apiToken);
-					const zonesData = await api.getZones();
-					console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
-					return zonesData.map((zone: any) => ({
-						zone,
-						accountId: account.id,
-						accountName: account.name || account.email,
-					}));
-				} catch (error) {
-					console.error(`Error loading zones for account ${account.name}:`, error);
-					toast.error(`Failed to load zones for ${account.name}`);
-					return [];
-				}
-			});
+			const results = await processInParallel(
+				accountsToLoad,
+				async (account) => {
+					try {
+						const api = new CloudflareAPI(account.apiToken);
+						const zonesData = await api.getZones();
+						console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
+						return zonesData.map((zone: any) => ({
+							zone,
+							accountId: account.id,
+							accountName: account.name || account.email,
+						}));
+					} catch (error) {
+						console.error(`Error loading zones for account ${account.name}:`, error);
+						toast.error(`Failed to load zones for ${account.name}`);
+						return [];
+					}
+				},
+				5 // Limit concurrent account fetches
+			);
 
-			const results = await Promise.all(promises);
-			results.forEach((accountZones: any[]) => {
-				fetchedZones.push(...accountZones);
+			results.forEach((result) => {
+				if (Array.isArray(result)) {
+					fetchedZones.push(...result);
+				}
 			});
 
 			// If targetAccountId is set, merge with existing zones from other accounts

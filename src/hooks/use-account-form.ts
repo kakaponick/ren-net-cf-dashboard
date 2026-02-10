@@ -27,6 +27,8 @@ export interface AccountFormData {
   npmSecret: string
   vpsName: string
   vpsIp: string
+  vpsEmail: string
+  vpsPassword: string
   vpsExpirationDate: string
 }
 
@@ -54,6 +56,8 @@ const initialFormData: AccountFormData = {
   npmSecret: "",
   vpsName: "",
   vpsIp: "",
+  vpsEmail: "",
+  vpsPassword: "",
   vpsExpirationDate: "",
 }
 
@@ -75,6 +79,17 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           proxyPort: proxy.port.toString(),
           proxyUsername: proxy.username || "",
           proxyPassword: proxy.password || "",
+        })
+      } else if (existingAccount.category === 'vps') {
+        const vps = existingAccount as VPSAccount
+        setFormData({
+          ...initialFormData,
+          category: 'vps',
+          vpsName: vps.name,
+          vpsIp: vps.ip,
+          vpsEmail: vps.email || '',
+          vpsPassword: vps.password || '',
+          vpsExpirationDate: vps.expirationDate || '',
         })
       } else if (existingAccount.category === 'ssh') {
         const ssh = existingAccount as SSHAccount
@@ -154,6 +169,11 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
         toast.error('Please fill in all required NPM fields')
         return false
       }
+    } else if (formData.category === 'vps') {
+      if (!formData.vpsName || !formData.vpsIp) {
+        toast.error('Please fill in all required VPS fields')
+        return false
+      }
     } else {
       if (!formData.email || !formData.apiToken) {
         toast.error('Please fill in all required fields')
@@ -193,6 +213,8 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           updateVPSAccount(existingAccount.id, {
             name: formData.vpsName,
             ip: formData.vpsIp,
+            email: formData.vpsEmail || undefined,
+            password: formData.vpsPassword || undefined,
             expirationDate: formData.vpsExpirationDate || undefined,
           })
           toast.success('VPS account updated successfully')
@@ -249,6 +271,8 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
             id: crypto.randomUUID(),
             name: formData.vpsName,
             ip: formData.vpsIp,
+            email: formData.vpsEmail || undefined,
+            password: formData.vpsPassword || undefined,
             expirationDate: formData.vpsExpirationDate || undefined,
             category: 'vps',
             createdAt: new Date(),

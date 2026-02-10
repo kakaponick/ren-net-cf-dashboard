@@ -7,6 +7,7 @@ import type { NjallaDomain, NjallaAccount } from '@/types/njalla';
 import type { UnifiedDomain } from '@/types/registrar';
 import { toUnifiedDomain, toUnifiedDomainFromNjalla } from '@/types/registrar';
 import type { ProxyAccount } from '@/types/cloudflare';
+import { processInParallel } from '@/lib/utils';
 
 interface UseRegistrarsReturn {
   domains: UnifiedDomain[];
@@ -290,8 +291,16 @@ export function useRegistrars(): UseRegistrarsReturn {
       setLoadingState(true);
 
       try {
-        const namecheapResults = await Promise.all(namecheapAccounts.map(fetchNamecheapAccountDomains));
-        const njallaResults = await Promise.all(njallaAccounts.map(fetchNjallaAccountDomains));
+        const namecheapResults = await processInParallel(
+          namecheapAccounts,
+          fetchNamecheapAccountDomains,
+          3 // Limit concurrency
+        );
+        const njallaResults = await processInParallel(
+          njallaAccounts,
+          fetchNjallaAccountDomains,
+          3 // Limit concurrency
+        );
         const results = [...namecheapResults, ...njallaResults];
 
         const allDomains: UnifiedDomain[] = [];

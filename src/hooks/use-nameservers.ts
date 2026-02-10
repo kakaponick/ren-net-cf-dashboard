@@ -4,6 +4,7 @@ import { useCloudflareCache } from '@/store/cloudflare-cache';
 import type { NamecheapAccount } from '@/types/namecheap';
 import type { NjallaAccount } from '@/types/njalla';
 import type { ProxyAccount } from '@/types/cloudflare';
+import { processInParallel } from '@/lib/utils';
 
 interface UseNameserversReturn {
     fetchNameservers: (domain: string, accountId: string, forceRefresh?: boolean) => Promise<{ nameservers: string[], isUsingOurDNS: boolean } | null>;
@@ -185,8 +186,9 @@ export function useNameservers(
         }
 
         // Process each domain
-        const results = await Promise.allSettled(
-            domains.map(async (domain) => {
+        const results = await processInParallel(
+            domains,
+            async (domain) => {
                 setLoadingStates((prev) => ({ ...prev, [domain]: true }));
 
                 try {
@@ -235,16 +237,22 @@ export function useNameservers(
 
                     return { domain, success: true };
                 } catch (error) {
-                    throw new Error(`${domain}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    return { domain, success: false, error: error instanceof Error ? error : new Error(String(error)) };
                 } finally {
                     setLoadingStates((prev) => ({ ...prev, [domain]: false }));
                 }
-            })
+            },
+            3 // Limit concurrent requests
         );
 
         // Count successes and failures
-        const successes = results.filter((r) => r.status === 'fulfilled');
-        const failures = results.filter((r) => r.status === 'rejected');
+        // We cast results to handle the potential Error return from processInParallel (though we catch errors inside our processor)
+        const successes = results.filter((r): r is { domain: string, success: true } =>
+            !(r instanceof Error) && r.success
+        );
+        const failures = results.filter((r): r is { domain: string, success: false, error: Error } =>
+            !(r instanceof Error) && !r.success && !!r.error
+        );
 
         if (failures.length === 0) {
             toast.success(`Nameservers updated for ${successes.length} domain${successes.length > 1 ? 's' : ''}`);
@@ -252,17 +260,13 @@ export function useNameservers(
         } else if (successes.length === 0) {
             toast.error(`Failed to update nameservers for all ${domains.length} domains`);
             failures.forEach((f) => {
-                if (f.status === 'rejected') {
-                    toast.error(f.reason.message);
-                }
+                toast.error(`${f.domain}: ${f.error.message}`);
             });
             return false;
         } else {
             toast.warning(`Updated ${successes.length} domain(s), failed ${failures.length}`);
             failures.forEach((f) => {
-                if (f.status === 'rejected') {
-                    toast.error(f.reason.message);
-                }
+                toast.error(`${f.domain}: ${f.error.message}`);
             });
             return true;
         }

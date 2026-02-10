@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DatePicker } from "@/components/ui/date-picker"
 import { useAccountStore } from '@/store/account-store'
 import type { AccountFormData } from "@/hooks/use-account-form"
 import type { AccountCategory, RegistrarType } from "@/types/cloudflare"
@@ -533,17 +534,47 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="vps-email" className="text-sm font-medium">
+                Email/Login
+              </Label>
+              <Input
+                id="vps-email"
+                type="email"
+                placeholder="admin@vps.com"
+                value={formData.vpsEmail || ''}
+                onChange={(e) => setFormData({ ...formData, vpsEmail: e.target.value })}
+                className="transition-colors focus:ring-2"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vps-password" className="text-sm font-medium">
+                Password
+              </Label>
+              <Input
+                id="vps-password"
+                type="password"
+                placeholder="••••••••"
+                value={formData.vpsPassword || ''}
+                onChange={(e) => setFormData({ ...formData, vpsPassword: e.target.value })}
+                className="transition-colors focus:ring-2"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="vps-expiration" className="text-sm font-medium">
               Expiration Date (Optional)
             </Label>
-            <Input
-              id="vps-expiration"
-              type="date"
-              value={formData.vpsExpirationDate || ''}
-              onChange={(e) => setFormData({ ...formData, vpsExpirationDate: e.target.value })}
-              className="transition-colors focus:ring-2"
+            <DatePicker
+              date={formData.vpsExpirationDate ? new Date(formData.vpsExpirationDate) : undefined}
+              onDateChange={(date) => setFormData({ ...formData, vpsExpirationDate: date ? date.toISOString().split('T')[0] : '' })}
+              placeholder="Select expiration date"
             />
+            <p className="text-xs text-muted-foreground">
+              When does this VPS subscription expire?
+            </p>
           </div>
         </div>
       )}

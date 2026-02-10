@@ -11,13 +11,13 @@ import {
 
 import { useAccountForm } from "@/hooks/use-account-form"
 import { AccountForm } from "./account-form"
-import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount, VPSAccount } from "@/types/cloudflare"
 import { getCategoryLabel } from "@/lib/utils"
 
 interface EditAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  account: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | null
+  account: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | VPSAccount | null
 }
 
 export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDialogProps) {
@@ -89,7 +89,11 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
               ? 'Update your SSH server configuration. Changes will be saved securely.'
               : account?.category === 'proxy'
                 ? 'Update your SOCKS5 proxy configuration. Changes will be saved securely.'
-                : 'Update your account information and API token. Changes will be saved securely.'
+                : account?.category === 'vps'
+                  ? 'Update your VPS account information. Changes will be saved securely.'
+                  : account?.category === 'npm'
+                    ? 'Update your Nginx Proxy Manager configuration. Changes will be saved securely.'
+                    : 'Update your account information and API token. Changes will be saved securely.'
             }
           </DialogDescription>
         </DialogHeader>
@@ -112,6 +116,6 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }
