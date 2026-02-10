@@ -2,12 +2,13 @@ import { create } from 'zustand';
 import { storage } from '@/lib/storage';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
-import type { CloudflareAccount, ProxyAccount, SSHAccount } from '@/types/cloudflare';
+import type { CloudflareAccount, ProxyAccount, SSHAccount, VPSAccount } from '@/types/cloudflare';
 
 interface AccountStore {
   accounts: CloudflareAccount[];
   proxyAccounts: ProxyAccount[];
   sshAccounts: SSHAccount[];
+  vpsAccounts: VPSAccount[];
   isLoading: boolean;
   error: string | null;
   domainNameservers: Record<string, string[]>; // domain -> nameservers mapping
@@ -16,15 +17,19 @@ interface AccountStore {
   loadAccounts: () => void;
   loadProxyAccounts: () => void;
   loadSSHAccounts: () => void;
+  loadVPSAccounts: () => void;
   addAccount: (account: CloudflareAccount) => void;
   addProxyAccount: (account: ProxyAccount) => void;
   addSSHAccount: (account: SSHAccount) => void;
+  addVPSAccount: (account: VPSAccount) => void;
   updateAccount: (id: string, updates: Partial<CloudflareAccount>) => void;
   updateProxyAccount: (id: string, updates: Partial<ProxyAccount>) => void;
   updateSSHAccount: (id: string, updates: Partial<SSHAccount>) => void;
+  updateVPSAccount: (id: string, updates: Partial<VPSAccount>) => void;
   removeAccount: (id: string) => void;
   removeProxyAccount: (id: string) => void;
   removeSSHAccount: (id: string) => void;
+  removeVPSAccount: (id: string) => void;
   fetchAndCacheCloudflareAccounts: (accountId: string) => Promise<void>;
   setDomainNameservers: (domain: string, nameservers: string[]) => void;
   getDomainNameservers: (domain: string) => string[] | undefined;
@@ -61,9 +66,10 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
   accounts: [],
   proxyAccounts: [],
   sshAccounts: [],
+  vpsAccounts: [],
   isLoading: false,
   error: null,
-  domainNameservers: loadNameservers(),
+  domainNameservers: loadNameservers(), // Keep existing loadNameservers() call
 
   loadAccounts: () => {
     set({ isLoading: true, error: null });
@@ -78,6 +84,45 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
     }
   },
 
+  loadProxyAccounts: () => {
+    set({ isLoading: true, error: null }); // Keep isLoading for consistency
+    try {
+      const proxyAccounts = storage.getProxyAccounts();
+      set({ proxyAccounts, isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load proxy accounts',
+        isLoading: false
+      });
+    }
+  },
+
+  loadSSHAccounts: () => {
+    set({ isLoading: true, error: null }); // Keep isLoading for consistency
+    try {
+      const sshAccounts = storage.getSSHAccounts();
+      set({ sshAccounts, isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load SSH accounts',
+        isLoading: false
+      });
+    }
+  },
+
+  loadVPSAccounts: () => {
+    set({ isLoading: true, error: null });
+    try {
+      const vpsAccounts = storage.getVPSAccounts();
+      set({ vpsAccounts, isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load VPS accounts',
+        isLoading: false
+      });
+    }
+  },
+
   addAccount: (account) => {
     try {
       // Ensure createdAt is set
@@ -86,7 +131,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
         createdAt: account.createdAt || new Date(),
       };
       storage.addAccount(accountWithTimestamps);
-      const accounts = storage.getAccounts();
+      const accounts = storage.getAccounts(); // Re-fetch to ensure consistency with storage
       set({ accounts, error: null });
 
       // Automatically fetch Cloudflare accounts for the new account ONLY if it is a Cloudflare account
@@ -105,6 +150,54 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
     }
   },
 
+  addProxyAccount: (account) => {
+    try {
+      const accountWithTimestamps = {
+        ...account,
+        createdAt: account.createdAt || new Date(),
+      };
+      storage.addProxyAccount(accountWithTimestamps);
+      const proxyAccounts = storage.getProxyAccounts(); // Re-fetch to ensure consistency with storage
+      set({ proxyAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to add proxy account'
+      });
+    }
+  },
+
+  addSSHAccount: (account) => {
+    try {
+      const accountWithTimestamps = {
+        ...account,
+        createdAt: account.createdAt || new Date(),
+      };
+      storage.addSSHAccount(accountWithTimestamps);
+      const sshAccounts = storage.getSSHAccounts(); // Re-fetch to ensure consistency with storage
+      set({ sshAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to add SSH account'
+      });
+    }
+  },
+
+  addVPSAccount: (account) => {
+    try {
+      const accountWithTimestamps = {
+        ...account,
+        createdAt: account.createdAt || new Date(),
+      };
+      storage.addVPSAccount(accountWithTimestamps);
+      const vpsAccounts = storage.getVPSAccounts();
+      set({ vpsAccounts, error: null });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to add VPS account'
+      });
+    }
+  },
+
   updateAccount: (id, updates) => {
     try {
       const updatesWithTimestamp = {
@@ -112,7 +205,7 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
         lastUpdated: new Date(),
       };
       storage.updateAccount(id, updatesWithTimestamp);
-      const accounts = storage.getAccounts();
+      const accounts = storage.getAccounts(); // Re-fetch to ensure consistency with storage
       set({ accounts, error: null });
 
       // If API token changed, re-fetch Cloudflare accounts if it's a Cloudflare account
@@ -139,46 +232,6 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
     }
   },
 
-  removeAccount: (id) => {
-    try {
-      storage.removeAccount(id);
-      const accounts = storage.getAccounts();
-      set({ accounts, error: null });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to remove account'
-      });
-    }
-  },
-
-  loadProxyAccounts: () => {
-    set({ isLoading: true, error: null });
-    try {
-      const proxyAccounts = storage.getProxyAccounts();
-      set({ proxyAccounts, isLoading: false });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to load proxy accounts',
-        isLoading: false
-      });
-    }
-  },
-
-  addProxyAccount: (account) => {
-    try {
-      const accountWithTimestamps = {
-        ...account,
-        createdAt: account.createdAt || new Date(),
-      };
-      storage.addProxyAccount(accountWithTimestamps);
-      const proxyAccounts = storage.getProxyAccounts();
-      set({ proxyAccounts, error: null });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to add proxy account'
-      });
-    }
-  },
 
   updateProxyAccount: (id, updates) => {
     try {
@@ -208,34 +261,6 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
     }
   },
 
-  loadSSHAccounts: () => {
-    set({ isLoading: true, error: null });
-    try {
-      const sshAccounts = storage.getSSHAccounts();
-      set({ sshAccounts, isLoading: false });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to load SSH accounts',
-        isLoading: false
-      });
-    }
-  },
-
-  addSSHAccount: (account) => {
-    try {
-      const accountWithTimestamps = {
-        ...account,
-        createdAt: account.createdAt || new Date(),
-      };
-      storage.addSSHAccount(accountWithTimestamps);
-      const sshAccounts = storage.getSSHAccounts();
-      set({ sshAccounts, error: null });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to add SSH account'
-      });
-    }
-  },
 
   updateSSHAccount: (id, updates) => {
     try {
@@ -253,15 +278,49 @@ export const useAccountStore = create<AccountStore>((set, get) => ({
     }
   },
 
+  updateVPSAccount: (id, updates) => {
+    try {
+      storage.updateVPSAccount(id, updates);
+      set((state) => ({
+        vpsAccounts: state.vpsAccounts.map((acc) =>
+          acc.id === id ? { ...acc, ...updates } : acc
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to update VPS account', error);
+    }
+  },
+
+  removeAccount: (id) => {
+    try {
+      storage.removeAccount(id);
+      set((state) => ({
+        accounts: state.accounts.filter((acc) => acc.id !== id),
+      }));
+    } catch (error) {
+      set({ error: 'Failed to remove account' });
+    }
+  },
+
   removeSSHAccount: (id) => {
     try {
       storage.removeSSHAccount(id);
-      const sshAccounts = storage.getSSHAccounts();
-      set({ sshAccounts, error: null });
+      set((state) => ({
+        sshAccounts: state.sshAccounts.filter((acc) => acc.id !== id),
+      }));
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to remove SSH account'
-      });
+      console.error('Failed to remove SSH account', error);
+    }
+  },
+
+  removeVPSAccount: (id) => {
+    try {
+      storage.removeVPSAccount(id);
+      set((state) => ({
+        vpsAccounts: state.vpsAccounts.filter((acc) => acc.id !== id),
+      }));
+    } catch (error) {
+      console.error('Failed to remove VPS account', error);
     }
   },
 

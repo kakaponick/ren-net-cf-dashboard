@@ -1,4 +1,4 @@
-export type AccountCategory = "registrar" | "cloudflare" | "proxy" | "ssh" | "npm"
+export type AccountCategory = "registrar" | "cloudflare" | "proxy" | "ssh" | "npm" | "vps"
 
 export type RegistrarType = "namecheap" | "njalla"
 
@@ -16,6 +16,16 @@ export interface CloudflareAccount {
     id: string;
     name: string;
   }[];
+}
+
+export interface VPSAccount {
+  id: string;
+  name: string;
+  ip: string;
+  expirationDate?: string;
+  category: "vps";
+  createdAt: Date;
+  lastUpdated?: Date;
 }
 
 export interface ProxyAccount {

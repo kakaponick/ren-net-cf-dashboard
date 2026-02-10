@@ -1,7 +1,8 @@
-import { Input } from '@/components/ui/input';
+
 import { Label } from '@/components/ui/label';
 import { Toggle } from '@/components/ui/toggle';
 import { CloudCheck, CloudOff } from 'lucide-react';
+import { VPSIPCombobox } from '@/components/vps-ip-combobox'; // Correct import path
 
 interface RootARecordInputProps {
 	ipAddress: string;
@@ -24,19 +25,18 @@ export function RootARecordInput({
 		<div className="space-y-2">
 			<Label htmlFor="root-ip">Root A Record (Optional). Proxied: {proxied ? 'Yes' : 'No'}</Label>
 			<div className="flex items-center gap-3">
-				<Input
-					id="root-ip"
-					placeholder="Server IP address"
-					value={ipAddress}
-					onChange={(e) => onIPChange(e.target.value)}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' && !disabled) {
-							onSubmit();
-						}
-					}}
-					className="flex-1"
-					disabled={disabled}
-				/>
+				<div className="flex-1" onKeyDown={(e) => {
+					if (e.key === 'Enter' && !disabled) {
+						onSubmit();
+					}
+				}}>
+					<VPSIPCombobox
+						value={ipAddress}
+						onChange={onIPChange}
+						disabled={disabled}
+						placeholder="Server IP address"
+					/>
+				</div>
 				<Toggle
 					id="proxied"
 					pressed={proxied}

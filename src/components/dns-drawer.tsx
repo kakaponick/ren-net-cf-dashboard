@@ -25,6 +25,7 @@ import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { NameserversSection } from '@/components/nameservers-section';
+import { VPSIPCombobox } from '@/components/vps-ip-combobox';
 import { toast } from 'sonner';
 import type { DNSRecord } from '@/types/cloudflare';
 
@@ -48,7 +49,7 @@ export function DNSDrawer({
 	const [internalOpen, setInternalOpen] = useState(false);
 	const isControlled = controlledOpen !== undefined;
 	const open = isControlled ? controlledOpen : internalOpen;
-	const setOpen = isControlled ? controlledOnOpenChange || (() => {}) : setInternalOpen;
+	const setOpen = isControlled ? controlledOnOpenChange || (() => { }) : setInternalOpen;
 
 	const { accounts, isLoading: accountsLoading, getDomainNameservers, setDomainNameservers } = useAccountStore();
 	const {
@@ -329,9 +330,8 @@ export function DNSDrawer({
 										className="flex-1 sm:flex-initial"
 									>
 										<RefreshCw
-											className={`h-3! w-3! mr-2 ${
-												isLoadingRecords || isLoadingZone ? 'animate-spin' : ''
-											}`}
+											className={`h-3! w-3! mr-2 ${isLoadingRecords || isLoadingZone ? 'animate-spin' : ''
+												}`}
 										/>
 										Refresh
 									</Button>
@@ -501,12 +501,20 @@ export function DNSDrawer({
 
 						<div className="space-y-2">
 							<Label htmlFor="content">Content</Label>
-							<Input
-								id="content"
-								placeholder="IP address or domain"
-								value={formData.content}
-								onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-							/>
+							{formData.type === 'A' ? (
+								<VPSIPCombobox
+									value={formData.content}
+									onChange={(value) => setFormData({ ...formData, content: value })}
+									placeholder="IP address"
+								/>
+							) : (
+								<Input
+									id="content"
+									placeholder="IP address or domain"
+									value={formData.content}
+									onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+								/>
+							)}
 						</div>
 
 						{formData.type === 'MX' && (

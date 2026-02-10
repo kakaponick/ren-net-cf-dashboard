@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
+import type { CloudflareAccount, ProxyAccount, SSHAccount, VPSAccount, NPMAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
 
 export interface AccountFormData {
   email: string
@@ -25,6 +25,9 @@ export interface AccountFormData {
   npmHost: string
   npmIdentity: string
   npmSecret: string
+  vpsName: string
+  vpsIp: string
+  vpsExpirationDate: string
 }
 
 const initialFormData: AccountFormData = {
@@ -49,10 +52,13 @@ const initialFormData: AccountFormData = {
   npmHost: "",
   npmIdentity: "",
   npmSecret: "",
+  vpsName: "",
+  vpsIp: "",
+  vpsExpirationDate: "",
 }
 
-export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | null, initialCategory?: AccountCategory) {
-  const { addAccount, addProxyAccount, addSSHAccount, updateAccount, updateProxyAccount, updateSSHAccount } = useAccountStore()
+export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccount | SSHAccount | VPSAccount | NPMAccount | null, initialCategory?: AccountCategory) {
+  const { addAccount, addProxyAccount, addSSHAccount, addVPSAccount, updateAccount, updateProxyAccount, updateSSHAccount, updateVPSAccount } = useAccountStore()
   const [formData, setFormData] = useState<AccountFormData>(initialFormData)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -183,6 +189,13 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
             passphrase: formData.sshPassphrase || undefined,
           })
           toast.success('SSH server updated successfully')
+        } else if (existingAccount.category === 'vps') {
+          updateVPSAccount(existingAccount.id, {
+            name: formData.vpsName,
+            ip: formData.vpsIp,
+            expirationDate: formData.vpsExpirationDate || undefined,
+          })
+          toast.success('VPS account updated successfully')
         } else if (existingAccount.category === 'npm') {
           // NPM accounts are stored as CloudflareAccounts with special encoding
           updateAccount(existingAccount.id, {
@@ -231,6 +244,17 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
           }
           addSSHAccount(newSSHAccount)
           toast.success('SSH server added successfully')
+        } else if (formData.category === 'vps') {
+          const newVPSAccount: VPSAccount = {
+            id: crypto.randomUUID(),
+            name: formData.vpsName,
+            ip: formData.vpsIp,
+            expirationDate: formData.vpsExpirationDate || undefined,
+            category: 'vps',
+            createdAt: new Date(),
+          }
+          addVPSAccount(newVPSAccount)
+          toast.success('VPS account added successfully')
         } else if (formData.category === 'npm') {
           // NPM accounts are stored as CloudflareAccounts with special encoding
           const newNPMAccount: CloudflareAccount = {

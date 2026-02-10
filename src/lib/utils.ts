@@ -92,7 +92,7 @@ export async function processInParallel<T, R>(
     while (index < items.length) {
       const currentIndex = index++;
       const item = items[currentIndex];
-      
+
       try {
         const result = await processor(item, currentIndex);
         results[currentIndex] = result;
@@ -208,7 +208,7 @@ export function formatCloudflareError(error: unknown): string {
   // Check for rate limit errors first (highest priority)
   if (error && typeof error === 'object') {
     const errorObj = error as any;
-    
+
     // Check if it's a rate limit error with retry-after information
     if (errorObj.isRateLimit || errorObj.status === 429) {
       if (errorObj.retryAfter) {
@@ -218,11 +218,11 @@ export function formatCloudflareError(error: unknown): string {
       return 'Rate limit exceeded. Please try again in a moment';
     }
   }
-  
+
   // Handle Error objects with errorData property
   if (error && typeof error === 'object' && 'errorData' in error) {
     const errorData = (error as any).errorData;
-    
+
     // Check if errorData has Cloudflare error structure
     if (errorData && typeof errorData === 'object') {
       // Handle Cloudflare API error format: {success: false, errors: [{code, message}]}
@@ -234,18 +234,18 @@ export function formatCloudflareError(error: unknown): string {
           return messages.join('. ');
         }
       }
-      
+
       // Try to extract message from errorData directly
       if (errorData.message) {
         return errorData.message;
       }
     }
   }
-  
+
   // Handle Error objects with message containing JSON
   if (error instanceof Error) {
     const message = error.message;
-    
+
     // Try to parse JSON from error message
     const jsonMatch = message.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -266,7 +266,7 @@ export function formatCloudflareError(error: unknown): string {
         // If JSON parsing fails, continue to default handling
       }
     }
-    
+
     // Check for common error patterns
     if (message.includes('already exists')) {
       return 'This domain already exists in Cloudflare';
@@ -286,13 +286,13 @@ export function formatCloudflareError(error: unknown): string {
       }
       return 'Rate limit exceeded. Please try again in a moment';
     }
-    
+
     // Return the error message if it's not a raw API response
     if (!message.includes('API request failed') || !message.includes('JSON.stringify')) {
       return message;
     }
   }
-  
+
   // Default fallback
   return 'An unexpected error occurred. Please try again';
 }
@@ -348,3 +348,80 @@ export function parseWhoisDate(raw: string | undefined | null): string | null {
  * Calculate days from now until the provided ISO date.
  * Returns null when the date is invalid.
  */
+
+/**
+ * Get consistent color classes for account categories
+ * Used across badges, dropdowns, and other UI elements
+ */
+export function getCategoryColorClasses(category: string): {
+  badge: string;
+  text: string;
+  icon: string;
+} {
+  switch (category) {
+    case 'cloudflare':
+      return {
+        badge: 'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900',
+        text: 'text-orange-800 dark:text-orange-400',
+        icon: 'text-orange-600 dark:text-orange-400',
+      };
+    case 'registrar':
+      return {
+        badge: 'bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:hover:bg-purple-900',
+        text: 'text-purple-800 dark:text-purple-400',
+        icon: 'text-purple-600 dark:text-purple-400',
+      };
+    case 'proxy':
+      return {
+        badge: 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900',
+        text: 'text-green-800 dark:text-green-400',
+        icon: 'text-green-600 dark:text-green-400',
+      };
+    case 'ssh':
+      return {
+        badge: 'bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900',
+        text: 'text-blue-800 dark:text-blue-400',
+        icon: 'text-blue-600 dark:text-blue-400',
+      };
+    case 'vps':
+      return {
+        badge: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900',
+        text: 'text-indigo-800 dark:text-indigo-400',
+        icon: 'text-indigo-600 dark:text-indigo-400',
+      };
+    case 'npm':
+      return {
+        badge: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-950 dark:text-cyan-300 dark:hover:bg-cyan-900',
+        text: 'text-cyan-800 dark:text-cyan-400',
+        icon: 'text-cyan-600 dark:text-cyan-400',
+      };
+    default:
+      return {
+        badge: 'bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700',
+        text: 'text-gray-800 dark:text-gray-400',
+        icon: 'text-gray-600 dark:text-gray-400',
+      };
+  }
+}
+
+/**
+ * Get consistent display label for account categories
+ * Used across tables, modals, and badges
+ */
+export function getCategoryLabel(category: string, registrarName?: string): string {
+  // Special case for registrar with specific provider name
+  if (category === 'registrar' && registrarName) {
+    return registrarName.charAt(0).toUpperCase() + registrarName.slice(1);
+  }
+
+  const labels: Record<string, string> = {
+    cloudflare: 'Cloudflare',
+    registrar: 'Registrar',
+    proxy: 'Proxy',
+    ssh: 'SSH Monitoring',
+    vps: 'VPS',
+    npm: 'NPM',
+  };
+
+  return labels[category] || category.charAt(0).toUpperCase() + category.slice(1);
+}

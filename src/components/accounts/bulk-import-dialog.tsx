@@ -175,11 +175,11 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
               </Label>
               <span className="text-xs text-muted-foreground">
                 Format: {
-                  importCategory === 'registrar' 
+                  importCategory === 'registrar'
                     ? (importRegistrarName === 'njalla' ? 'Email  API_Key' : 'Email  API_Key  Proxy(Optional)')
                     : importCategory === 'proxy'
-                    ? 'Host:Port[:User:Pass]'
-                    : 'Email  API_Token'
+                      ? 'Host:Port[:User:Pass]'
+                      : 'Email  API_Token'
                 }
               </span>
             </div>
@@ -187,7 +187,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
               id="import-data"
               placeholder={
                 importCategory === 'registrar'
-                  ? (importRegistrarName === 'njalla' 
+                  ? (importRegistrarName === 'njalla'
                     ? `# Example format (one account per line):
 user@example.com  api_key_1234567890
 admin@client.com  api_key_abcdef1234`
@@ -196,11 +196,11 @@ user@example.com  api_key_1234567890
 admin@client.com  api_key_abcdef1234  127.0.0.1:1080
 support@company.com  api_key_xyz789  192.168.1.1:1080:username:password`)
                   : importCategory === 'proxy'
-                  ? `# Example format (one proxy per line):
+                    ? `# Example format (one proxy per line):
 127.0.0.1:1080
 127.0.0.1:1080:username:password
 proxy.example.com:1080`
-                  : `# Example format (one account per line):
+                    : `# Example format (one account per line):
 user@company.com  auth_token_123abc
 admin@client.com  auth_token_456def`
               }

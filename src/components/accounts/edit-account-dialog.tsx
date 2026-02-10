@@ -12,6 +12,7 @@ import {
 import { useAccountForm } from "@/hooks/use-account-form"
 import { AccountForm } from "./account-form"
 import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount } from "@/types/cloudflare"
+import { getCategoryLabel } from "@/lib/utils"
 
 interface EditAccountDialogProps {
   open: boolean
@@ -38,7 +39,7 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-5 w-5" />
-            {account?.category === 'ssh' ? 'Edit SSH Account' : account?.category === 'proxy' ? 'Edit Proxy Configuration' : 'Edit Account'}
+            Edit {account ? getCategoryLabel(account.category || 'cloudflare') : 'Account'}
           </DialogTitle>
           <DialogDescription>
             {account?.category === 'ssh'
@@ -74,7 +75,7 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
               isLoading
             }
           >
-            {isLoading ? 'Saving...' : `Save ${formData.category === 'ssh' ? 'SSH Server' : formData.category === 'proxy' ? 'Proxy' : formData.category === 'npm' ? 'NPM Account' : 'Account'}`}
+            {isLoading ? 'Saving...' : `Save ${getCategoryLabel(formData.category)}`}
           </Button>
         </DialogFooter>
       </DialogContent>

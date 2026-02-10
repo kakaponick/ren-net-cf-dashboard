@@ -1,19 +1,21 @@
 import { useState } from "react"
 import {
   User, Plus, Eye, EyeOff, Pencil, Trash2, Copy, Check,
-  ArrowUpDown, ArrowUp, ArrowDown, Cloud, Globe, Server, Terminal
+  ArrowUpDown, ArrowUp, ArrowDown, Cloud, Globe, Server, Terminal,
+  ArrowRightLeft
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-import type { CloudflareAccount, ProxyAccount, SSHAccount, AccountCategory } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, VPSAccount, AccountCategory } from "@/types/cloudflare"
 import { AccountsFilters } from "./accounts-filters"
 import type { SortField, SortDirection } from "@/hooks/use-accounts-view"
+import { getCategoryColorClasses, getCategoryLabel } from "@/lib/utils"
 
 interface AccountsTableProps {
-  accounts: (CloudflareAccount | ProxyAccount | SSHAccount)[]
+  accounts: (CloudflareAccount | ProxyAccount | SSHAccount | VPSAccount)[]
   totalCount: number
   filteredCount: number
 
@@ -27,7 +29,7 @@ interface AccountsTableProps {
 
   // Actions
   onAddClick: (category?: AccountCategory) => void
-  onEditClick: (account: CloudflareAccount | ProxyAccount | SSHAccount) => void
+  onEditClick: (account: CloudflareAccount | ProxyAccount | SSHAccount | VPSAccount) => void
   onDeleteClick: (id: string) => void
 }
 
@@ -122,51 +124,79 @@ export function AccountsTable({
                   const accountId = account.id
                   const isProxy = account.category === 'proxy'
                   const isSSH = account.category === 'ssh'
-                  const emailOrName = isSSH
-                    ? (account as SSHAccount).name
-                    : isProxy
-                      ? (account as ProxyAccount).name || `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}`
-                      : (account as CloudflareAccount).email
+                  const isVPS = account.category === 'vps'
 
-                  const apiToken = isSSH
-                    ? `${(account as SSHAccount).host}:${(account as SSHAccount).port}:${(account as SSHAccount).username}`
-                    : isProxy
-                      ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}${(account as ProxyAccount).username ? `:${(account as ProxyAccount).username}` : ''}${(account as ProxyAccount).password ? `:${(account as ProxyAccount).password}` : ''}`
-                      : (account as CloudflareAccount).apiToken
+                  const emailOrName = isVPS
+                    ? (account as VPSAccount).name
+                    : isSSH
+                      ? (account as SSHAccount).name
+                      : isProxy
+                        ? (account as ProxyAccount).name || `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}`
+                        : (account as CloudflareAccount).email
 
-                  const displayToken = isSSH
-                    ? `${(account as SSHAccount).username}@${(account as SSHAccount).host}:${(account as SSHAccount).port}••••••••••••`
-                    : isProxy
-                      ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}••••••••••••`
-                      : `${apiToken.substring(0, 12)}••••••••••••`
+                  const apiToken = isVPS
+                    ? `${(account as VPSAccount).ip}${(account as VPSAccount).expirationDate ? ` (Exp: ${(account as VPSAccount).expirationDate})` : ''}`
+                    : isSSH
+                      ? `${(account as SSHAccount).host}:${(account as SSHAccount).port}:${(account as SSHAccount).username}`
+                      : isProxy
+                        ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}${(account as ProxyAccount).username ? `:${(account as ProxyAccount).username}` : ''}${(account as ProxyAccount).password ? `:${(account as ProxyAccount).password}` : ''}`
+                        : (account as CloudflareAccount).apiToken
+
+                  const displayToken = isVPS
+                    ? apiToken
+                    : isSSH
+                      ? `${(account as SSHAccount).username}@${(account as SSHAccount).host}:${(account as SSHAccount).port}••••••••••••`
+                      : isProxy
+                        ? `${(account as ProxyAccount).host}:${(account as ProxyAccount).port}••••••••••••`
+                        : `${apiToken.substring(0, 12)}••••••••••••`
 
                   return (
                     <TableRow key={accountId} className="hover:bg-muted/30 transition-colors">
                       <TableCell>
                         <Badge
-                          variant="secondary"
-                          className={`${account.category === 'cloudflare'
-                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                            : account.category === 'registrar'
-                              ? 'bg-purple-100 text-purple-800 hover:bg-purple-200'
-                              : account.category === 'proxy'
-                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                : account.category === 'ssh'
-                                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                            }`}
+                          variant="outline"
                         >
                           <div className="flex items-center gap-1">
-                            {(account.category || 'cloudflare') === 'cloudflare' && <Cloud className="h-3 w-3" />}
-                            {(account.category || 'cloudflare') === 'registrar' && <Globe className="h-3 w-3" />}
-                            {(account.category || 'cloudflare') === 'proxy' && <Server className="h-3 w-3" />}
-                            {account.category === 'ssh' && <Terminal className="h-3 w-3" />}
-                            {account.category === 'registrar' && (account as CloudflareAccount).registrarName
-                              ? `${(account as CloudflareAccount).registrarName!.charAt(0).toUpperCase() + (account as CloudflareAccount).registrarName!.slice(1)}`
-                              : account.category === 'ssh'
-                                ? 'SSH'
-                                : (account.category || 'cloudflare').charAt(0).toUpperCase() + (account.category || 'cloudflare').slice(1)
-                            }
+                            {(() => {
+                              const category = account.category || 'cloudflare';
+                              const iconClass = `h-3 w-3 ${getCategoryColorClasses(category).icon}`;
+
+                              // Render icon based on category
+                              const renderIcon = () => {
+                                switch (category) {
+                                  case 'cloudflare':
+                                    return <Cloud className={iconClass} />;
+                                  case 'registrar':
+                                    return <Globe className={iconClass} />;
+                                  case 'proxy':
+                                    return <Server className={iconClass} />;
+                                  case 'ssh':
+                                    return <Terminal className={iconClass} />;
+                                  case 'vps':
+                                    return <Server className={iconClass} />;
+                                  case 'npm':
+                                    return <ArrowRightLeft className={iconClass} />;
+                                  default:
+                                    return null;
+                                }
+                              };
+
+
+                              // Get label based on category
+                              const getLabel = () => {
+                                return getCategoryLabel(
+                                  category,
+                                  category === 'registrar' ? (account as CloudflareAccount).registrarName : undefined
+                                );
+                              };
+
+                              return (
+                                <>
+                                  {renderIcon()}
+                                  {getLabel()}
+                                </>
+                              );
+                            })()}
                           </div>
                         </Badge>
                       </TableCell>

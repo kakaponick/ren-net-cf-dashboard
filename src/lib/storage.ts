@@ -1,4 +1,4 @@
-import type { CloudflareAccount, ProxyAccount, SSHAccount } from '@/types/cloudflare';
+import type { CloudflareAccount, ProxyAccount, SSHAccount, VPSAccount } from '@/types/cloudflare';
 
 const STORAGE_KEY = 'cloudflare-accounts';
 
@@ -229,4 +229,76 @@ export const storage = {
     const accounts = this.getSSHAccounts();
     return accounts.find(acc => acc.id === id);
   },
+
+  // VPS account management
+  getVPSAccounts(): VPSAccount[] {
+    if (typeof window === 'undefined') {
+      return [];
+    }
+    try {
+      const stored = localStorage.getItem('vps-accounts');
+      const accounts = stored ? JSON.parse(stored) : [];
+
+      // Migrate existing accounts to include timestamps
+      const migratedAccounts = accounts.map((account: any) => {
+        const migratedAccount = { ...account };
+
+        if (!account.createdAt) {
+          migratedAccount.createdAt = new Date();
+        } else {
+          migratedAccount.createdAt = new Date(account.createdAt);
+        }
+
+        return migratedAccount;
+      });
+
+      // Save migrated accounts back if migration occurred
+      if (migratedAccounts.length > 0) {
+        this.saveVPSAccounts(migratedAccounts);
+      }
+
+      return migratedAccounts;
+    } catch (error) {
+      console.error('Error reading VPS accounts from storage:', error);
+      return [];
+    }
+  },
+
+  saveVPSAccounts(accounts: VPSAccount[]): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.setItem('vps-accounts', JSON.stringify(accounts));
+    } catch (error) {
+      console.error('Error saving VPS accounts to storage:', error);
+    }
+  },
+
+  addVPSAccount(account: VPSAccount): void {
+    const accounts = this.getVPSAccounts();
+    accounts.push(account);
+    this.saveVPSAccounts(accounts);
+  },
+
+  updateVPSAccount(id: string, updates: Partial<VPSAccount>): void {
+    const accounts = this.getVPSAccounts();
+    const index = accounts.findIndex(acc => acc.id === id);
+    if (index !== -1) {
+      accounts[index] = { ...accounts[index], ...updates };
+      this.saveVPSAccounts(accounts);
+    }
+  },
+
+  removeVPSAccount(id: string): void {
+    const accounts = this.getVPSAccounts();
+    const filtered = accounts.filter(acc => acc.id !== id);
+    this.saveVPSAccounts(filtered);
+  },
+
+  getVPSAccount(id: string): VPSAccount | undefined {
+    const accounts = this.getVPSAccounts();
+    return accounts.find(acc => acc.id === id);
+  },
 };
+

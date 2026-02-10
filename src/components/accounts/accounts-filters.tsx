@@ -1,8 +1,16 @@
-import { Cloud, Globe, Server, Terminal, Search, X, ArrowRightLeft } from "lucide-react"
+import { Cloud, Globe, Server, Terminal, Search, X, ArrowRightLeft, PlusCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu"
 import type { AccountCategory } from "@/types/cloudflare"
 
 interface AccountsFiltersProps {
@@ -27,55 +35,74 @@ export function AccountsFilters({
   return (
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div className="flex items-center gap-4">
-        <ButtonGroup>
-          <Button
-            variant={categoryFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("all")}
-          >
-            All
-          </Button>
-          <Button
-            variant={categoryFilter === "cloudflare" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("cloudflare")}
-          >
-            <Cloud className="mr-1.5 h-3.5 w-3.5" />
-            Cloudflare
-          </Button>
-          <Button
-            variant={categoryFilter === "registrar" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("registrar")}
-          >
-            <Globe className="mr-1.5 h-3.5 w-3.5" />
-            Registrar
-          </Button>
-          <Button
-            variant={categoryFilter === "proxy" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("proxy")}
-          >
-            <Server className="mr-1.5 h-3.5 w-3.5" />
-            Proxy
-          </Button>
-          <Button
-            variant={categoryFilter === "ssh" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("ssh")}
-          >
-            <Terminal className="mr-1.5 h-3.5 w-3.5" />
-            SSH
-          </Button>
-          <Button
-            variant={categoryFilter === "npm" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("npm")}
-          >
-            <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-            NPM
-          </Button>
-        </ButtonGroup>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 border-dashed">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              {{
+                "all": "All Categories",
+                "cloudflare": "Cloudflare",
+                "registrar": "Registrar",
+                "proxy": "Proxy",
+                "ssh": "SSH",
+                "npm": "NPM",
+                "vps": "VPS"
+              }[categoryFilter] || "Filter"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[200px]">
+            <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "all"}
+              onCheckedChange={() => setCategoryFilter("all")}
+            >
+              All Categories
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "cloudflare"}
+              onCheckedChange={() => setCategoryFilter("cloudflare")}
+            >
+              <Cloud className="mr-2 h-4 w-4" />
+              Cloudflare
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "registrar"}
+              onCheckedChange={() => setCategoryFilter("registrar")}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Registrar
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "proxy"}
+              onCheckedChange={() => setCategoryFilter("proxy")}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              Proxy
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "ssh"}
+              onCheckedChange={() => setCategoryFilter("ssh")}
+            >
+              <Terminal className="mr-2 h-4 w-4" />
+              SSH
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "npm"}
+              onCheckedChange={() => setCategoryFilter("npm")}
+            >
+              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              NPM
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "vps"}
+              onCheckedChange={() => setCategoryFilter("vps")}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              VPS
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {filteredCount !== undefined && totalCount !== undefined && filteredCount !== totalCount && (
           <Badge variant="secondary">
             {filteredCount} of {totalCount}

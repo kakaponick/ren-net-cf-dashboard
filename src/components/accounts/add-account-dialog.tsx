@@ -12,6 +12,7 @@ import {
 import { useAccountForm } from "@/hooks/use-account-form"
 import { AccountForm } from "./account-form"
 import type { AccountCategory } from "@/types/cloudflare"
+import { getCategoryLabel } from "@/lib/utils"
 
 interface AddAccountDialogProps {
   open: boolean
@@ -70,7 +71,7 @@ export function AddAccountDialog({ open, onOpenChange, initialCategory }: AddAcc
               isLoading
             }
           >
-            {isLoading ? 'Adding...' : `Add ${formData.category === 'proxy' ? 'Proxy' : formData.category === 'ssh' ? 'SSH Server' : formData.category === 'npm' ? 'NPM Account' : 'Account'}`}
+            {isLoading ? 'Adding...' : `Add ${getCategoryLabel(formData.category)}`}
           </Button>
         </DialogFooter>
       </DialogContent>

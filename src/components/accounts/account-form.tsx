@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAccountStore } from '@/store/account-store'
 import type { AccountFormData } from "@/hooks/use-account-form"
 import type { AccountCategory, RegistrarType } from "@/types/cloudflare"
+import { getCategoryColorClasses, getCategoryLabel } from "@/lib/utils"
+import { Badge } from "../ui/badge"
 
 interface AccountFormProps {
   formData: AccountFormData
@@ -39,9 +41,10 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             {formData.category === 'registrar' && <Globe className="h-4 w-4 text-purple-600" />}
             {formData.category === 'proxy' && <Server className="h-4 w-4 text-green-600" />}
             {formData.category === 'ssh' && <Terminal className="h-4 w-4 text-blue-600" />}
+            {formData.category === 'vps' && <Server className="h-4 w-4 text-indigo-600" />}
             {formData.category === 'npm' && <ArrowRightLeft className="h-4 w-4 text-cyan-600" />}
-            <span className="font-medium capitalize">
-              {formData.category === 'proxy' ? 'SOCKS5 Proxy' : formData.category === 'ssh' ? 'SSH Server' : formData.category === 'npm' ? 'Nginx Proxy Manager' : formData.category}
+            <span className="font-medium">
+              {getCategoryLabel(formData.category)}
             </span>
           </div>
         ) : (
@@ -64,33 +67,39 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="cloudflare">
-                <div className="flex items-center gap-2">
-                  <Cloud className="h-4 w-4" />
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <Cloud className={`h-4 w-4 ${getCategoryColorClasses('cloudflare').text}`} /></Badge>
                   Cloudflare Account
                 </div>
               </SelectItem>
               <SelectItem value="registrar">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <Globe className={`h-4 w-4 ${getCategoryColorClasses('registrar').text}`} /></Badge>
                   Domain Registrar
                 </div>
               </SelectItem>
               <SelectItem value="proxy">
-                <div className="flex items-center gap-2">
-                  <Server className="h-4 w-4" />
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('proxy').text}`} /></Badge>
                   SOCKS5 Proxy
                 </div>
               </SelectItem>
               <SelectItem value="ssh">
-                <div className="flex items-center gap-2">
-                  <Terminal className="h-4 w-4" />
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <Terminal className={`h-4 w-4 ${getCategoryColorClasses('ssh').text}`} /></Badge>
                   SSH Server
                 </div>
               </SelectItem>
               <SelectItem value="npm">
-                <div className="flex items-center gap-2">
-                  <ArrowRightLeft className="h-4 w-4" />
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <ArrowRightLeft className={`h-4 w-4 ${getCategoryColorClasses('npm').text}`} /></Badge>
                   Nginx Proxy Manager
+                </div>
+              </SelectItem>
+              <SelectItem value="vps">
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('vps').text}`} /></Badge>
+                  VPS Account
                 </div>
               </SelectItem>
             </SelectContent>
@@ -104,7 +113,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
       </div>
 
       {/* Basic Account Information */}
-      {formData.category !== 'proxy' && formData.category !== 'ssh' && formData.category !== 'npm' && (
+      {formData.category !== 'proxy' && formData.category !== 'ssh' && formData.category !== 'npm' && formData.category !== 'vps' && (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
@@ -488,8 +497,55 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
         </div>
       )}
 
+      {/* VPS Configuration */}
+      {formData.category === 'vps' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="vps-name" className="text-sm font-medium">
+              VPS Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="vps-name"
+              placeholder="Production Server 1"
+              value={formData.vpsName || ''}
+              onChange={(e) => setFormData({ ...formData, vpsName: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Friendly name for this VPS
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vps-ip" className="text-sm font-medium">
+              IP Address <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="vps-ip"
+              placeholder="192.168.1.1"
+              value={formData.vpsIp || ''}
+              onChange={(e) => setFormData({ ...formData, vpsIp: e.target.value })}
+              className="font-mono text-sm transition-colors focus:ring-2"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vps-expiration" className="text-sm font-medium">
+              Expiration Date (Optional)
+            </Label>
+            <Input
+              id="vps-expiration"
+              type="date"
+              value={formData.vpsExpirationDate || ''}
+              onChange={(e) => setFormData({ ...formData, vpsExpirationDate: e.target.value })}
+              className="transition-colors focus:ring-2"
+            />
+          </div>
+        </div>
+      )}
+
       {/* API Token for non-proxy accounts */}
-      {formData.category !== 'proxy' && formData.category !== 'ssh' && formData.category !== 'npm' && (
+      {formData.category !== 'proxy' && formData.category !== 'ssh' && formData.category !== 'npm' && formData.category !== 'vps' && (
         <div className="space-y-2">
           <Label htmlFor="apiToken" className="text-sm font-medium">
             API Token <span className="text-destructive">*</span>

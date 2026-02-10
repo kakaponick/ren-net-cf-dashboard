@@ -12,9 +12,11 @@ export function useAccountsView() {
     accounts,
     proxyAccounts,
     sshAccounts,
+    vpsAccounts,
     loadAccounts,
     loadProxyAccounts,
-    loadSSHAccounts
+    loadSSHAccounts,
+    loadVPSAccounts
   } = useAccountStore()
 
   // View state
@@ -41,6 +43,7 @@ export function useAccountsView() {
     loadAccounts()
     loadProxyAccounts()
     loadSSHAccounts()
+    loadVPSAccounts()
   }, [])
 
   // Filtering and Sorting
@@ -69,6 +72,16 @@ export function useAccountsView() {
         sshHost: ssh.host,
         sshPort: ssh.port,
         sshUsername: ssh.username,
+      })),
+      ...vpsAccounts.map(vps => ({
+        ...vps,
+        // Map VPS fields to account fields for uniform filtering
+        email: vps.name,
+        apiToken: vps.ip,
+        // Keep original VPS fields accessible
+        vpsName: vps.name,
+        vpsIp: vps.ip,
+        vpsExpirationDate: vps.expirationDate,
       }))
     ];
 
@@ -111,7 +124,7 @@ export function useAccountsView() {
 
   const clearSearch = () => setSearchQuery("")
 
-  const totalAccounts = accounts.length + proxyAccounts.length + sshAccounts.length
+  const totalAccounts = accounts.length + proxyAccounts.length + sshAccounts.length + vpsAccounts.length
 
   return {
     // Data
@@ -144,5 +157,6 @@ export function useAccountsView() {
     rawAccounts: accounts,
     rawProxyAccounts: proxyAccounts,
     rawSSHAccounts: sshAccounts,
+    rawVPSAccounts: vpsAccounts,
   }
 }
