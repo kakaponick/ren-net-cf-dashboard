@@ -11,7 +11,7 @@ export const REGISTRAR_COLUMN_LABELS: Record<RegistrarColumnKey, string> = {
     privacy: 'Privacy',
     premium: 'Premium',
     dns: 'DNS',
-    email: 'Email'
+    email: 'Account'
 };
 
 export const REGISTRAR_COLUMN_KEYS: RegistrarColumnKey[] = [

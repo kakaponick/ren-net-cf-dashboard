@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAccountStore } from '@/store/account-store'
-import type { AccountCategory, CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount } from '@/types/cloudflare'
+import type { AccountCategory, CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount, VPSAccount } from '@/types/cloudflare'
 
 export type SortField = 'email'
 export type SortDirection = 'asc' | 'desc'
@@ -34,7 +34,7 @@ export function useAccountsView() {
   // Dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingAccount, setEditingAccount] = useState<CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | null>(null)
+  const [editingAccount, setEditingAccount] = useState<CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | VPSAccount | null>(null)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null)
 
@@ -126,6 +126,21 @@ export function useAccountsView() {
 
   const totalAccounts = accounts.length + proxyAccounts.length + sshAccounts.length + vpsAccounts.length
 
+  /** Resolve to raw account when editing. Prevents normalized view data (e.g. email: vps.name) from leaking into the edit form. */
+  const getRawAccountForEdit = (account: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | VPSAccount | null) => {
+    if (!account) return null
+    if (account.category === 'vps') {
+      return (vpsAccounts.find((v) => v.id === account.id) as VPSAccount) ?? account
+    }
+    if (account.category === 'proxy') {
+      return (proxyAccounts.find((p) => p.id === account.id) as ProxyAccount) ?? account
+    }
+    if (account.category === 'ssh') {
+      return (sshAccounts.find((s) => s.id === account.id) as SSHAccount) ?? account
+    }
+    return (accounts.find((a) => a.id === account.id) as CloudflareAccount) ?? account
+  }
+
   return {
     // Data
     accounts: filteredAndSortedAccounts,
@@ -148,6 +163,7 @@ export function useAccountsView() {
     setIsEditDialogOpen,
     editingAccount,
     setEditingAccount,
+    getRawAccountForEdit,
     isImportDialogOpen,
     setIsImportDialogOpen,
     deleteAccountId,

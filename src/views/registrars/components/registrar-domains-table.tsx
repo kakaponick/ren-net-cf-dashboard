@@ -220,7 +220,7 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 								</TableCell>
 							</ActivityBoundary>
 							<ActivityBoundary mode={visibleColumns.email ? 'visible' : 'hidden'}>
-								<TableCell className="text-muted-foreground text-xs">
+								<TableCell>
 									{accountEmails[domain.accountId] || '—'}
 								</TableCell>
 							</ActivityBoundary>
