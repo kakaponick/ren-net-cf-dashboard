@@ -419,7 +419,7 @@ export function getCategoryLabel(category: string, registrarName?: string): stri
     registrar: 'Registrar',
     proxy: 'Proxy',
     ssh: 'SSH Monitoring',
-    vps: 'VPS',
+    vps: 'Server registrars',
     npm: 'NPM',
   };
 

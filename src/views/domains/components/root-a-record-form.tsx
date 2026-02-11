@@ -53,24 +53,24 @@ export function RootARecordForm({
 					placeholder="1.2.3.4"
 					className="h-9 rounded-r-none border-r-0 focus-visible:ring-0 focus-visible:ring-offset-0"
 				/>
-				{/* Overlay InputGroup styles */}
 				<div className="absolute top-0 right-0 h-full flex items-center bg-transparent pointer-events-none border border-l-0 rounded-r-md border-input"></div>
 			</div>
-			<div className="flex items-center border border-l-0 border-input rounded-r-md bg-background px-3 h-9 -ml-2 z-10">
+			<div className="flex items-center border border-l-0 border-input rounded-r-md bg-background h-9 -ml-2 z-10">
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-6 w-6 mr-1"
+					className="rounded-none border-r"
 					onClick={() => onProxiedChange(!proxied)}
 					disabled={isProcessing}
 					title={proxied ? 'Proxied - Click to set DNS Only' : 'DNS Only - Click to set Proxied'}
 				>
 					{proxied ? <CloudCheck className="h-3 w-3 text-green-500" /> : <CloudOff className="h-3 w-3 text-gray-500" />}
 				</Button>
+
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-6 w-6"
+					className="rounded-l-none"
 					onClick={onSubmit}
 					disabled={isProcessing || !ipAddress.trim()}
 					title="Save A record"

@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FilterCombobox } from '@/components/filter-combobox';
 import { toast } from 'sonner';
 import { extractURLParameters, matchesURLFilters } from '@/lib/url-utils';
 
@@ -356,23 +356,17 @@ export function NginxLocationsTable({ locations, onUpdate, onDelete, onDeleteMul
 
                 {/* URL Parameter Filters */}
                 {urlParameters.map(param => (
-                    <Select
+                    <FilterCombobox
                         key={param.paramName}
                         value={urlParamFilters[param.paramName] || 'all'}
                         onValueChange={(value) => handleURLParamFilterChange(param.paramName, value)}
-                    >
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder={`Filter by ${param.paramName}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All {param.paramName}</SelectItem>
-                            {param.values.map(value => (
-                                <SelectItem key={value} value={value}>
-                                    {value}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        options={[
+                            { value: 'all', label: `All ${param.paramName}` },
+                            ...param.values.map(v => ({ value: v, label: v })),
+                        ]}
+                        placeholder={`Filter by ${param.paramName}`}
+                        className="w-[180px]"
+                    />
                 ))}
 
                 {/* Clear Filters Button */}

@@ -12,15 +12,18 @@ import {
 } from "@/components/ui/alert-dialog"
 
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount, SSHAccount } from "@/types/cloudflare"
+import type { CloudflareAccount, ProxyAccount, SSHAccount, VPSAccount } from "@/types/cloudflare"
 
 interface DeleteAccountDialogProps {
   accountId: string | null
   onClose: () => void
 }
 
-export function DeleteAccountDialog({ accountId, onClose }: DeleteAccountDialogProps) {
-  const { accounts, proxyAccounts, sshAccounts, removeAccount, removeProxyAccount, removeSSHAccount } = useAccountStore()
+export function DeleteAccountDialog({ accountId = null, onClose }: DeleteAccountDialogProps) {
+  const {
+    accounts, proxyAccounts, sshAccounts, vpsAccounts,
+    removeAccount, removeProxyAccount, removeSSHAccount, removeVPSAccount
+  } = useAccountStore()
 
   const handleDelete = async () => {
     if (!accountId) return
@@ -28,8 +31,12 @@ export function DeleteAccountDialog({ accountId, onClose }: DeleteAccountDialogP
     try {
       const isProxy = proxyAccounts.some(p => p.id === accountId)
       const isSSH = sshAccounts.some(s => s.id === accountId)
+      const isVPS = vpsAccounts.some(v => v.id === accountId)
 
-      if (isSSH) {
+      if (isVPS) {
+        removeVPSAccount(accountId)
+        toast.success('Server registrar deleted successfully')
+      } else if (isSSH) {
         removeSSHAccount(accountId)
         toast.success('SSH credentials deleted successfully')
       } else if (isProxy) {
@@ -49,11 +56,13 @@ export function DeleteAccountDialog({ accountId, onClose }: DeleteAccountDialogP
   const account = accounts.find(a => a.id === accountId)
   const proxy = proxyAccounts.find(p => p.id === accountId)
   const ssh = sshAccounts.find(s => s.id === accountId)
+  const vps = vpsAccounts.find(v => v.id === accountId)
 
   const displayText = (() => {
     if (account) return `Email: ${account.email}`
     if (proxy) return `Proxy: ${proxy.name || `${proxy.host}:${proxy.port}`}`
     if (ssh) return `SSH: ${ssh.name || `${ssh.username}@${ssh.host}:${ssh.port}`}`
+    if (vps) return `Server: ${vps.name || vps.ip}`
     return 'Unknown Account'
   })()
 

@@ -42,11 +42,11 @@ export function AccountsFilters({
               {{
                 "all": "All Categories",
                 "cloudflare": "Cloudflare",
-                "registrar": "Registrar",
+                "registrar": "Domain Registrars",
+                "vps": "Server registrars",
                 "proxy": "Proxy",
                 "ssh": "SSH",
                 "npm": "NPM",
-                "vps": "VPS"
               }[categoryFilter] || "Filter"}
             </Button>
           </DropdownMenuTrigger>
@@ -71,8 +71,17 @@ export function AccountsFilters({
               onCheckedChange={() => setCategoryFilter("registrar")}
             >
               <Globe className="mr-2 h-4 w-4" />
-              Registrar
+              Domain Registrars
             </DropdownMenuCheckboxItem>
+
+            <DropdownMenuCheckboxItem
+              checked={categoryFilter === "vps"}
+              onCheckedChange={() => setCategoryFilter("vps")}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              Server registrars
+            </DropdownMenuCheckboxItem>
+
             <DropdownMenuCheckboxItem
               checked={categoryFilter === "proxy"}
               onCheckedChange={() => setCategoryFilter("proxy")}
@@ -94,13 +103,7 @@ export function AccountsFilters({
               <ArrowRightLeft className="mr-2 h-4 w-4" />
               NPM
             </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={categoryFilter === "vps"}
-              onCheckedChange={() => setCategoryFilter("vps")}
-            >
-              <Server className="mr-2 h-4 w-4" />
-              VPS
-            </DropdownMenuCheckboxItem>
+
           </DropdownMenuContent>
         </DropdownMenu>
         {filteredCount !== undefined && totalCount !== undefined && filteredCount !== totalCount && (

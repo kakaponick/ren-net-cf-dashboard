@@ -90,7 +90,7 @@ export function EditAccountDialog({ open, onOpenChange, account }: EditAccountDi
               : account?.category === 'proxy'
                 ? 'Update your SOCKS5 proxy configuration. Changes will be saved securely.'
                 : account?.category === 'vps'
-                  ? 'Update your VPS account information. Changes will be saved securely.'
+                  ? 'Update your Server Registrar information. Changes will be saved securely.'
                   : account?.category === 'npm'
                     ? 'Update your Nginx Proxy Manager configuration. Changes will be saved securely.'
                     : 'Update your account information and API token. Changes will be saved securely.'

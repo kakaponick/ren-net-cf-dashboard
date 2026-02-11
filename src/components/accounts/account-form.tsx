@@ -38,12 +38,12 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
         </Label>
         {isEditing ? (
           <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md border">
-            {formData.category === 'cloudflare' && <Cloud className="h-4 w-4 text-orange-600" />}
-            {formData.category === 'registrar' && <Globe className="h-4 w-4 text-purple-600" />}
-            {formData.category === 'proxy' && <Server className="h-4 w-4 text-green-600" />}
-            {formData.category === 'ssh' && <Terminal className="h-4 w-4 text-blue-600" />}
-            {formData.category === 'vps' && <Server className="h-4 w-4 text-indigo-600" />}
-            {formData.category === 'npm' && <ArrowRightLeft className="h-4 w-4 text-cyan-600" />}
+            {formData.category === 'cloudflare' && <Cloud className={`h-4 w-4 ${getCategoryColorClasses('cloudflare').icon}`} />}
+            {formData.category === 'registrar' && <Globe className={`h-4 w-4 ${getCategoryColorClasses('registrar').icon}`} />}
+            {formData.category === 'proxy' && <Server className={`h-4 w-4 ${getCategoryColorClasses('proxy').icon}`} />}
+            {formData.category === 'ssh' && <Terminal className={`h-4 w-4 ${getCategoryColorClasses('ssh').icon}`} />}
+            {formData.category === 'vps' && <Server className={`h-4 w-4 ${getCategoryColorClasses('vps').icon}`} />}
+            {formData.category === 'npm' && <ArrowRightLeft className={`h-4 w-4 ${getCategoryColorClasses('npm').icon}`} />}
             <span className="font-medium">
               {getCategoryLabel(formData.category)}
             </span>
@@ -83,6 +83,12 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
                   Domain Registrar
                 </div>
               </SelectItem>
+              <SelectItem value="vps">
+                <div className={`flex items-center gap-2 `}>
+                  <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('vps').text}`} /></Badge>
+                  Server registrars
+                </div>
+              </SelectItem>
               <SelectItem value="proxy">
                 <div className={`flex items-center gap-2 `}>
                   <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('proxy').text}`} /></Badge>
@@ -98,15 +104,10 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               <SelectItem value="npm">
                 <div className={`flex items-center gap-2 `}>
                   <Badge variant="outline"> <ArrowRightLeft className={`h-4 w-4 ${getCategoryColorClasses('npm').text}`} /></Badge>
-                  Nginx Proxy Manager
+                  Nginx PM
                 </div>
               </SelectItem>
-              <SelectItem value="vps">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('vps').text}`} /></Badge>
-                  VPS Account
-                </div>
-              </SelectItem>
+
             </SelectContent>
           </Select>
         )}
@@ -507,7 +508,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="vps-name" className="text-sm font-medium">
-              VPS Name <span className="text-destructive">*</span>
+              Server Name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="vps-name"
@@ -517,7 +518,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               className="transition-colors focus:ring-2"
             />
             <p className="text-xs text-muted-foreground">
-              Friendly name for this VPS
+              Friendly name for this Server
             </p>
           </div>
 
@@ -573,7 +574,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               placeholder="Select expiration date"
             />
             <p className="text-xs text-muted-foreground">
-              When does this VPS subscription expire?
+              When does this Server expire?
             </p>
           </div>
         </div>
@@ -594,7 +595,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             className="font-mono text-sm transition-colors focus:ring-2"
           />
           <p className="text-xs text-muted-foreground">
-            Your API token will be encrypted and stored securely in your browser.
+            Your API token will be stored in your browser.
           </p>
         </div>
       )}

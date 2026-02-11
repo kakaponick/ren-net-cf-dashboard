@@ -76,7 +76,7 @@ export function VPSIPCombobox({
                             {selectedVPS ? (
                                 <>
                                     <Server className="mr-2 h-4 w-4 opacity-50" />
-                                    <span className="truncate">{selectedVPS.ip} <span className="text-muted-foreground">({selectedVPS.name})</span></span>
+                                    <span className="truncate">{selectedVPS.ip}</span>
                                 </>
                             ) : (
                                 <span className="truncate">{value}</span>
@@ -91,14 +91,14 @@ export function VPSIPCombobox({
             <PopoverContent className="w-[300px] p-0" align="start">
                 <Command>
                     <CommandInput
-                        placeholder="Search VPS or enter IP..."
+                        placeholder="Search Server or enter IP..."
                         value={inputValue}
                         onValueChange={setInputValue}
                     />
                     <CommandList>
                         <CommandEmpty>
                             <div className="p-2 text-sm text-center">
-                                <p className="text-muted-foreground mb-2">No VPS found.</p>
+                                <p className="text-muted-foreground mb-2">No Server found.</p>
                                 {inputValue && (
                                     <Button
                                         variant="secondary"
@@ -112,7 +112,7 @@ export function VPSIPCombobox({
                                 )}
                             </div>
                         </CommandEmpty>
-                        <CommandGroup heading="VPS Accounts">
+                        <CommandGroup heading="Server Registrars">
                             {vpsAccounts.map((account) => (
                                 <CommandItem
                                     key={account.id}

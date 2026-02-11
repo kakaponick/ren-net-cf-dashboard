@@ -104,7 +104,7 @@ export function AccountsTable({
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-muted/50">
-                  <TableHead className="w-[120px]">Category</TableHead>
+                  <TableHead className="w-[150px]">Category</TableHead>
                   <TableHead className="w-[300px]">
                     <Button
                       variant="ghost"
