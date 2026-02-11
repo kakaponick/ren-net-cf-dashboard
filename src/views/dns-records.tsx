@@ -248,10 +248,10 @@ export default function DNSRecordsPage() {
           <CardContent className="text-center py-8">
             <h3 className="text-lg font-medium mb-2">Account Not Found</h3>
             <p className="text-muted-foreground mb-4">
-              Please go back to domains and select a valid account
+              Please go back to Cloudflare and select a valid account
             </p>
             <Button asChild>
-              <Link href="/domains">Go to Domains</Link>
+              <Link href="/">Go to Cloudflare</Link>
             </Button>
           </CardContent>
         </Card>

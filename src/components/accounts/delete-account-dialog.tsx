@@ -35,7 +35,7 @@ export function DeleteAccountDialog({ accountId = null, onClose }: DeleteAccount
 
       if (isVPS) {
         removeVPSAccount(accountId)
-        toast.success('Server registrar deleted successfully')
+        toast.success('Server Registrar deleted successfully')
       } else if (isSSH) {
         removeSSHAccount(accountId)
         toast.success('SSH credentials deleted successfully')

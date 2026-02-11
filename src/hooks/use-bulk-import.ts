@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
+import type { CloudflareAccount, ProxyAccount, VPSAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
 
 export function useBulkImport() {
-  const { addAccount, addProxyAccount, proxyAccounts } = useAccountStore()
+  const { addAccount, addProxyAccount, addVPSAccount, proxyAccounts } = useAccountStore()
   
   const [importData, setImportData] = useState("")
   const [importCategory, setImportCategory] = useState<AccountCategory>("cloudflare")
@@ -68,6 +68,37 @@ export function useBulkImport() {
              errorCount++
            }
            return
+        }
+
+        // Handle VPS (Server Registrars) bulk import
+        if (importCategory === 'vps') {
+          if (parts.length >= 2) {
+            const name = parts[0]
+            const ip = parts[1]
+            const email = parts[2] || undefined
+            const password = parts[3] || undefined
+            const expirationDate = parts[4] || undefined
+
+            if (name?.trim() && ip?.trim()) {
+              const newVPSAccount: VPSAccount = {
+                id: crypto.randomUUID(),
+                name: name.trim(),
+                ip: ip.trim(),
+                email: email?.trim() || undefined,
+                password: password?.trim() || undefined,
+                expirationDate: expirationDate?.trim() || undefined,
+                category: 'vps',
+                createdAt: new Date(),
+              }
+              addVPSAccount(newVPSAccount)
+              successCount++
+            } else {
+              errorCount++
+            }
+          } else {
+            errorCount++
+          }
+          return
         }
 
         if (parts.length >= 2) {

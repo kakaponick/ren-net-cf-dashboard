@@ -8,7 +8,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { useAccountStore } from '@/store/account-store'
 import type { AccountFormData } from "@/hooks/use-account-form"
 import type { AccountCategory, RegistrarType } from "@/types/cloudflare"
-import { getCategoryColorClasses, getCategoryLabel } from "@/lib/utils"
+import { getCategoryColorClasses, getCategoryLabel, parseExpirationDate, formatExpirationDate } from "@/lib/utils"
 import { Badge } from "../ui/badge"
 
 interface AccountFormProps {
@@ -86,7 +86,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               <SelectItem value="vps">
                 <div className={`flex items-center gap-2 `}>
                   <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('vps').text}`} /></Badge>
-                  Server registrars
+                  Server Registrars
                 </div>
               </SelectItem>
               <SelectItem value="proxy">
@@ -569,8 +569,8 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               Expiration Date (Optional)
             </Label>
             <DatePicker
-              date={formData.vpsExpirationDate ? new Date(formData.vpsExpirationDate) : undefined}
-              onDateChange={(date) => setFormData({ ...formData, vpsExpirationDate: date ? date.toISOString().split('T')[0] : '' })}
+              date={parseExpirationDate(formData.vpsExpirationDate)}
+              onDateChange={(date) => setFormData({ ...formData, vpsExpirationDate: date ? formatExpirationDate(date) : '' })}
               placeholder="Select expiration date"
             />
             <p className="text-xs text-muted-foreground">

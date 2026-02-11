@@ -111,7 +111,7 @@ export function useAccountsView() {
     })
 
     return filtered
-  }, [accounts, proxyAccounts, sshAccounts, searchQuery, categoryFilter, sortField, sortDirection])
+  }, [accounts, proxyAccounts, sshAccounts, vpsAccounts, searchQuery, categoryFilter, sortField, sortDirection])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {

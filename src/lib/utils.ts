@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { toast } from "sonner"
-import { differenceInCalendarDays, formatISO, isValid, parse, parseISO } from "date-fns"
+import { differenceInCalendarDays, format, formatISO, isValid, parse, parseISO } from "date-fns"
 import type { DNSRecord } from "@/types/cloudflare"
 
 export function cn(...inputs: ClassValue[]) {
@@ -344,6 +344,27 @@ export function parseWhoisDate(raw: string | undefined | null): string | null {
   return null;
 }
 
+const EXPIRATION_DATE_FORMAT = "dd-MM-yyyy";
+
+/**
+ * Parse expiration date string (DD-MM-YYYY or YYYY-MM-DD) to Date.
+ */
+export function parseExpirationDate(str: string | undefined | null): Date | undefined {
+  if (!str?.trim()) return undefined;
+  const value = str.trim();
+  const ddmmyyyy = parse(value, EXPIRATION_DATE_FORMAT, new Date());
+  if (isValid(ddmmyyyy)) return ddmmyyyy;
+  const iso = parseISO(value);
+  return isValid(iso) ? iso : undefined;
+}
+
+/**
+ * Format date as DD-MM-YYYY for expiration date storage.
+ */
+export function formatExpirationDate(date: Date): string {
+  return format(date, EXPIRATION_DATE_FORMAT);
+}
+
 /**
  * Calculate days from now until the provided ISO date.
  * Returns null when the date is invalid.
@@ -419,7 +440,7 @@ export function getCategoryLabel(category: string, registrarName?: string): stri
     registrar: 'Registrar',
     proxy: 'Proxy',
     ssh: 'SSH Monitoring',
-    vps: 'Server registrars',
+    vps: 'Server Registrars',
     npm: 'NPM',
   };
 

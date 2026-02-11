@@ -43,7 +43,7 @@ export function AccountsFilters({
                 "all": "All Categories",
                 "cloudflare": "Cloudflare",
                 "registrar": "Domain Registrars",
-                "vps": "Server registrars",
+                "vps": "Server Registrars",
                 "proxy": "Proxy",
                 "ssh": "SSH",
                 "npm": "NPM",
@@ -79,7 +79,7 @@ export function AccountsFilters({
               onCheckedChange={() => setCategoryFilter("vps")}
             >
               <Server className="mr-2 h-4 w-4" />
-              Server registrars
+              Server Registrars
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuCheckboxItem

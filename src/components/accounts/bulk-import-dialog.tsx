@@ -84,6 +84,12 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
                     Registrar
                   </div>
                 </SelectItem>
+                <SelectItem value="vps">
+                  <div className="flex items-center gap-2">
+                    <Server className="h-4 w-4" />
+                    Server Registrars
+                  </div>
+                </SelectItem>
                 <SelectItem value="proxy">
                   <div className="flex items-center gap-2">
                     <Server className="h-4 w-4" />
@@ -177,9 +183,11 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
                 Format: {
                   importCategory === 'registrar'
                     ? (importRegistrarName === 'njalla' ? 'Email  API_Key' : 'Email  API_Key  Proxy(Optional)')
-                    : importCategory === 'proxy'
-                      ? 'Host:Port[:User:Pass]'
-                      : 'Email  API_Token'
+                    : importCategory === 'vps'
+                      ? 'Name  IP  [Email]  [Password]  [ExpirationDate DD-MM-YYYY]'
+                      : importCategory === 'proxy'
+                        ? 'Host:Port[:User:Pass]'
+                        : 'Email  API_Token'
                 }
               </span>
             </div>
@@ -195,12 +203,17 @@ admin@client.com  api_key_abcdef1234`
 user@example.com  api_key_1234567890
 admin@client.com  api_key_abcdef1234  127.0.0.1:1080
 support@company.com  api_key_xyz789  192.168.1.1:1080:username:password`)
-                  : importCategory === 'proxy'
-                    ? `# Example format (one proxy per line):
+                  : importCategory === 'vps'
+                    ? `# Example format (one server per line):
+Production Server 1  192.168.1.1
+Staging Server  10.0.0.5  admin@vps.com  password123
+Dev Server  10.0.0.10  admin@dev.com  secret  31-12-2025`
+                    : importCategory === 'proxy'
+                      ? `# Example format (one proxy per line):
 127.0.0.1:1080
 127.0.0.1:1080:username:password
 proxy.example.com:1080`
-                    : `# Example format (one account per line):
+                      : `# Example format (one account per line):
 user@company.com  auth_token_123abc
 admin@client.com  auth_token_456def`
               }
