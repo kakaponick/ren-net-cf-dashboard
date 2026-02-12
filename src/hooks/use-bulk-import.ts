@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAccountStore } from '@/store/account-store'
-import type { CloudflareAccount, ProxyAccount, VPSAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
+import type { CloudflareAccount, ProxyAccount, VPSAccount, SSHAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
+import { PARSERS } from '@/lib/credential-parsers'
 
 export function useBulkImport() {
-  const { addAccount, addProxyAccount, addVPSAccount, proxyAccounts } = useAccountStore()
-  
+  const { addAccount, addProxyAccount, addVPSAccount, addSSHAccount, proxyAccounts } = useAccountStore()
+
   const [importData, setImportData] = useState("")
   const [importCategory, setImportCategory] = useState<AccountCategory>("cloudflare")
   const [importRegistrarName, setImportRegistrarName] = useState<RegistrarType>("namecheap")
@@ -29,163 +30,106 @@ export function useBulkImport() {
       let successCount = 0
       let errorCount = 0
 
+      // For Namecheap proxy matching
+      const findOrCreateProxy = (proxyString: string): string | undefined => {
+        const proxyParser = PARSERS['proxy']
+        const parsedProxy = proxyParser.parse(proxyString)
+        if (!parsedProxy) return undefined
+
+        // Check if exists
+        const existing = proxyAccounts.find(p =>
+          p.host === parsedProxy.host &&
+          p.port === parsedProxy.port &&
+          p.username === parsedProxy.username &&
+          p.password === parsedProxy.password
+        )
+
+        if (existing) return existing.id
+
+        // Create new
+        const newId = crypto.randomUUID()
+        addProxyAccount({
+          ...parsedProxy,
+          id: newId,
+          name: parsedProxy.name || `Proxy ${parsedProxy.host}:${parsedProxy.port}`,
+          createdAt: new Date()
+        } as ProxyAccount)
+        return newId
+      }
+
+      const parser = PARSERS[importCategory]
+      if (!parser) {
+        toast.error(`No parser found for category: ${importCategory}`)
+        setIsLoading(false)
+        return
+      }
+
       lines.forEach((line) => {
         const trimmedLine = line.trim()
-        // Skip empty lines and comments
-        if (!trimmedLine || trimmedLine.startsWith('#')) {
+        if (!trimmedLine || trimmedLine.startsWith('#')) return
+
+        const parsedData = parser.parse(trimmedLine, { registrarName: importRegistrarName })
+        if (!parsedData) {
+          errorCount++
           return
         }
 
-        const parts = trimmedLine.split(/\s+/)
-        
-        // Handle proxy bulk import
+        // --- Category Specific Saving Logic ---
+
         if (importCategory === 'proxy') {
-           // Parse proxy string: host:port[:user:pass]
-           const proxyParts = trimmedLine.split(':')
-           if (proxyParts.length >= 2) {
-             const host = proxyParts[0]
-             const port = parseInt(proxyParts[1])
-             const username = proxyParts[2] || undefined
-             const password = proxyParts[3] || undefined
-             
-             if (host && !isNaN(port)) {
-               const newProxyAccount: ProxyAccount = {
-                 id: crypto.randomUUID(),
-                 name: `Proxy ${host}:${port}`,
-                 host,
-                 port,
-                 username,
-                 password,
-                 category: 'proxy',
-                 createdAt: new Date(),
-               }
-               addProxyAccount(newProxyAccount)
-               successCount++
-             } else {
-               errorCount++
-             }
-           } else {
-             errorCount++
-           }
-           return
-        }
-
-        // Handle VPS (Server Registrars) bulk import
-        if (importCategory === 'vps') {
-          if (parts.length >= 2) {
-            const name = parts[0]
-            const ip = parts[1]
-            const email = parts[2] || undefined
-            const password = parts[3] || undefined
-            const expirationDate = parts[4] || undefined
-
-            if (name?.trim() && ip?.trim()) {
-              const newVPSAccount: VPSAccount = {
-                id: crypto.randomUUID(),
-                name: name.trim(),
-                ip: ip.trim(),
-                email: email?.trim() || undefined,
-                password: password?.trim() || undefined,
-                expirationDate: expirationDate?.trim() || undefined,
-                category: 'vps',
-                createdAt: new Date(),
-              }
-              addVPSAccount(newVPSAccount)
-              successCount++
-            } else {
-              errorCount++
-            }
-          } else {
-            errorCount++
-          }
+          addProxyAccount({
+            ...parsedData,
+            id: crypto.randomUUID(),
+            createdAt: new Date()
+          } as ProxyAccount)
+          successCount++
           return
         }
 
-        if (parts.length >= 2) {
-          const email = parts[0]
-          const apiToken = parts[1]
-          let proxyId: string | undefined = undefined
+        if (importCategory === 'vps') {
+          addVPSAccount({
+            ...parsedData,
+            id: crypto.randomUUID(),
+            createdAt: new Date()
+          } as VPSAccount)
+          successCount++
+          return
+        }
 
-          // Basic validation checking
-          if (!email || !apiToken) {
-            errorCount++
-            return
+        if (importCategory === 'ssh') {
+          addSSHAccount({
+            ...parsedData,
+            id: crypto.randomUUID(),
+            createdAt: new Date()
+          } as SSHAccount)
+          successCount++
+          return
+        }
+
+        // --- Cloudflare / Registrar / NPM (CloudflareAccount-based) ---
+
+        // Handle Registrar Proxy Logic
+        let proxyId = undefined
+        if (importCategory === 'registrar' && importRegistrarName === 'namecheap') {
+          // Check for 3rd arg manually since it's outside the standard parser return for Account
+          const parts = trimmedLine.split(/\s+/)
+          if (parts.length >= 3) {
+            proxyId = findOrCreateProxy(parts[2])
           }
-
-          // Validate email format for registrars
-          if (importCategory === 'registrar') {
-             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-             if (!emailRegex.test(email)) {
-               errorCount++
-               return
-             }
-          }
-
-          // Handle 3rd parameter (Proxy) for Namecheap only
-          if (importCategory === 'registrar' && importRegistrarName === 'namecheap' && parts.length >= 3) {
-            const proxyString = parts[2]
-            const proxyParts = proxyString.split(':')
-            
-            if (proxyParts.length >= 2) {
-               const host = proxyParts[0]
-               const port = parseInt(proxyParts[1])
-               const username = proxyParts[2] || undefined
-               const password = proxyParts[3] || undefined
-
-               if (host && !isNaN(port)) {
-                 // Check if proxy already exists
-                 const existingProxy = proxyAccounts.find(p => 
-                   p.host === host && p.port === port && 
-                   p.username === username && p.password === password
-                 )
-                 
-                 if (existingProxy) {
-                   proxyId = existingProxy.id
-                 } else {
-                   // Create new proxy
-                   const newProxyId = crypto.randomUUID()
-                   const newProxyAccount: ProxyAccount = {
-                     id: newProxyId,
-                     name: `Proxy ${host}:${port}`,
-                     host,
-                     port,
-                     username,
-                     password,
-                     category: 'proxy',
-                     createdAt: new Date(),
-                   }
-                   addProxyAccount(newProxyAccount)
-                   proxyId = newProxyId
-                 }
-               }
-            }
-          }
-
-          // Use default proxy if no proxy was specified in the line (Namecheap only)
-          if (importCategory === 'registrar' && importRegistrarName === 'namecheap' && !proxyId && defaultProxyId) {
+          if (!proxyId && defaultProxyId) {
             proxyId = defaultProxyId
           }
-
-          const defaultUsername = email.split('@')[0].replaceAll('.', '')
-          const newAccount: CloudflareAccount = {
-            id: crypto.randomUUID(),
-            email: email,
-            apiToken: apiToken,
-            category: importCategory,
-            // Only include registrarName and username if category is registrar
-            ...(importCategory === 'registrar' ? { 
-              registrarName: importRegistrarName || "namecheap",
-              username: defaultUsername
-            } : {}),
-            proxyId: proxyId,
-            createdAt: new Date(),
-          }
-
-          addAccount(newAccount)
-          successCount++
-        } else {
-          errorCount++
         }
+
+        const newAccount: CloudflareAccount = {
+          id: crypto.randomUUID(),
+          createdAt: new Date(),
+          ...parsedData as any, // Cast because parsedData is Partial<T>
+          proxyId: proxyId || (parsedData as any).proxyId
+        }
+
+        addAccount(newAccount)
+        successCount++
       })
 
       if (successCount > 0) {

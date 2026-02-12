@@ -38,6 +38,32 @@ export function useAccountsView() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null)
 
+  // Selection state
+  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set())
+
+  const toggleAccountSelection = (id: string) => {
+    setSelectedAccountIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const toggleAllSelection = (filteredIds: string[]) => {
+    setSelectedAccountIds(prev => {
+      if (prev.size === filteredIds.length && filteredIds.every(id => prev.has(id))) {
+        // Unselect all
+        return new Set()
+      }
+      // Select all
+      return new Set(filteredIds)
+    })
+  }
+
   // Loading data on mount
   useEffect(() => {
     loadAccounts()
@@ -174,5 +200,10 @@ export function useAccountsView() {
     rawProxyAccounts: proxyAccounts,
     rawSSHAccounts: sshAccounts,
     rawVPSAccounts: vpsAccounts,
+
+    // Selection
+    selectedAccountIds,
+    toggleAccountSelection,
+    toggleAllSelection,
   }
 }

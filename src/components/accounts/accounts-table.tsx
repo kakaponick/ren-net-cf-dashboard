@@ -33,6 +33,8 @@ interface AccountsTableProps {
   onDeleteClick: (id: string) => void
 }
 
+import { Checkbox } from "@/components/ui/checkbox"
+
 export function AccountsTable({
   accounts,
   totalCount,
@@ -43,8 +45,15 @@ export function AccountsTable({
   onToggleSort,
   onAddClick,
   onEditClick,
-  onDeleteClick
-}: AccountsTableProps) {
+  onDeleteClick,
+  selectedAccountIds,
+  onToggleSelection,
+  onToggleAll
+}: AccountsTableProps & {
+  selectedAccountIds: Set<string>,
+  onToggleSelection: (id: string) => void,
+  onToggleAll: (ids: string[]) => void
+}) {
   const [visibleTokens, setVisibleTokens] = useState<Record<string, boolean>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
@@ -104,6 +113,13 @@ export function AccountsTable({
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-muted/50">
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={accounts.length > 0 && selectedAccountIds.size === accounts.length && accounts.every(a => selectedAccountIds.has(a.id))}
+                      onCheckedChange={() => onToggleAll(accounts.map(a => a.id))}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   <TableHead className="w-[150px]">Category</TableHead>
                   <TableHead className="w-[300px]">
                     <Button
@@ -122,6 +138,8 @@ export function AccountsTable({
               <TableBody>
                 {accounts.map((account) => {
                   const accountId = account.id
+                  const isSelected = selectedAccountIds.has(accountId)
+
                   const isProxy = account.category === 'proxy'
                   const isSSH = account.category === 'ssh'
                   const isVPS = account.category === 'vps'
@@ -151,7 +169,14 @@ export function AccountsTable({
                         : `${apiToken.substring(0, 12)}••••••••••••`
 
                   return (
-                    <TableRow key={accountId} className="hover:bg-muted/30 transition-colors">
+                    <TableRow key={accountId} data-state={isSelected ? "selected" : undefined} className="hover:bg-muted/30 transition-colors">
+                      <TableCell>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => onToggleSelection(accountId)}
+                          aria-label={`Select ${emailOrName}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
