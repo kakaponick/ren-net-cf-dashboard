@@ -112,6 +112,12 @@ interface CloudflareCacheState {
 
   clearCache: () => void;
   clearZoneCache: (zoneId: string, accountId: string) => void;
+  batchClearDNS: (keys: string[]) => void;
+  batchClearSSL: (keys: string[]) => void;
+
+  batchSetDNSRecords: (records: { zoneId: string; accountId: string; records: any[] }[]) => void;
+  batchSetSSLData: (data: { zoneId: string; accountId: string; certificates: any[]; sslSetting: any }[]) => void;
+
 
   isCacheValid: (type: string, key?: string) => boolean;
 
@@ -384,6 +390,66 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           delete newState.isLoading.sslData[key];
           delete newState.isLoading.zoneDetails[key];
           return newState;
+        });
+      },
+
+      batchClearDNS: (keys) => {
+        set((state) => {
+          const newState = { ...state, dnsRecords: { ...state.dnsRecords }, dnsRecordsLastUpdated: { ...state.dnsRecordsLastUpdated } };
+          keys.forEach(key => {
+            delete newState.dnsRecords[key];
+            delete newState.dnsRecordsLastUpdated[key];
+          });
+          return newState;
+        });
+      },
+
+      batchClearSSL: (keys) => {
+        set((state) => {
+          const newState = { ...state, sslData: { ...state.sslData }, sslDataLastUpdated: { ...state.sslDataLastUpdated } };
+          keys.forEach(key => {
+            delete newState.sslData[key];
+            delete newState.sslDataLastUpdated[key];
+          });
+          return newState;
+        });
+      },
+
+      batchSetDNSRecords: (items) => {
+        set((state) => {
+          const newDnsRecords = { ...state.dnsRecords };
+          const newLastUpdated = { ...state.dnsRecordsLastUpdated };
+          const now = Date.now();
+
+          items.forEach(({ zoneId, accountId, records }) => {
+            const key = `${zoneId}-${accountId}`;
+            newDnsRecords[key] = { records, zoneId, accountId };
+            newLastUpdated[key] = now;
+          });
+
+          return {
+            dnsRecords: newDnsRecords,
+            dnsRecordsLastUpdated: newLastUpdated
+          };
+        });
+      },
+
+      batchSetSSLData: (items) => {
+        set((state) => {
+          const newSslData = { ...state.sslData };
+          const newLastUpdated = { ...state.sslDataLastUpdated };
+          const now = Date.now();
+
+          items.forEach(({ zoneId, accountId, certificates, sslSetting }) => {
+            const key = `${zoneId}-${accountId}`;
+            newSslData[key] = { certificates, sslSetting, zoneId, accountId };
+            newLastUpdated[key] = now;
+          });
+
+          return {
+            sslData: newSslData,
+            sslDataLastUpdated: newLastUpdated
+          };
         });
       },
 

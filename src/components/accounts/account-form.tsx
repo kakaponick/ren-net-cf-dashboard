@@ -9,7 +9,7 @@ import { useAccountStore } from '@/store/account-store'
 import type { AccountFormData } from "@/hooks/use-account-form"
 import type { AccountCategory, RegistrarType } from "@/types/cloudflare"
 import { getCategoryColorClasses, getCategoryLabel, parseExpirationDate, formatExpirationDate } from "@/lib/utils"
-import { Badge } from "../ui/badge"
+import { AccountCategorySelect } from "./account-category-select"
 
 interface AccountFormProps {
   formData: AccountFormData
@@ -49,10 +49,10 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             </span>
           </div>
         ) : (
-          <Select
+          <AccountCategorySelect
+            id="category"
             value={formData.category}
-            onValueChange={(value) => {
-              const newCategory = value as AccountCategory
+            onValueChange={(newCategory) => {
               const updates: Partial<AccountFormData> = { category: newCategory }
 
               // Auto-set registrar defaults when switching to registrar
@@ -66,50 +66,7 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
 
               setFormData({ ...formData, ...updates })
             }}
-          >
-            <SelectTrigger id="category" className="transition-colors focus:ring-2">
-              <SelectValue placeholder="Select account type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cloudflare">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <Cloud className={`h-4 w-4 ${getCategoryColorClasses('cloudflare').text}`} /></Badge>
-                  Cloudflare Account
-                </div>
-              </SelectItem>
-              <SelectItem value="registrar">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <Globe className={`h-4 w-4 ${getCategoryColorClasses('registrar').text}`} /></Badge>
-                  Domain Registrar
-                </div>
-              </SelectItem>
-              <SelectItem value="vps">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('vps').text}`} /></Badge>
-                  Server Registrars
-                </div>
-              </SelectItem>
-              <SelectItem value="proxy">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <Server className={`h-4 w-4 ${getCategoryColorClasses('proxy').text}`} /></Badge>
-                  SOCKS5 Proxy
-                </div>
-              </SelectItem>
-              <SelectItem value="ssh">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <Terminal className={`h-4 w-4 ${getCategoryColorClasses('ssh').text}`} /></Badge>
-                  SSH Server
-                </div>
-              </SelectItem>
-              <SelectItem value="npm">
-                <div className={`flex items-center gap-2 `}>
-                  <Badge variant="outline"> <ArrowRightLeft className={`h-4 w-4 ${getCategoryColorClasses('npm').text}`} /></Badge>
-                  Nginx PM
-                </div>
-              </SelectItem>
-
-            </SelectContent>
-          </Select>
+          />
         )}
         {isEditing && (
           <p className="text-xs text-muted-foreground">

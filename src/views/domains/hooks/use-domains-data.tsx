@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
+import { useTaskStore } from '@/store/task-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { getRootARecordsFromDNS, processInParallel } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -31,7 +32,7 @@ export function useDomainsData() {
 		getSSLData
 	} = useCloudflareCache();
 
-	const [dnsRecordsCache, setDnsRecordsCache] = useState<Record<string, DNSRecord[]>>({});
+	// const [dnsRecordsCache, setDnsRecordsCache] = useState<Record<string, DNSRecord[]>>({}); // Removed in favor of global store
 	const [dnsLoadingStates, setDnsLoadingStates] = useState<Record<string, boolean>>({});
 	const [sslLoadingStates, setSSLLoadingStates] = useState<Record<string, boolean>>({});
 	const [isDnsLoading, setIsDnsLoading] = useState(false);
@@ -46,7 +47,8 @@ export function useDomainsData() {
 		return zones.map(item => {
 			const account = accounts.find(acc => acc.id === item.accountId);
 			const cacheKey = `${item.zone.id}-${item.accountId}`;
-			const records = dnsRecordsCache[cacheKey] || getDNSRecords(item.zone.id, item.accountId) || [];
+			// Read directly from store via getDNSRecords (which reads from state.dnsRecords)
+			const records = getDNSRecords(item.zone.id, item.accountId) || [];
 			const rootARecords = getRootARecordsFromDNS(records, item.zone.name);
 			const sslData = getSSLData(item.zone.id, item.accountId);
 			const sslMode = sslData?.sslSetting?.value as 'off' | 'flexible' | 'full' | 'strict' | undefined;
@@ -63,20 +65,23 @@ export function useDomainsData() {
 
 			return enriched;
 		});
-	}, [zones, accounts, dnsRecordsCache, dnsLoadingStates, sslLoadingStates, getDNSRecords, getSSLData]);
+		// Removed dnsRecordsCache dependency
+	}, [zones, accounts, dnsLoadingStates, sslLoadingStates, getDNSRecords, getSSLData]);
 
-	const loadDNSForZone = useCallback(async (zoneId: string, accountId: string) => {
+	const loadDNSForZone = useCallback(async (zoneId: string, accountId: string, skipStoreUpdate = false) => {
 		const cacheKey = `${zoneId}-${accountId}`;
 		const account = accounts.find(acc => acc.id === accountId);
-		if (!account) return;
+		if (!account) return null;
 
 		// Prevent duplicate concurrent requests
 		if (loadingZonesRef.current.has(cacheKey)) {
-			return;
+			return null;
 		}
 
 		loadingZonesRef.current.add(cacheKey);
 		setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
+		// Also indicate SSL is loading since we fetch it too
+		setSSLLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
 
 		try {
 			const api = new CloudflareAPI(account.apiToken);
@@ -86,6 +91,8 @@ export function useDomainsData() {
 				api.getDNSRecords(zoneId),
 				api.getSSLSetting(zoneId).catch(err => {
 					console.error(`Error loading SSL setting for zone ${zoneId}:`, err);
+					const { addLog } = useTaskStore.getState();
+					addLog(`Failed to load SSL for zone ${zoneId}`, 'error');
 					return null;
 				}),
 				api.getZone(zoneId).catch(err => {
@@ -94,34 +101,57 @@ export function useDomainsData() {
 				})
 			]);
 
-			setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: records }));
+			if (!skipStoreUpdate) {
+				// Update zone details in store if fetched successfully
+				if (zoneDetails) {
+					const { addZone } = useCloudflareCache.getState();
+					// Ensure we preserve the account info
+					addZone(zoneDetails, accountId, account.name || account.email);
+				}
 
-			// Update zone details in store if fetched successfully
-			if (zoneDetails) {
-				const { addZone } = useCloudflareCache.getState();
-				// Ensure we preserve the account info
-				addZone(zoneDetails, accountId, account.name || account.email);
+				// Cache SSL mode if available
+				if (sslSetting) {
+					const { setSSLData } = useCloudflareCache.getState();
+					setSSLData(zoneId, accountId, [], sslSetting);
+				}
+
+				const { setDNSRecords } = useCloudflareCache.getState();
+				setDNSRecords(zoneId, accountId, records);
 			}
 
-			// Cache SSL mode if available
-			if (sslSetting) {
-				const { setSSLData } = useCloudflareCache.getState();
-				setSSLData(zoneId, accountId, [], sslSetting);
-			}
-
-			const { setDNSRecords } = useCloudflareCache.getState();
-			setDNSRecords(zoneId, accountId, records);
+			return { records, sslSetting, zoneDetails };
 		} catch (error) {
 			console.error(`Error loading DNS records for zone ${zoneId}:`, error);
-			// Cache empty array to prevent retrying failed requests
-			setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: [] }));
 			const { setDNSRecords } = useCloudflareCache.getState();
 			setDNSRecords(zoneId, accountId, []);
+			return null;
 		} finally {
 			setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
+			setSSLLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
 			loadingZonesRef.current.delete(cacheKey);
 		}
 	}, [accounts]);
+
+	// Helper to check task status and handle pause/stop
+	const checkTaskStatus = async () => {
+		const { status } = useTaskStore.getState();
+
+		if (status === 'stopped') {
+			throw new Error('Task stopped by user');
+		}
+
+		if (status === 'paused') {
+			// Poll until resumed or stopped
+			while (useTaskStore.getState().status === 'paused') {
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+			// Check again after pause loop
+			if (useTaskStore.getState().status === 'stopped') {
+				throw new Error('Task stopped by user');
+			}
+		}
+	};
+
 
 	const loadDNSRecordsProgressively = useCallback(async (forceRefresh = false, targetAccountId?: string) => {
 		// Read zones directly from store to avoid stale closure values
@@ -158,26 +188,141 @@ export function useDomainsData() {
 			}
 		});
 
-		setDnsRecordsCache(prev => ({ ...prev, ...recordsCache }));
+
 
 		// Load remaining zones in parallel with controlled concurrency
 		// Using concurrency of 15 to balance speed and rate limits
 		// Cloudflare allows 1200 requests per 5 minutes (~4 req/sec), so 15 concurrent is safe
 		if (zonesToLoad.length > 0) {
 			setIsDnsLoading(true);
+
+			if (forceRefresh) {
+				const { addLog, updateProgress, startTask } = useTaskStore.getState();
+				// Also get batchClearDNS and batchClearSSL from cloudflare store
+				const { batchClearDNS: cfBatchClearDNS, batchClearSSL: cfBatchClearSSL } = useCloudflareCache.getState();
+
+				// Ensure task is running properly
+				if (useTaskStore.getState().status !== 'running') {
+					startTask('refresh_dns', 'Loading DNS & SSL Records', zonesToLoad.length);
+				} else {
+					// Update existing task totals
+					useTaskStore.setState({ totalItems: zonesToLoad.length, processedItems: 0 });
+				}
+
+				addLog(`Loading DNS & SSL records for ${zonesToLoad.length} zones...`, 'info');
+
+				// Clear old DNS data and set loading states for zones being refreshed
+				const loadingStates: Record<string, boolean> = {};
+				const sslLoadingStatesUpdate: Record<string, boolean> = {};
+				const cacheKeysToClear: string[] = [];
+
+				zonesToLoad.forEach(({ zoneId, accountId }) => {
+					const cacheKey = `${zoneId}-${accountId}`;
+					loadingStates[cacheKey] = true;
+					sslLoadingStatesUpdate[cacheKey] = true;
+					cacheKeysToClear.push(cacheKey);
+				});
+
+				// Batch clear from local state (Removed)
+
+				// Batch clear from store
+				cfBatchClearDNS(cacheKeysToClear);
+				cfBatchClearSSL(cacheKeysToClear);
+
+				// Update loading states
+				setDnsLoadingStates(prev => ({ ...prev, ...loadingStates }));
+				setSSLLoadingStates(prev => ({ ...prev, ...sslLoadingStatesUpdate }));
+			}
+
 			try {
+				let processedZones = 0;
+				const totalZones = zonesToLoad.length;
+				// Shared buffer for batching updates
+				const pendingUpdates: { zoneId: string; accountId: string; records: any[] }[] = [];
+				const { batchSetDNSRecords } = useCloudflareCache.getState();
+
+				// Group zones by account to optimize API usage
+				const zonesByAccount: Record<string, typeof zonesToLoad> = {};
+				zonesToLoad.forEach(z => {
+					if (!zonesByAccount[z.accountId]) {
+						zonesByAccount[z.accountId] = [];
+					}
+					zonesByAccount[z.accountId].push(z);
+				});
+
+				// Process accounts in parallel, and within each account, process zones in parallel
 				await processInParallel(
-					zonesToLoad,
-					async ({ zoneId, accountId }) => {
-						await loadDNSForZone(zoneId, accountId);
+					Object.entries(zonesByAccount),
+					async ([accountId, accountZones]) => {
+						await checkTaskStatus();
+						await processInParallel(
+							accountZones,
+							async ({ zoneId }) => {
+								await checkTaskStatus();
+								const result = await loadDNSForZone(zoneId, accountId, forceRefresh); // Skip store update if forceRefresh (bulk op)
+
+								if (forceRefresh && result) {
+									processedZones++;
+									const { updateProgress } = useTaskStore.getState();
+
+									// Add to buffer
+									pendingUpdates.push({
+										zoneId,
+										accountId,
+										records: result.records
+									});
+
+									// Flush buffer if full
+									if (pendingUpdates.length >= 20) {
+										const batch = [...pendingUpdates];
+										pendingUpdates.length = 0;
+										batchSetDNSRecords(batch);
+									}
+
+									// Throttle progress updates: only update every 1% or every 5 items
+									const percent = Math.round((processedZones / totalZones) * 100);
+									if (processedZones % 5 === 0 || percent % 1 === 0) {
+										updateProgress(percent, processedZones);
+									}
+								}
+							},
+							8 // Increased concurrency per account (assuming separate rate limits or high capacity)
+						);
 					},
-					15 // Process 15 zones concurrently
+					5 // Process up to 5 accounts simultaneously
 				);
+
+				// Flush remaining items
+				if (pendingUpdates.length > 0) {
+					batchSetDNSRecords(pendingUpdates);
+				}
+
+				if (forceRefresh) {
+					const { completeTask, addLog } = useTaskStore.getState();
+					addLog('All DNS records loaded successfully', 'success');
+					completeTask();
+				}
+			} catch (error) {
+				if (forceRefresh) {
+					const errorMsg = error instanceof Error ? error.message : String(error);
+					if (errorMsg === 'Task stopped by user') {
+						useTaskStore.getState().addLog('Task stopped by user', 'error');
+						// Don't fail task, just stop
+					} else {
+						useTaskStore.getState().failTask('Failed to load some DNS records');
+					}
+				}
 			} finally {
 				setIsDnsLoading(false);
 			}
+		} else if (forceRefresh) {
+			const { completeTask, addLog, updateProgress } = useTaskStore.getState();
+			addLog('No DNS records to refresh', 'info');
+			updateProgress(100, 0);
+			completeTask();
 		}
 	}, [accounts, getDNSRecords, isCacheValid, loadDNSForZone]);
+
 
 	const loadZones = useCallback(async (forceRefresh = false, targetAccountId?: string) => {
 		const accountsToLoad = targetAccountId
@@ -192,24 +337,61 @@ export function useDomainsData() {
 		}
 
 		setLoading('zones', '', true);
+
+		// Start task if force refresh
+		if (forceRefresh) {
+			const { startTask, addLog, updateProgress, completeTask, failTask } = useTaskStore.getState();
+			startTask('refresh_zones', 'Refreshing Zones', accountsToLoad.length);
+			addLog('Starting zone refresh...', 'info');
+
+			// Clear local DNS cache immediately for full refresh to prevent stale data
+			if (!targetAccountId) {
+				// setDnsRecordsCache({}); // Local cache removed
+			}
+		}
+
 		try {
 			const fetchedZones: any[] = [];
+			const totalAccounts = accountsToLoad.length;
+			let processedAccounts = 0;
+
+			// Initialize processed item count if task is running
+			if (forceRefresh) {
+				useTaskStore.setState({ processedItems: 0 });
+			}
 
 			const results = await processInParallel(
 				accountsToLoad,
 				async (account) => {
+					// Check for stop/pause before processing each account
+					if (forceRefresh) await checkTaskStatus();
+
 					try {
 						const api = new CloudflareAPI(account.apiToken);
 						const zonesData = await api.getZones();
-						console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
+
+						if (forceRefresh) {
+							const { addLog, updateProgress } = useTaskStore.getState();
+							addLog(`Loaded ${zonesData.length} zones for ${account.name || account.email}`, 'info');
+							processedAccounts++;
+							updateProgress(Math.round((processedAccounts / totalAccounts) * 40), processedAccounts); // First 40%
+						} else {
+							console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
+						}
+
 						return zonesData.map((zone: any) => ({
 							zone,
 							accountId: account.id,
 							accountName: account.name || account.email,
 						}));
 					} catch (error) {
-						console.error(`Error loading zones for account ${account.name}:`, error);
-						toast.error(`Failed to load zones for ${account.name}`);
+						if (forceRefresh) {
+							const { addLog } = useTaskStore.getState();
+							addLog(`Failed to load zones for ${account.name}: ${error instanceof Error ? error.message : String(error)}`, 'error');
+						} else {
+							console.error(`Error loading zones for account ${account.name}:`, error);
+							toast.error(`Failed to load zones for ${account.name}`);
+						}
 						return [];
 					}
 				},
@@ -221,6 +403,10 @@ export function useDomainsData() {
 					fetchedZones.push(...result);
 				}
 			});
+
+			if (forceRefresh) {
+				useTaskStore.getState().addLog(`Total zones fetched: ${fetchedZones.length}`, 'success');
+			}
 
 			// If targetAccountId is set, merge with existing zones from other accounts
 			if (targetAccountId) {
@@ -233,28 +419,34 @@ export function useDomainsData() {
 				setZones(fetchedZones);
 			}
 
-			// Show success toast with domain count
-			if (fetchedZones.length > 0) {
-				toast.success(`Loaded ${fetchedZones.length} domain${fetchedZones.length !== 1 ? 's' : ''}`);
-			}
-
-			// Reset the flag so DNS loading can happen
-			hasLoadedZones.current = false;
+			// Prevent auto-effect from firing by setting this to true immediately
+			hasLoadedZones.current = true;
 
 			// Trigger progressive DNS loading after zones are set
 			// Pass forceRefresh to also refresh DNS records when zones are refreshed
-			// Use a small delay to ensure zones state has propagated
+			// Use a small delay to ensure zones state has propagated to the store
 			setTimeout(() => {
 				loadDNSRecordsProgressively(forceRefresh, targetAccountId);
-				hasLoadedZones.current = true;
 			}, 100);
 		} catch (error) {
-			toast.error('Failed to load domains');
-			console.error('Error loading zones:', error);
+			if (forceRefresh) {
+				const errorMsg = error instanceof Error ? error.message : String(error);
+				if (errorMsg === 'Task stopped by user') {
+					useTaskStore.getState().addLog('Task stopped by user', 'error');
+					// Don't fail task, just stop
+				} else {
+					useTaskStore.getState().failTask(`Failed to load domains: ${errorMsg}`);
+				}
+			}
+			if (error instanceof Error && error.message !== 'Task stopped by user') {
+				toast.error('Failed to load domains');
+				console.error('Error loading zones:', error);
+			}
 		} finally {
 			setLoading('zones', '', false);
 		}
 	}, [accounts, isCacheValid, zones.length, setLoading, setZones, loadDNSRecordsProgressively]);
+
 
 	// Refresh zones ONLY without triggering DNS/SSL refresh
 	const refreshZonesOnly = useCallback(async (targetAccountId?: string) => {
@@ -265,8 +457,15 @@ export function useDomainsData() {
 		if (accountsToLoad.length === 0) return;
 
 		setLoading('zones', '', true);
+
+		const { startTask, addLog, updateProgress, completeTask, failTask } = useTaskStore.getState();
+		startTask('refresh_zones', 'Refreshing Zones Only');
+		addLog('Starting only zone refresh (skipping DNS/SSL)...', 'info');
+
 		try {
 			const fetchedZones: any[] = [];
+			const totalAccounts = accountsToLoad.length;
+			let processedAccounts = 0;
 
 			const results = await processInParallel(
 				accountsToLoad,
@@ -274,15 +473,19 @@ export function useDomainsData() {
 					try {
 						const api = new CloudflareAPI(account.apiToken);
 						const zonesData = await api.getZones();
-						console.log(`Loaded ${zonesData.length} zones for account ${account.name}`);
+						addLog(`Loaded ${zonesData.length} zones for ${account.name || account.email}`, 'info');
+
+						processedAccounts++;
+						updateProgress(Math.round((processedAccounts / totalAccounts) * 100));
+
 						return zonesData.map((zone: any) => ({
 							zone,
 							accountId: account.id,
 							accountName: account.name || account.email,
 						}));
 					} catch (error) {
+						addLog(`Error loading zones for ${account.name}: ${error instanceof Error ? error.message : String(error)}`, 'error');
 						console.error(`Error loading zones for account ${account.name}:`, error);
-						toast.error(`Failed to load zones for ${account.name}`);
 						return [];
 					}
 				},
@@ -305,15 +508,19 @@ export function useDomainsData() {
 			}
 
 			if (fetchedZones.length > 0) {
+				addLog(`Successfully refreshed ${fetchedZones.length} zones`, 'success');
 				toast.success(`Refreshed ${fetchedZones.length} zone${fetchedZones.length !== 1 ? 's' : ''}`);
 			}
+			completeTask();
 		} catch (error) {
+			failTask(`Failed to refresh zones: ${error instanceof Error ? error.message : String(error)}`);
 			toast.error('Failed to refresh zones');
 			console.error('Error refreshing zones:', error);
 		} finally {
 			setLoading('zones', '', false);
 		}
 	}, [accounts, setLoading, setZones]);
+
 
 	// Refresh DNS records for all zones
 	const refreshAllDNS = useCallback(async (targetAccountId?: string) => {
@@ -329,56 +536,118 @@ export function useDomainsData() {
 
 		if (zonesToRefresh.length === 0) return;
 
+		const { startTask, addLog, updateProgress, completeTask, failTask } = useTaskStore.getState();
+		startTask('refresh_dns', 'Refreshing DNS Records', zonesToRefresh.length);
+		addLog(`Starting DNS refresh for ${zonesToRefresh.length} zones...`, 'info');
+
 		// Clear old DNS data and set loading states for zones being refreshed
 		const loadingStates: Record<string, boolean> = {};
+		const cacheKeysToClear: string[] = [];
+		const pendingUpdates: { zoneId: string; accountId: string; records: any[] }[] = [];
+		const { batchSetDNSRecords } = useCloudflareCache.getState();
+
 		zonesToRefresh.forEach(({ zone, accountId }) => {
 			const cacheKey = `${zone.id}-${accountId}`;
 			loadingStates[cacheKey] = true;
-			// Clear from local cache so we don't show stale data
-			setDnsRecordsCache(prev => {
-				const newCache = { ...prev };
-				delete newCache[cacheKey];
-				return newCache;
-			});
+			cacheKeysToClear.push(cacheKey);
 		});
+
+		// Batch clear from local state (Removed)
+
+		const { batchClearDNS } = useCloudflareCache.getState();
+		batchClearDNS(cacheKeysToClear);
+
 		setDnsLoadingStates(loadingStates);
 		setIsDnsLoading(true);
+		addLog('Cleared existing DNS cache', 'info');
+
 		try {
+			let processedZones = 0;
+			const totalZones = zonesToRefresh.length;
+
+			// Group zones by account
+			const zonesByAccount: Record<string, typeof zonesToRefresh> = {};
+			zonesToRefresh.forEach(z => {
+				if (!zonesByAccount[z.accountId]) {
+					zonesByAccount[z.accountId] = [];
+				}
+				zonesByAccount[z.accountId].push(z);
+			});
+
 			await processInParallel(
-				zonesToRefresh,
-				async ({ zone, accountId }) => {
-					const account = accounts.find(acc => acc.id === accountId);
-					if (!account) return;
+				Object.entries(zonesByAccount),
+				async ([accountId, accountZones]) => {
+					await checkTaskStatus();
+					await processInParallel(
+						accountZones,
+						async ({ zone, accountId }) => {
+							await checkTaskStatus();
 
-					const cacheKey = `${zone.id}-${accountId}`;
-					if (loadingZonesRef.current.has(cacheKey)) return;
+							// Check account existence again or rely on closure
+							const account = accounts.find(acc => acc.id === accountId);
+							if (!account) return;
 
-					loadingZonesRef.current.add(cacheKey);
-					setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
+							const cacheKey = `${zone.id}-${accountId}`;
+							if (loadingZonesRef.current.has(cacheKey)) return;
 
-					try {
-						const api = new CloudflareAPI(account.apiToken);
-						const records = await api.getDNSRecords(zone.id);
-						setDnsRecordsCache(prev => ({ ...prev, [cacheKey]: records }));
-						const { setDNSRecords } = useCloudflareCache.getState();
-						setDNSRecords(zone.id, accountId, records);
-					} catch (error) {
-						console.error(`Error loading DNS for ${zone.name}:`, error);
-					} finally {
-						setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
-						loadingZonesRef.current.delete(cacheKey);
-					}
+							loadingZonesRef.current.add(cacheKey);
+							setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: true }));
+
+							try {
+								const api = new CloudflareAPI(account.apiToken);
+								const records = await api.getDNSRecords(zone.id);
+
+								processedZones++;
+								const percent = Math.round((processedZones / totalZones) * 100);
+								if (processedZones % 5 === 0 || percent % 1 === 0) {
+									updateProgress(percent, processedZones);
+								}
+
+								// Add to batch
+								pendingUpdates.push({ zoneId: zone.id, accountId, records });
+
+								// Flush if enough items
+								if (pendingUpdates.length >= 20) {
+									const batch = [...pendingUpdates];
+									pendingUpdates.length = 0;
+									batchSetDNSRecords(batch);
+								}
+							} catch (error) {
+								addLog(`Error loading DNS for ${zone.name}: ${error instanceof Error ? error.message : String(error)}`, 'error');
+								console.error(`Error loading DNS for ${zone.name}:`, error);
+							} finally {
+								setDnsLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
+								loadingZonesRef.current.delete(cacheKey);
+							}
+						},
+						8 // Concurrency per account
+					);
 				},
-				15
+				5 // Concurrency of accounts
 			);
+
+			// Flush remaining items
+			if (pendingUpdates.length > 0) {
+				batchSetDNSRecords(pendingUpdates);
+			}
+			addLog(`Successfully refreshed DNS for ${zonesToRefresh.length} zones`, 'success');
 			toast.success(`Refreshed DNS for ${zonesToRefresh.length} zone${zonesToRefresh.length !== 1 ? 's' : ''}`);
+			completeTask();
 		} catch (error) {
-			toast.error('Failed to refresh DNS records');
-			console.error('Error refreshing DNS:', error);
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			if (errorMsg === 'Task stopped by user') {
+				useTaskStore.getState().addLog('Task stopped by user', 'error');
+				// Don't fail task, just stop
+			} else {
+				failTask(`Failed to refresh DNS records: ${errorMsg}`);
+				toast.error('Failed to refresh DNS records');
+				console.error('Error refreshing DNS:', error);
+			}
 		} finally {
 			setIsDnsLoading(false);
 		}
 	}, [accounts]);
+
 
 	// Refresh SSL settings for all zones
 	const refreshAllSSL = useCallback(async (targetAccountId?: string) => {
@@ -394,50 +663,116 @@ export function useDomainsData() {
 
 		if (zonesToRefresh.length === 0) return;
 
+		const { startTask, addLog, updateProgress, completeTask, failTask } = useTaskStore.getState();
+		startTask('refresh_ssl', 'Refreshing SSL Settings', zonesToRefresh.length);
+		addLog(`Starting SSL refresh for ${zonesToRefresh.length} zones...`, 'info');
+
 		// Clear old SSL data and set loading states for zones being refreshed
 		const loadingStates: Record<string, boolean> = {};
-		const { sslData } = useCloudflareCache.getState();
+		const cacheKeysToClear: string[] = [];
+
 		zonesToRefresh.forEach(({ zone, accountId }) => {
 			const cacheKey = `${zone.id}-${accountId}`;
 			loadingStates[cacheKey] = true;
-			// Clear from SSL cache so we don't show stale data
-			delete sslData[cacheKey];
+			cacheKeysToClear.push(cacheKey);
 		});
+
+		const { batchClearSSL } = useCloudflareCache.getState();
+		batchClearSSL(cacheKeysToClear);
+
 		setSSLLoadingStates(loadingStates);
 		setIsSSLLoading(true);
+		addLog('Cleared existing SSL cache', 'info');
+
 		try {
+			let processedZones = 0;
+			const totalZones = zonesToRefresh.length;
+			const pendingUpdates: { zoneId: string; accountId: string; certificates: any[]; sslSetting: any }[] = [];
+			const { batchSetSSLData } = useCloudflareCache.getState();
+
+			// Group zones by account
+			const zonesByAccount: Record<string, typeof zonesToRefresh> = {};
+			zonesToRefresh.forEach(z => {
+				if (!zonesByAccount[z.accountId]) {
+					zonesByAccount[z.accountId] = [];
+				}
+				zonesByAccount[z.accountId].push(z);
+			});
+
 			await processInParallel(
-				zonesToRefresh,
-				async ({ zone, accountId }) => {
-					const account = accounts.find(acc => acc.id === accountId);
-					if (!account) return;
+				Object.entries(zonesByAccount),
+				async ([accountId, accountZones]) => {
+					await checkTaskStatus();
+					await processInParallel(
+						accountZones,
+						async ({ zone, accountId }) => {
+							await checkTaskStatus();
 
-					const cacheKey = `${zone.id}-${accountId}`;
-					if (loadingSSLRef.current.has(cacheKey)) return;
+							const account = accounts.find(acc => acc.id === accountId);
+							if (!account) return;
 
-					loadingSSLRef.current.add(cacheKey);
+							const cacheKey = `${zone.id}-${accountId}`;
+							if (loadingSSLRef.current.has(cacheKey)) return;
 
-					try {
-						const api = new CloudflareAPI(account.apiToken);
-						const sslSetting = await api.getSSLSetting(zone.id).catch(() => null);
+							loadingSSLRef.current.add(cacheKey);
 
-						if (sslSetting) {
-							const { setSSLData } = useCloudflareCache.getState();
-							setSSLData(zone.id, accountId, [], sslSetting);
-						}
-					} catch (error) {
-						console.error(`Error loading SSL for ${zone.name}:`, error);
-					} finally {
-						setSSLLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
-						loadingSSLRef.current.delete(cacheKey);
-					}
+							try {
+								const api = new CloudflareAPI(account.apiToken);
+								const sslSetting = await api.getSSLSetting(zone.id).catch(err => {
+									// Explicit log for individual failures to ensure visibility
+									console.error(`Error fetching SSL for ${zone.name}:`, err);
+									addLog(`Failed SSL fetch for ${zone.name}: ${err.message || String(err)}`, 'error');
+									return null;
+								});
+
+								processedZones++;
+								const percent = Math.round((processedZones / totalZones) * 100);
+								if (processedZones % 5 === 0 || percent % 1 === 0) {
+									updateProgress(percent, processedZones);
+								}
+
+								if (sslSetting) {
+									// Add to batch
+									pendingUpdates.push({ zoneId: zone.id, accountId, certificates: [], sslSetting });
+
+									// Flush if enough items
+									if (pendingUpdates.length >= 20) {
+										const batch = [...pendingUpdates];
+										pendingUpdates.length = 0;
+										batchSetSSLData(batch);
+									}
+								}
+							} catch (error) {
+								addLog(`Error loading SSL for ${zone.name}: ${error instanceof Error ? error.message : String(error)}`, 'error');
+								console.error(`Error loading SSL for ${zone.name}:`, error);
+							} finally {
+								setSSLLoadingStates(prev => ({ ...prev, [cacheKey]: false }));
+								loadingSSLRef.current.delete(cacheKey);
+							}
+						},
+						8 // Concurrency per account
+					);
 				},
-				15
+				5 // Concurrency of accounts
 			);
+
+			// Flush remaining items
+			if (pendingUpdates.length > 0) {
+				batchSetSSLData(pendingUpdates);
+			}
+			addLog(`Successfully refreshed SSL for ${zonesToRefresh.length} zones`, 'success');
 			toast.success(`Refreshed SSL for ${zonesToRefresh.length} zone${zonesToRefresh.length !== 1 ? 's' : ''}`);
+			completeTask();
 		} catch (error) {
-			toast.error('Failed to refresh SSL settings');
-			console.error('Error refreshing SSL:', error);
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			if (errorMsg === 'Task stopped by user') {
+				useTaskStore.getState().addLog('Task stopped by user', 'error');
+				// Don't fail task, just stop
+			} else {
+				failTask(`Failed to refresh SSL settings: ${errorMsg}`);
+				toast.error('Failed to refresh SSL settings');
+				console.error('Error refreshing SSL:', error);
+			}
 		} finally {
 			setIsSSLLoading(false);
 		}

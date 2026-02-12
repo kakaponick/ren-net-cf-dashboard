@@ -4,6 +4,7 @@ import '@/index.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { Navigation } from '@/components/navigation';
+import { TaskOperationWindow } from '@/components/task-operation-window';
 
 const geistSans = Geist({
 	subsets: ['latin'],
@@ -41,9 +42,9 @@ export default function RootLayout({
 						{children}
 					</Navigation>
 					<Toaster />
+					<TaskOperationWindow />
 				</ThemeProvider>
 			</body>
 		</html>
 	);
 }
-

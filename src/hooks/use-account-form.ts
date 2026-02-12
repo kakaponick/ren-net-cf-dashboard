@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAccountStore } from '@/store/account-store'
 import type { CloudflareAccount, ProxyAccount, SSHAccount, VPSAccount, NPMAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
@@ -145,13 +145,13 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
     }
   }, [existingAccount, initialCategory])
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       ...initialFormData,
       category: initialCategory || 'cloudflare'
     })
     setIsLoading(false)
-  }
+  }, [initialCategory])
 
   const validate = () => {
     if (formData.category === 'proxy') {

@@ -515,7 +515,7 @@ export default function NPMPage() {
                             Please add an NPM account in the Credentials page to get started.
                         </EmptyDescription>
                     </EmptyHeader>
-                    <Button onClick={() => router.push('/credentials')}>
+                    <Button onClick={() => router.push('/credentials?tab=npm')}>
                         Go to Credentials
                     </Button>
                 </Empty>

@@ -3,9 +3,8 @@ import type { CloudflareAccount, ProxyAccount, SSHAccount, NPMAccount, VPSAccoun
 import { useAccountsView } from "@/hooks/use-accounts-view"
 import { AccountsHeader } from "@/components/accounts/accounts-header"
 import { AccountsTable } from "@/components/accounts/accounts-table"
-import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
+import { AddCredentialsDialog } from "@/components/accounts/add-credentials-dialog"
 import { EditAccountDialog } from "@/components/accounts/edit-account-dialog"
-import { BulkImportDialog } from "@/components/accounts/bulk-import-dialog"
 import { DeleteAccountDialog } from "@/components/accounts/delete-account-dialog"
 
 function CredentialsContent() {
@@ -32,16 +31,24 @@ function CredentialsContent() {
         editingAccount,
         setEditingAccount,
         getRawAccountForEdit,
-        isImportDialogOpen,
-        setIsImportDialogOpen,
         deleteAccountId,
         setDeleteAccountId,
+        // Removed isImportDialogOpen from hook destructuring as we'll manage it locally or map it
     } = useAccountsView()
 
+    // Local state to manage dialog mode
+    const [dialogMode, setDialogMode] = useState<'single' | 'bulk'>('single')
     const [initialCategory, setInitialCategory] = useState<AccountCategory | undefined>()
 
     const handleAddClick = (category?: AccountCategory) => {
+        setDialogMode('single')
         setInitialCategory(category)
+        setIsAddDialogOpen(true)
+    }
+
+    const handleImportClick = () => {
+        setDialogMode('bulk')
+        setInitialCategory(undefined)
         setIsAddDialogOpen(true)
     }
 
@@ -58,7 +65,7 @@ function CredentialsContent() {
         <div className="container mx-auto max-w-6xl px-4 mt-8 sm:px-6 lg:px-8 space-y-8">
             {/* Header Section */}
             <AccountsHeader
-                onImportClick={() => setIsImportDialogOpen(true)}
+                onImportClick={handleImportClick}
                 onAddClick={() => handleAddClick()}
             />
 
@@ -86,24 +93,23 @@ function CredentialsContent() {
             />
 
             {/* Dialogs */}
-            <AddAccountDialog
+            <AddCredentialsDialog
                 open={isAddDialogOpen}
                 onOpenChange={(open) => {
                     setIsAddDialogOpen(open)
-                    if (!open) setInitialCategory(undefined)
+                    if (!open) {
+                        setInitialCategory(undefined)
+                        setDialogMode('single')
+                    }
                 }}
                 initialCategory={initialCategory}
+                initialMode={dialogMode}
             />
 
             <EditAccountDialog
                 open={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
                 account={editingAccount}
-            />
-
-            <BulkImportDialog
-                open={isImportDialogOpen}
-                onOpenChange={setIsImportDialogOpen}
             />
 
             <DeleteAccountDialog
