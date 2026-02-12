@@ -533,7 +533,7 @@ export default function DomainsPage() {
         </Card>
       )}
 
-      {isZonesLoading ? (
+      {isZonesLoading && sortedZones.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Card className="w-full max-w-md">
             <CardContent className="py-10 px-6">
