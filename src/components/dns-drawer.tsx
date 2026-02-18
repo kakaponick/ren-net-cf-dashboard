@@ -274,7 +274,7 @@ export function DNSDrawer({
 	return (
 		<Drawer open={open} onOpenChange={setOpen}>
 			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="max-h-[96vh] flex flex-col" closeDuration={100}>
+			<DrawerContent className="max-h-[96vh] max-w-6xl m-auto flex flex-col" closeDuration={100}>
 				<DrawerHeader className="border-b pb-3 px-4 shrink-0">
 					<div className="flex items-start justify-between gap-4">
 						<div className="flex-1 min-w-0">
@@ -295,11 +295,6 @@ export function DNSDrawer({
 								)}
 							</DrawerDescription>
 						</div>
-						<DrawerClose asChild>
-							<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-								<X className="h-4 w-4" />
-							</Button>
-						</DrawerClose>
 					</div>
 				</DrawerHeader>
 
@@ -422,13 +417,13 @@ export function DNSDrawer({
 					</div>
 				</div>
 
-				<DrawerFooter className="border-t pt-3 px-4 shrink-0">
+				{/* <DrawerFooter className="border-t pt-3 px-4 shrink-0">
 					<DrawerClose asChild>
 						<Button variant="outline" className="w-full">
 							Close
 						</Button>
 					</DrawerClose>
-				</DrawerFooter>
+				</DrawerFooter> */}
 			</DrawerContent>
 
 			{/* Add/Edit DNS Record Dialog */}

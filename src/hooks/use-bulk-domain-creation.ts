@@ -5,15 +5,19 @@ import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
 import { formatCloudflareError } from '@/lib/utils';
 import type { DomainQueueItem, ConfigurationStep } from '@/components/configuration-console';
-import type { CloudflareAccount, DNSRecord } from '@/types/cloudflare';
+import type { CloudflareAccount, DNSRecord, ProxyAccount } from '@/types/cloudflare';
 
 interface UseBulkDomainCreationOptions {
 	account: CloudflareAccount;
 	cloudflareAccountId: string;
 	onSuccess: () => void;
+	// Optional: auto-set nameservers at registrar after zone creation
+	registrarAccountId?: string;
+	registrarAccounts?: CloudflareAccount[];
+	proxyAccounts?: ProxyAccount[];
 }
 
-export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess }: UseBulkDomainCreationOptions) {
+export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess, registrarAccountId, registrarAccounts = [], proxyAccounts = [] }: UseBulkDomainCreationOptions) {
 	const { setDomainNameservers } = useAccountStore();
 	const { addZone, setDNSRecords } = useCloudflareCache();
 	const [isCreating, setIsCreating] = useState(false);
@@ -304,6 +308,63 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 				}
 			}
 
+			// Step 5: Set nameservers at registrar (optional)
+			if (registrarAccountId && zone?.name_servers?.length) {
+				const regAccount = registrarAccounts.find((a) => a.id === registrarAccountId);
+				if (regAccount) {
+					const nsStepName = 'Setting nameservers at registrar...';
+					setStepState(domain, nsStepName, 'processing');
+
+					try {
+						if (regAccount.registrarName === 'namecheap') {
+							const proxy = proxyAccounts.find((p) => p.id === regAccount.proxyId);
+							if (!proxy) throw new Error(`Proxy not found for Namecheap account ${regAccount.name || regAccount.email}`);
+
+							const parts = domain.split('.');
+							const tld = parts[parts.length - 1];
+							const sld = parts.slice(0, -1).join('.');
+
+							const headers: Record<string, string> = {
+								'Content-Type': 'application/json',
+								'x-account-id': regAccount.id,
+								'x-api-user': regAccount.username || regAccount.email.split('@')[0].replaceAll('.', ''),
+								'x-api-key': regAccount.apiToken,
+								'x-proxy-host': proxy.host,
+								'x-proxy-port': proxy.port?.toString() || '',
+							};
+							if (proxy.username) headers['x-proxy-username'] = proxy.username;
+							if (proxy.password) headers['x-proxy-password'] = proxy.password;
+
+							const resp = await fetch('/api/namecheap/nameservers', {
+								method: 'POST',
+								headers,
+								body: JSON.stringify({ sld, tld, nameservers: zone.name_servers }),
+							});
+							const data = await resp.json();
+							if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
+						} else if (regAccount.registrarName === 'njalla') {
+							const resp = await fetch('/api/njalla/nameservers', {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json',
+									'x-api-key': regAccount.apiToken,
+								},
+								body: JSON.stringify({ domain, nameservers: zone.name_servers }),
+							});
+							const data = await resp.json();
+							if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
+						}
+
+						setStepState(domain, nsStepName, 'success');
+					} catch (nsError) {
+						console.error(`Error setting nameservers for ${domain}:`, nsError);
+						const nsErrorMessage = nsError instanceof Error ? nsError.message : 'Unknown error';
+						setStepState(domain, nsStepName, 'error', nsErrorMessage);
+						// Non-fatal: continue to mark domain as success
+					}
+				}
+			}
+
 			// Mark domain as success
 			updateQueue(prev => prev.map(item =>
 				item.domain === domain
@@ -544,6 +605,60 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess 
 				});
 
 				await refreshDNSRecords(queueItem.zoneId, api);
+				setStepState(domain, step.name, 'success');
+				setDomainStatus(domain, 'success');
+				return;
+			}
+
+			if (step.name === 'Setting nameservers at registrar...') {
+				if (!queueItem.nameservers?.length) {
+					throw new Error('No Cloudflare nameservers found. Retry zone creation first.');
+				}
+				if (!registrarAccountId) {
+					throw new Error('No registrar account selected.');
+				}
+				const regAccount = registrarAccounts.find((a) => a.id === registrarAccountId);
+				if (!regAccount) throw new Error('Registrar account not found.');
+
+				if (regAccount.registrarName === 'namecheap') {
+					const proxy = proxyAccounts.find((p) => p.id === regAccount.proxyId);
+					if (!proxy) throw new Error(`Proxy not found for Namecheap account ${regAccount.name || regAccount.email}`);
+
+					const parts = domain.split('.');
+					const tld = parts[parts.length - 1];
+					const sld = parts.slice(0, -1).join('.');
+
+					const headers: Record<string, string> = {
+						'Content-Type': 'application/json',
+						'x-account-id': regAccount.id,
+						'x-api-user': regAccount.username || regAccount.email.split('@')[0].replaceAll('.', ''),
+						'x-api-key': regAccount.apiToken,
+						'x-proxy-host': proxy.host,
+						'x-proxy-port': proxy.port?.toString() || '',
+					};
+					if (proxy.username) headers['x-proxy-username'] = proxy.username;
+					if (proxy.password) headers['x-proxy-password'] = proxy.password;
+
+					const resp = await fetch('/api/namecheap/nameservers', {
+						method: 'POST',
+						headers,
+						body: JSON.stringify({ sld, tld, nameservers: queueItem.nameservers }),
+					});
+					const data = await resp.json();
+					if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
+				} else if (regAccount.registrarName === 'njalla') {
+					const resp = await fetch('/api/njalla/nameservers', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'x-api-key': regAccount.apiToken,
+						},
+						body: JSON.stringify({ domain, nameservers: queueItem.nameservers }),
+					});
+					const data = await resp.json();
+					if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
+				}
+
 				setStepState(domain, step.name, 'success');
 				setDomainStatus(domain, 'success');
 				return;

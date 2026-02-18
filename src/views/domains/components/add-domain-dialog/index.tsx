@@ -16,6 +16,7 @@ import type { CloudflareAccount } from '@/types/cloudflare';
 import { validateIPAddress, parseBulkDomains } from '@/lib/utils';
 import { useCloudflareAccounts } from '@/hooks/use-cloudflare-accounts';
 import { useBulkDomainCreation } from '@/hooks/use-bulk-domain-creation';
+import { useAccountStore } from '@/store/account-store';
 import { BulkDomainInputForm } from './BulkDomainInputForm';
 import { RootARecordInput } from './RootARecordInput';
 import { AccountSelectors } from './AccountSelectors';
@@ -31,8 +32,22 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 	const [domains, setDomains] = useState('');
 	const [selectedAccountId, setSelectedAccountId] = useState('');
 	const [selectedCloudflareAccountId, setSelectedCloudflareAccountId] = useState('');
+	const [selectedRegistrarAccountId, setSelectedRegistrarAccountId] = useState('');
 	const [rootIPAddress, setRootIPAddress] = useState('');
 	const [proxied, setProxied] = useState(true);
+
+	// Derive registrar accounts from the store
+	const allAccounts = useAccountStore((s) => s.accounts);
+	const proxyAccounts = useAccountStore((s) => s.proxyAccounts);
+	const registrarAccounts = useMemo(() =>
+		allAccounts
+			.filter((a) => a.category === 'registrar' && (a.registrarName === 'namecheap' || a.registrarName === 'njalla'))
+			.map((a) => ({
+				id: a.id,
+				name: a.name || a.email || 'Unnamed',
+				registrar: a.registrarName as 'namecheap' | 'njalla',
+			})),
+		[allAccounts]);
 
 	const { accountsToUse, cloudflareAccounts, isLoadingAccounts } = useCloudflareAccounts({
 		selectedAccountId,
@@ -45,6 +60,9 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 	const bulkDomainCreation = useBulkDomainCreation({
 		account: selectedAccount || accountsToUse[0] || accounts[0],
 		cloudflareAccountId: selectedCloudflareAccountId,
+		registrarAccountId: selectedRegistrarAccountId || undefined,
+		registrarAccounts: allAccounts,
+		proxyAccounts,
 		onSuccess: onDomainCreated,
 	});
 
@@ -114,7 +132,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 		}
 
 		await bulkDomainCreation.createDomains(parsedDomains, rootIPAddress.trim(), proxied);
-		
+
 		// Clear domain input after adding to queue (but keep other settings)
 		setDomains('');
 	};
@@ -125,6 +143,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 		setDomains('');
 		setSelectedAccountId('');
 		setSelectedCloudflareAccountId('');
+		setSelectedRegistrarAccountId('');
 		setRootIPAddress('');
 		setProxied(true);
 	};
@@ -182,6 +201,9 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 						onAccountChange={setSelectedAccountId}
 						onCloudflareAccountChange={setSelectedCloudflareAccountId}
 						disabled={isProcessing}
+						registrarAccounts={registrarAccounts}
+						selectedRegistrarAccountId={selectedRegistrarAccountId}
+						onRegistrarAccountChange={setSelectedRegistrarAccountId}
 					/>
 
 					{hasQueue && (

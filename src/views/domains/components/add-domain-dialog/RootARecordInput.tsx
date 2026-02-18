@@ -50,7 +50,7 @@ export function RootARecordInput({
 				</Toggle>
 			</div>
 			<p className="text-sm text-muted-foreground">
-				If provided, a root A record (@) will be created with this IP address for each domain
+				{/* If provided, a root A record (@) will be created with this IP address for each domain */}
 			</p>
 		</div>
 	);

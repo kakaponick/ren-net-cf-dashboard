@@ -74,14 +74,15 @@ export function FilterCombobox({
                                     key={opt.value}
                                     value={opt.label}
                                     onSelect={() => handleSelect(opt.value)}
+                                    className="flex items-center justify-between"
                                 >
+                                    {opt.label}
                                     <Check
                                         className={cn(
-                                            'mr-2 h-4 w-4',
+                                            'ml-2 h-4 w-4',
                                             value === opt.value ? 'opacity-100' : 'opacity-0'
                                         )}
                                     />
-                                    {opt.label}
                                 </CommandItem>
                             ))}
                         </CommandGroup>
