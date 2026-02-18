@@ -57,35 +57,35 @@ export default function DomainsPage() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  // Pagination commented out - showing all rows
-  // const [currentPage, setCurrentPage] = useState(1);
-  // const [rowsPerPageMode, setRowsPerPageMode] = useState<'fill' | '50' | '100' | 'all'>('fill');
-  // const [calculatedItemsPerPage, setCalculatedItemsPerPage] = useState(10);
 
-  // Calculate items per page based on window height (only for "Fill" mode)
-  // useEffect(() => {
-  // 	const calculateItemsPerPage = () => {
-  // 		const windowHeight = window.innerHeight;
-  // 		// Estimate row height (53px) + header height (53px) + fixed elements
-  // 		const availableHeight = windowHeight - 200; // Account for header, footer, and fixed pagination
-  // 		const estimatedRowHeight = 53;
-  // 		const calculatedItems = Math.max(5, Math.floor(availableHeight / estimatedRowHeight));
-  // 		setCalculatedItemsPerPage(calculatedItems);
-  // 	};
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPageMode, setRowsPerPageMode] = useState<'fill' | '50' | '100' | 'all'>('fill');
+  const [calculatedItemsPerPage, setCalculatedItemsPerPage] = useState(10);
+  const [paginationEnabled, setPaginationEnabled] = useLocalStorage<boolean>('cloudflare-pagination-enabled', true);
 
-  // 	calculateItemsPerPage();
-  // 	window.addEventListener('resize', calculateItemsPerPage);
-  // 	return () => window.removeEventListener('resize', calculateItemsPerPage);
-  // }, []);
+  useEffect(() => {
+    const calculateItemsPerPage = () => {
+      const windowHeight = window.innerHeight;
+      // Estimate row height (53px) + header height (53px) + fixed elements
+      const availableHeight = windowHeight - 200; // Account for header, footer, and fixed pagination
+      const estimatedRowHeight = 53;
+      const calculatedItems = Math.max(5, Math.floor(availableHeight / estimatedRowHeight));
+      setCalculatedItemsPerPage(calculatedItems);
+    };
 
-  // const handlePageChange = useCallback((page: number) => {
-  // 	setCurrentPage(page);
-  // }, []);
+    calculateItemsPerPage();
+    window.addEventListener('resize', calculateItemsPerPage);
+    return () => window.removeEventListener('resize', calculateItemsPerPage);
+  }, []);
 
-  // const handleRowsPerPageChange = useCallback((mode: 'fill' | '50' | '100' | 'all') => {
-  // 	setRowsPerPageMode(mode);
-  // 	setCurrentPage(1); // Reset to first page when changing rows per page
-  // }, []);
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const handleRowsPerPageChange = useCallback((mode: 'fill' | '50' | '100' | 'all') => {
+    setRowsPerPageMode(mode);
+    setCurrentPage(1); // Reset to first page when changing rows per page
+  }, []);
 
   // Debounce search term with 200ms delay
   useEffect(() => {
@@ -120,37 +120,41 @@ export default function DomainsPage() {
     return counts;
   }, [enrichedZones]);
 
-  // Pagination commented out - showing all rows
   // Compute itemsPerPage based on selected mode
-  // const itemsPerPage = useMemo(() => {
-  // 	switch (rowsPerPageMode) {
-  // 		case 'fill':
-  // 			return calculatedItemsPerPage;
-  // 		case '50':
-  // 			return 50;
-  // 		case '100':
-  // 			return 100;
-  // 		case 'all':
-  // 			return sortedZones.length || Infinity;
-  // 		default:
-  // 			return calculatedItemsPerPage;
-  // 	}
-  // }, [rowsPerPageMode, calculatedItemsPerPage, sortedZones.length]);
+  const itemsPerPage = useMemo(() => {
+    switch (rowsPerPageMode) {
+      case 'fill':
+        return calculatedItemsPerPage;
+      case '50':
+        return 50;
+      case '100':
+        return 100;
+      case 'all':
+        return sortedZones.length || Infinity;
+      default:
+        return calculatedItemsPerPage;
+    }
+  }, [rowsPerPageMode, calculatedItemsPerPage, sortedZones.length]);
 
-  // Reset to first page when zones change or search changes
-  // useEffect(() => {
-  // 	setCurrentPage(1);
-  // }, [sortedZones.length, debouncedSearchTerm]);
 
-  // Pagination helpers
-  // const totalPages = rowsPerPageMode === 'all' ? 1 : Math.ceil(sortedZones.length / itemsPerPage);
-  // const startIndex = rowsPerPageMode === 'all' ? 0 : (currentPage - 1) * itemsPerPage;
-  // const paginatedZones = rowsPerPageMode === 'all' 
-  // 	? sortedZones 
-  // 	: sortedZones.slice(startIndex, startIndex + itemsPerPage);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortedZones.length, debouncedSearchTerm]);
 
-  // Show all rows instead of paginated
-  const paginatedZones = sortedZones;
+  // Memoize pagination calculations
+  const paginationData = useMemo(() => {
+    if (!paginationEnabled) {
+      return { totalPages: 1, startIndex: 0, paginatedZones: sortedZones };
+    }
+    const totalPages = rowsPerPageMode === 'all' ? 1 : Math.ceil(sortedZones.length / itemsPerPage);
+    const startIndex = rowsPerPageMode === 'all' ? 0 : (currentPage - 1) * itemsPerPage;
+    const paginatedZones = rowsPerPageMode === 'all'
+      ? sortedZones
+      : sortedZones.slice(startIndex, startIndex + itemsPerPage);
+    return { totalPages, startIndex, paginatedZones };
+  }, [paginationEnabled, rowsPerPageMode, sortedZones, itemsPerPage, currentPage]);
+
+  const { totalPages, paginatedZones } = paginationData;
 
   const currentIds = useMemo(
     () => sortedZones.map((item) => `${item.accountId}-${item.zone.id}`),
@@ -442,7 +446,11 @@ export default function DomainsPage() {
               </ButtonGroup>
 
             </div>
-            <ColumnVisibilityMenu items={columnVisibilityItems} />
+            <ColumnVisibilityMenu
+              items={columnVisibilityItems}
+              iconOnly
+              paginationToggle={{ isEnabled: paginationEnabled, onToggle: setPaginationEnabled }}
+            />
             <AddDomainDialog title="Adding domains to Cloudflare accounts - this may take a few moments for large accounts" accounts={accounts} onDomainCreated={handleDomainCreated} />
           </div>
         </div>
@@ -583,16 +591,17 @@ export default function DomainsPage() {
         </Card>
       )}
 
-      {/* Pagination commented out - showing all rows */}
-      {/* <CompactPagination
-				currentPage={currentPage}
-				totalPages={totalPages}
-				totalItems={sortedZones.length}
-				itemsPerPage={itemsPerPage}
-				rowsPerPageMode={rowsPerPageMode}
-				onPageChange={handlePageChange}
-				onRowsPerPageChange={handleRowsPerPageChange}
-			/> */}
+      {paginationEnabled && (
+        <CompactPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={sortedZones.length}
+          itemsPerPage={itemsPerPage}
+          rowsPerPageMode={rowsPerPageMode}
+          onPageChange={handlePageChange}
+          onRowsPerPageChange={handleRowsPerPageChange}
+        />
+      )}
     </div>
   );
 }

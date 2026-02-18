@@ -131,188 +131,13 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 				setDomainNameservers(domain, zone.name_servers);
 			}
 
-			// Step 2: Create CNAME record for www subdomain
-			if (zone?.id) {
-				updateQueue(prev => prev.map(item =>
-					item.domain === domain
-						? {
-							...item,
-							steps: [
-								{ name: 'Creating domain zone...', status: 'success' },
-								{ name: 'Creating CNAME record (www)...', status: 'processing', variable: 'www -> @' }
-							]
-						}
-						: item
-				));
-
-				try {
-					const wwwRecord = await api.createDNSRecord(zone.id, {
-						type: 'CNAME',
-						name: 'www',
-						content: '@',
-						ttl: 1,
-						proxied: proxied,
-					});
-
-					if (wwwRecord) {
-						createdRecords.push(wwwRecord as DNSRecord);
-						syncDNSCache(zone.id, createdRecords);
-					}
-
-					updateQueue(prev => prev.map(item =>
-						item.domain === domain
-							? {
-								...item,
-								steps: [
-									{ name: 'Creating domain zone...', status: 'success' },
-									{ name: 'Creating CNAME record (www)...', status: 'success', variable: 'www -> @' }
-								]
-							}
-							: item
-					));
-				} catch (error) {
-					console.error(`Error creating www CNAME record for ${domain}:`, error);
-					const errorMessage = formatCloudflareError(error);
-					updateQueue(prev => prev.map(item =>
-						item.domain === domain
-							? {
-								...item,
-								steps: [
-									{ name: 'Creating domain zone...', status: 'success' },
-									{
-										name: 'Creating CNAME record (www)...',
-										status: 'error',
-										error: errorMessage,
-										variable: 'www -> @'
-									}
-								]
-							}
-							: item
-					));
-				}
-			}
-
-			// Step 3: Create root A record if IP address is provided
-			if (rootIPAddress.trim() && zone?.id) {
-				updateQueue(prev => prev.map(item => {
-					if (item.domain !== domain) return item;
-
-					const existingSteps = item.steps || [];
-					const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
-					const cnameStepStatus = cnameStep?.status || 'success';
-
-					return {
-						...item,
-						steps: [
-							{ name: 'Creating domain zone...', status: 'success' },
-							{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
-							{ name: 'Creating root A record...', status: 'processing' }
-						]
-					};
-				}));
-
-				try {
-					const rootRecord = await api.createDNSRecord(zone.id, {
-						type: 'A',
-						name: '@',
-						content: rootIPAddress.trim(),
-						ttl: 1,
-						proxied: proxied,
-					});
-
-					if (rootRecord) {
-						createdRecords.push(rootRecord as DNSRecord);
-					}
-
-					updateQueue(prev => prev.map(item => {
-						if (item.domain !== domain) return item;
-
-						const existingSteps = item.steps || [];
-						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
-						const cnameStepStatus = cnameStep?.status || 'success';
-
-						return {
-							...item,
-							steps: [
-								{ name: 'Creating domain zone...', status: 'success' },
-								{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
-								{ name: 'Creating root A record...', status: 'success' }
-							]
-						};
-					}));
-				} catch (error) {
-					console.error(`Error creating root A record for ${domain}:`, error);
-					const errorMessage = formatCloudflareError(error);
-					updateQueue(prev => prev.map(item => {
-						if (item.domain !== domain) return item;
-
-						const existingSteps = item.steps || [];
-						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
-						const cnameStepStatus = cnameStep?.status || 'success';
-
-						return {
-							...item,
-							steps: [
-								{ name: 'Creating domain zone...', status: 'success' },
-								{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
-								{
-									name: 'Creating root A record...',
-									status: 'error',
-									error: errorMessage
-								}
-							]
-						};
-					}));
-				}
-
-				syncDNSCache(zone.id, createdRecords);
-			}
-
-			// Step 4: Configure default zone settings
-			if (zone?.id) {
-				setIsConfiguring(true);
-
-				const progressCallback: ZoneSettingsProgressCallback = (step) => {
-					updateQueue(prev => prev.map(item => {
-						if (item.domain !== domain) return item;
-
-						const existingSteps = item.steps || [];
-						const existingIndex = existingSteps.findIndex(s => s.name === step.name);
-
-						let updatedSteps: ConfigurationStep[];
-						if (existingIndex >= 0) {
-							updatedSteps = [...existingSteps];
-							updatedSteps[existingIndex] = {
-								name: step.name,
-								status: step.status,
-								error: step.error,
-								variable: step.variable,
-							};
-						} else {
-							updatedSteps = [...existingSteps, {
-								name: step.name,
-								status: step.status,
-								error: step.error,
-								variable: step.variable,
-							}];
-						}
-
-						return { ...item, steps: updatedSteps };
-					}));
-				};
-
-				try {
-					await api.configureDefaultZoneSettings(zone.id, progressCallback);
-				} catch (configError) {
-					console.error(`Error configuring settings for ${domain}:`, configError);
-				}
-			}
-
-			// Step 5: Set nameservers at registrar (optional)
+			// Step 2: Set nameservers at registrar (optional)
 			if (registrarAccountId && zone?.name_servers?.length) {
+				const nsStepName = 'Setting nameservers at registrar...';
 				const regAccount = registrarAccounts.find((a) => a.id === registrarAccountId);
-				if (regAccount) {
-					const nsStepName = 'Setting nameservers at registrar...';
+				if (!regAccount) {
+					setStepState(domain, nsStepName, 'error', 'Registrar account not found');
+				} else {
 					setStepState(domain, nsStepName, 'processing');
 
 					try {
@@ -362,6 +187,195 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 						setStepState(domain, nsStepName, 'error', nsErrorMessage);
 						// Non-fatal: continue to mark domain as success
 					}
+				}
+			}
+
+			// Step 3: Create CNAME record for www subdomain
+			if (zone?.id) {
+				updateQueue(prev => prev.map(item => {
+					if (item.domain !== domain) return item;
+					const existingSteps = item.steps || [];
+					const nsStep = existingSteps.find(s => s.name === 'Setting nameservers at registrar...');
+					return {
+						...item,
+						steps: [
+							{ name: 'Creating domain zone...', status: 'success' },
+							nsStep ? { ...nsStep } : null,
+							{ name: 'Creating CNAME record (www)...', status: 'processing', variable: 'www -> @' }
+						].filter(Boolean) as ConfigurationStep[]
+					};
+				}));
+
+				try {
+					const wwwRecord = await api.createDNSRecord(zone.id, {
+						type: 'CNAME',
+						name: 'www',
+						content: '@',
+						ttl: 1,
+						proxied: proxied,
+					});
+
+					if (wwwRecord) {
+						createdRecords.push(wwwRecord as DNSRecord);
+						syncDNSCache(zone.id, createdRecords);
+					}
+
+					updateQueue(prev => prev.map(item => {
+						if (item.domain !== domain) return item;
+						const existingSteps = item.steps || [];
+						const nsStep = existingSteps.find(s => s.name === 'Setting nameservers at registrar...');
+						return {
+							...item,
+							steps: [
+								{ name: 'Creating domain zone...', status: 'success' },
+								nsStep ? { ...nsStep } : null,
+								{ name: 'Creating CNAME record (www)...', status: 'success', variable: 'www -> @' }
+							].filter(Boolean) as ConfigurationStep[]
+						};
+					}));
+				} catch (error) {
+					console.error(`Error creating www CNAME record for ${domain}:`, error);
+					const errorMessage = formatCloudflareError(error);
+					updateQueue(prev => prev.map(item => {
+						if (item.domain !== domain) return item;
+						const existingSteps = item.steps || [];
+						const nsStep = existingSteps.find(s => s.name === 'Setting nameservers at registrar...');
+						return {
+							...item,
+							steps: [
+								{ name: 'Creating domain zone...', status: 'success' },
+								nsStep ? { ...nsStep } : null,
+								{
+									name: 'Creating CNAME record (www)...',
+									status: 'error',
+									error: errorMessage,
+									variable: 'www -> @'
+								}
+							].filter(Boolean) as ConfigurationStep[]
+						};
+					}));
+				}
+			}
+
+			// Step 4: Create root A record if IP address is provided
+			if (rootIPAddress.trim() && zone?.id) {
+				updateQueue(prev => prev.map(item => {
+					if (item.domain !== domain) return item;
+
+					const existingSteps = item.steps || [];
+					const nsStep = existingSteps.find(s => s.name === 'Setting nameservers at registrar...');
+					const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
+					const cnameStepStatus = cnameStep?.status || 'success';
+
+					return {
+						...item,
+						steps: [
+							{ name: 'Creating domain zone...', status: 'success' },
+							nsStep ? { ...nsStep } : null,
+							{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
+							{ name: 'Creating root A record...', status: 'processing' }
+						].filter(Boolean) as ConfigurationStep[]
+					};
+				}));
+
+				try {
+					const rootRecord = await api.createDNSRecord(zone.id, {
+						type: 'A',
+						name: '@',
+						content: rootIPAddress.trim(),
+						ttl: 1,
+						proxied: proxied,
+					});
+
+					if (rootRecord) {
+						createdRecords.push(rootRecord as DNSRecord);
+					}
+
+					updateQueue(prev => prev.map(item => {
+						if (item.domain !== domain) return item;
+
+						const existingSteps = item.steps || [];
+						const nsStep = existingSteps.find(s => s.name === 'Setting nameservers at registrar...');
+						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
+						const cnameStepStatus = cnameStep?.status || 'success';
+
+						return {
+							...item,
+							steps: [
+								{ name: 'Creating domain zone...', status: 'success' },
+								nsStep ? { ...nsStep } : null,
+								{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
+								{ name: 'Creating root A record...', status: 'success' }
+							].filter(Boolean) as ConfigurationStep[]
+						};
+					}));
+				} catch (error) {
+					console.error(`Error creating root A record for ${domain}:`, error);
+					const errorMessage = formatCloudflareError(error);
+					updateQueue(prev => prev.map(item => {
+						if (item.domain !== domain) return item;
+
+						const existingSteps = item.steps || [];
+						const nsStep = existingSteps.find(s => s.name === 'Setting nameservers at registrar...');
+						const cnameStep = existingSteps.find(s => s.name === 'Creating CNAME record (www)...');
+						const cnameStepStatus = cnameStep?.status || 'success';
+
+						return {
+							...item,
+							steps: [
+								{ name: 'Creating domain zone...', status: 'success' },
+								nsStep ? { ...nsStep } : null,
+								{ name: 'Creating CNAME record (www)...', status: cnameStepStatus, variable: 'www -> @' },
+								{
+									name: 'Creating root A record...',
+									status: 'error',
+									error: errorMessage
+								}
+							].filter(Boolean) as ConfigurationStep[]
+						};
+					}));
+				}
+
+				syncDNSCache(zone.id, createdRecords);
+			}
+
+			// Step 5: Configure default zone settings
+			if (zone?.id) {
+				setIsConfiguring(true);
+
+				const progressCallback: ZoneSettingsProgressCallback = (step) => {
+					updateQueue(prev => prev.map(item => {
+						if (item.domain !== domain) return item;
+
+						const existingSteps = item.steps || [];
+						const existingIndex = existingSteps.findIndex(s => s.name === step.name);
+
+						let updatedSteps: ConfigurationStep[];
+						if (existingIndex >= 0) {
+							updatedSteps = [...existingSteps];
+							updatedSteps[existingIndex] = {
+								name: step.name,
+								status: step.status,
+								error: step.error,
+								variable: step.variable,
+							};
+						} else {
+							updatedSteps = [...existingSteps, {
+								name: step.name,
+								status: step.status,
+								error: step.error,
+								variable: step.variable,
+							}];
+						}
+
+						return { ...item, steps: updatedSteps };
+					}));
+				};
+
+				try {
+					await api.configureDefaultZoneSettings(zone.id, progressCallback);
+				} catch (configError) {
+					console.error(`Error configuring settings for ${domain}:`, configError);
 				}
 			}
 
@@ -441,9 +455,6 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 			} else {
 				errorCount++;
 			}
-
-			// Small delay between domains to avoid rate limits
-			await new Promise(resolve => setTimeout(resolve, 500));
 		}
 
 		isProcessingRef.current = false;
@@ -463,7 +474,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 				toast.error(`Failed to create ${errorCount} domain${errorCount > 1 ? 's' : ''}`);
 			}
 		}
-	}, [account, cloudflareAccountId, onSuccess]);
+	}, [account, cloudflareAccountId, onSuccess, registrarAccountId, registrarAccounts, proxyAccounts]);
 
 	const createDomains = async (
 		domains: string[],
