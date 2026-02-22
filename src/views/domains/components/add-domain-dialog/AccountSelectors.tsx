@@ -127,8 +127,18 @@ export function AccountSelectors({
 	onRegistrarAccountChange,
 }: AccountSelectorsProps) {
 	const [registrarOpen, setRegistrarOpen] = React.useState(false);
+	const [registrarSearch, setRegistrarSearch] = React.useState('');
 
 	const selectedRegistrar = registrarAccounts.find((a) => a.id === selectedRegistrarAccountId);
+
+	const filteredRegistrarAccounts = React.useMemo(() => {
+		if (!registrarSearch) return registrarAccounts;
+		const search = registrarSearch.toLowerCase();
+		return registrarAccounts.filter((acc) =>
+			acc.name.toLowerCase().includes(search) ||
+			acc.registrar.toLowerCase().includes(search)
+		);
+	}, [registrarAccounts, registrarSearch]);
 
 	return (
 		<>
@@ -205,27 +215,32 @@ export function AccountSelectors({
 							</Button>
 						</PopoverTrigger>
 						<PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" onWheel={(e) => e.stopPropagation()}>
-							<Command filter={(value, search) => {
-								if (value.toLowerCase().includes(search.toLowerCase())) return 1;
-								return 0;
-							}}>
-								<CommandInput placeholder="Search registrar account..." />
+							<Command shouldFilter={false}>
+								<CommandInput
+									placeholder="Search registrar account..."
+									value={registrarSearch}
+									onValueChange={setRegistrarSearch}
+								/>
 								<CommandList>
-									<CommandEmpty>No registrar accounts found.</CommandEmpty>
+									{filteredRegistrarAccounts.length === 0 && (
+										<CommandEmpty>No registrar accounts found.</CommandEmpty>
+									)}
 									<CommandGroup>
-										<CommandItem
-											value="__none__"
-											onSelect={() => { onRegistrarAccountChange(''); setRegistrarOpen(false); }}
-											className="flex items-center justify-between"
-										>
-											<span className="text-muted-foreground">None (skip)</span>
-											<Check className={cn('ml-2 h-4 w-4', !selectedRegistrarAccountId ? 'opacity-100' : 'opacity-0')} />
-										</CommandItem>
-										{registrarAccounts.map((acc) => (
+										{(!registrarSearch || "none skip".includes(registrarSearch.toLowerCase())) && (
+											<CommandItem
+												value="__none__"
+												onSelect={() => { onRegistrarAccountChange(''); setRegistrarOpen(false); setRegistrarSearch(''); }}
+												className="flex items-center justify-between"
+											>
+												<span className="text-muted-foreground">None (skip)</span>
+												<Check className={cn('ml-2 h-4 w-4', !selectedRegistrarAccountId ? 'opacity-100' : 'opacity-0')} />
+											</CommandItem>
+										)}
+										{filteredRegistrarAccounts.map((acc) => (
 											<CommandItem
 												key={acc.id}
-												value={`${acc.name} ${acc.registrar}`}
-												onSelect={() => { onRegistrarAccountChange(acc.id); setRegistrarOpen(false); }}
+												value={acc.id}
+												onSelect={() => { onRegistrarAccountChange(acc.id); setRegistrarOpen(false); setRegistrarSearch(''); }}
 												className="flex items-center justify-between"
 											>
 												<span className="flex items-center gap-2">
