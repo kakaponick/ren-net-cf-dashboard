@@ -48,9 +48,9 @@ interface ConfigurationConsoleProps {
   onRetryStep?: (domain: string | undefined, step: ConfigurationStep) => void;
 }
 
-export function ConfigurationConsole({ 
-  steps = [], 
-  domainQueue = [], 
+export function ConfigurationConsole({
+  steps = [],
+  domainQueue = [],
   title = 'Configuration Progress',
   className,
   minHeight,
@@ -64,18 +64,18 @@ export function ConfigurationConsole({
     ? domainQueue
     : steps.length > 0
       ? [{
-          domain: 'Configuration',
-          status: (() => {
-            const hasError = steps.some(s => s.status === 'error');
-            if (hasError) return 'error';
-            const hasProcessing = steps.some(s => s.status === 'processing');
-            if (hasProcessing) return 'processing';
-            const allSuccess = steps.every(s => s.status === 'success');
-            if (allSuccess) return 'success';
-            return 'pending';
-          })(),
-          steps,
-        }]
+        domain: 'Configuration',
+        status: (() => {
+          const hasError = steps.some(s => s.status === 'error');
+          if (hasError) return 'error';
+          const hasProcessing = steps.some(s => s.status === 'processing');
+          if (hasProcessing) return 'processing';
+          const allSuccess = steps.every(s => s.status === 'success');
+          if (allSuccess) return 'success';
+          return 'pending';
+        })(),
+        steps,
+      }]
       : [];
   const resolvedMinHeight = minHeight ?? '420px';
   const resolvedMaxHeight = maxHeight ?? '75vh';
@@ -137,9 +137,6 @@ export function ConfigurationConsole({
   const processingCount = computedDomainQueue.filter(d => d.status === 'processing').length;
   const errorCount = computedDomainQueue.filter(d => d.status === 'error').length;
 
-  // Collect all nameservers from all domains
-  const allNameservers = Array.from(new Set(computedDomainQueue.flatMap(item => item.nameservers || [])));
-
   return (
     <Card
       className={cn(
@@ -165,8 +162,8 @@ export function ConfigurationConsole({
                 </Badge>
               )}
               {errorCount > 0 && (
-                <Badge 
-                  variant="destructive" 
+                <Badge
+                  variant="destructive"
                   className="text-xs bg-red-600 text-white border-red-700 dark:bg-red-700 dark:text-white dark:border-red-800"
                 >
                   {errorCount} error{errorCount !== 1 ? 's' : ''}
@@ -178,39 +175,7 @@ export function ConfigurationConsole({
             </div>
           )}
         </div>
-        
-        {allNameservers.length > 0 && (
-          <div
-            className={cn(
-              'border-b bg-muted/20 flex-shrink-0',
-              dense ? 'px-3 py-1.5' : 'px-4 py-2'
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium mb-1 text-muted-foreground">Nameservers:</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {allNameservers.map((ns, nsIndex) => (
-                    <div 
-                      key={nsIndex} 
-                      className="flex items-center gap-1.5 px-2 py-1 bg-background border rounded text-xs font-mono text-muted-foreground group hover:bg-muted transition-colors"
-                    >
-                      <span className="truncate max-w-[200px]">{ns}</span>
-                      <CopyButton
-                        text={ns}
-                        successMessage="Copied to clipboard"
-                        size="icon"
-                        className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                        copyIconClassName="h-3 w-3"
-                        checkIconClassName="h-3 w-3"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         <div className="flex-1 min-h-0 relative overflow-y-auto">
           <div
@@ -249,8 +214,8 @@ export function ConfigurationConsole({
                           )}>
                             {item.domain}
                           </span>
-                          <Badge 
-                            variant={getStatusBadgeVariant(item.status)} 
+                          <Badge
+                            variant={getStatusBadgeVariant(item.status)}
                             className={cn(
                               'text-xs flex-shrink-0',
                               item.status === 'error' && 'bg-red-600 text-white border-red-700 dark:bg-red-700 dark:text-white dark:border-red-800'
@@ -262,7 +227,31 @@ export function ConfigurationConsole({
                       </div>
                     </div>
                   </div>
-                  
+
+                  {item.nameservers && item.nameservers.length > 0 && (
+                    <div className="ml-7 space-y-1.5">
+                      <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Assigned Nameservers</div>
+                      <div className="flex flex-wrap gap-2">
+                        {item.nameservers.map((ns, nsIndex) => (
+                          <div
+                            key={nsIndex}
+                            className="flex items-center gap-1.5 px-2 py-1 bg-background border rounded text-[11px] font-mono text-muted-foreground group hover:bg-muted transition-colors"
+                          >
+                            <span className="truncate">{ns}</span>
+                            <CopyButton
+                              text={ns}
+                              successMessage="Copied to clipboard"
+                              size="icon"
+                              className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              copyIconClassName="h-2.5 w-2.5"
+                              checkIconClassName="h-2.5 w-2.5"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {item.error && (
                     <div className="ml-7 space-y-1">
                       <div className="text-xs font-medium text-red-600 dark:text-red-400">Error:</div>

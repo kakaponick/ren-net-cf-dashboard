@@ -451,7 +451,7 @@ export default function DomainsPage() {
               iconOnly
               paginationToggle={{ isEnabled: paginationEnabled, onToggle: setPaginationEnabled }}
             />
-            <AddDomainDialog title="Adding domains to Cloudflare accounts - this may take a few moments for large accounts" accounts={accounts} onDomainCreated={handleDomainCreated} />
+            <AddDomainDialog title="Adding domains to Cloudflare accounts - this may take a few moments for large accounts" accounts={accounts} onDomainCreated={handleDomainCreated} initialAccountId={selectedAccount !== 'all' ? selectedAccount : undefined} />
           </div>
         </div>
       </div>

@@ -25,9 +25,10 @@ type AddDomainDialogProps = {
 	accounts: CloudflareAccount[];
 	onDomainCreated: () => void;
 	title: string;
+	initialAccountId?: string;
 };
 
-export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainDialogProps) {
+export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccountId }: AddDomainDialogProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [domains, setDomains] = useState('');
 	const [selectedAccountId, setSelectedAccountId] = useState('');
@@ -76,12 +77,13 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 		return { total, completed, failed, inProgress };
 	}, [bulkDomainCreation.domainQueue]);
 
-	// Auto-select first API account when dialog opens
+	// Auto-select account when dialog opens — prefer the page-level filter account if valid
 	useEffect(() => {
 		if (isOpen && accountsToUse.length > 0 && !selectedAccountId) {
-			setSelectedAccountId(accountsToUse[0].id);
+			const preferred = initialAccountId && accountsToUse.find(a => a.id === initialAccountId);
+			setSelectedAccountId(preferred ? preferred.id : accountsToUse[0].id);
 		}
-	}, [isOpen, accountsToUse, selectedAccountId]);
+	}, [isOpen, accountsToUse, selectedAccountId, initialAccountId]);
 
 	// Reset Cloudflare account selection when API account changes
 	useEffect(() => {
@@ -161,14 +163,18 @@ export function AddDomainDialog({ title, accounts, onDomainCreated }: AddDomainD
 	const validDomainsCount = parseBulkDomains(domains).length;
 
 	return (
-		<Dialog open={isOpen} onOpenChange={handleDialogChange}>
+		<Dialog open={isOpen} onOpenChange={handleDialogChange} >
 			<DialogTrigger asChild title={title}>
 				<Button size="sm">
 					<Plus className="h-3.5 w-3.5" />
 					Add Domain
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
+			<DialogContent
+				className="max-w-3xl max-h-[90vh] flex flex-col p-0"
+				onInteractOutside={(e) => e.preventDefault()}
+				onEscapeKeyDown={(e) => e.preventDefault()}
+			>
 				<DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
 					<DialogTitle>Add Domain</DialogTitle>
 					<DialogDescription>
