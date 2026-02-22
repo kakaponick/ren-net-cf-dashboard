@@ -205,7 +205,10 @@ export function AccountSelectors({
 							</Button>
 						</PopoverTrigger>
 						<PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" onWheel={(e) => e.stopPropagation()}>
-							<Command>
+							<Command filter={(value, search) => {
+								if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+								return 0;
+							}}>
 								<CommandInput placeholder="Search registrar account..." />
 								<CommandList>
 									<CommandEmpty>No registrar accounts found.</CommandEmpty>
