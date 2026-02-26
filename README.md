@@ -7,7 +7,7 @@ A local React dashboard for managing multiple Cloudflare accounts, domains, DNS 
 - **Multi-Account Management**: Add and switch between multiple Cloudflare accounts
 - **Domain Management**: View and manage all your Cloudflare zones/domains
 - **DNS Records**: Full CRUD operations for DNS records with support for all record types
-- **SSL Certificate Management**: View SSL certificates and manage SSL/TLS encryption modes
+- **SSL/TLS**: Manage SSL/TLS encryption modes
 - **Local Storage**: All account data stored locally in your browser
 - **Modern UI**: Built with React, TypeScript, Tailwind CSS, and Shadcn UI
 

@@ -127,10 +127,10 @@ export function AddRedirectDialog({ availableDomains, initialDomain, onAdd }: Ad
                         </p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="urls">Destination URLs</Label>
+                        <Label htmlFor="urls">Destination URLs <span className="pl-1 text-muted-foreground text-xs font-normal">(1 domain per line)</span></Label>
                         <Textarea
                             id="urls"
-                            placeholder="https://example.com/page1&#10;https://example.com/page2&#10;https://example.com/page3"
+                            placeholder={"https://example.com/page1\nhttps://example.com/page2\nhttps://example.com/page3"}
                             value={urls}
                             onChange={(e) => setUrls(e.target.value)}
                             className="min-h-[200px] font-mono text-sm"
