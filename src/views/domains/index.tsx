@@ -27,6 +27,7 @@ import { CompactPagination } from './components/compact-pagination';
 import { AddDomainDialog } from './components/add-domain-dialog';
 import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
 import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog';
+import { BulkEditSSLDialog } from './components/bulk-edit-ssl-dialog';
 import { AIBotsProtectionDialog } from './components/ai-bots-protection-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
@@ -500,6 +501,10 @@ export default function DomainsPage() {
                   selectedZones={selectedZones}
                   onComplete={() => clear()}
                   onRefreshDNS={handleRefreshDNS}
+                />
+                <BulkEditSSLDialog
+                  selectedZones={selectedZones}
+                  onComplete={() => clear()}
                 />
                 <AIBotsProtectionDialog
                   selectedZones={selectedZones}
