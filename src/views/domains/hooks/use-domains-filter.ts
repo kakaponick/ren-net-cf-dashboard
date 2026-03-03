@@ -3,35 +3,36 @@ import type { ZoneWithDNS } from './use-domains-data';
 
 export function useDomainsFilter(zones: ZoneWithDNS[], searchTerm: string, selectedAccount?: string) {
 
-		return useMemo(() => {
-				let filtered = zones;
+	return useMemo(() => {
+		let filtered = zones;
 
-				// Filter by account
-				if (selectedAccount && selectedAccount !== 'all') {
-						filtered = filtered.filter((item) => item.accountId === selectedAccount);
-				}
+		// Filter by account
+		if (selectedAccount && selectedAccount !== 'all') {
+			filtered = filtered.filter((item) => item.accountId === selectedAccount);
+		}
 
-				// Filter by search term
-				if (!searchTerm) return filtered;
+		// Filter by search term
+		if (!searchTerm) return filtered;
 
-				const term = searchTerm.toLowerCase();
+		const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+		if (terms.length === 0) return filtered;
 
-				return filtered.filter(item => {
-						// Search domain name
-						if (item.zone.name.toLowerCase().includes(term)) return true;
+		const matchesTerm = (item: ZoneWithDNS, term: string) => {
+			if (item.zone.name.toLowerCase().includes(term)) return true;
+			if (item.accountName.toLowerCase().includes(term)) return true;
+			if (item.accountEmail.toLowerCase().includes(term)) return true;
+			if (item.rootARecords?.some(record =>
+				record.content.toLowerCase().includes(term)
+			)) return true;
+			return false;
+		};
 
-						// Search account name/email
-						if (item.accountName.toLowerCase().includes(term)) return true;
-						if (item.accountEmail.toLowerCase().includes(term)) return true;
-
-						// Search in A record IPs
-						if (item.rootARecords?.some(record =>
-								record.content.toLowerCase().includes(term)
-						)) return true;
-
-						return false;
-				});
-		}, [zones, searchTerm, selectedAccount]);
+		// Multiple terms → show zones matching ANY term (OR logic)
+		// Lets users paste space-separated domain lists to filter
+		return filtered.filter(item =>
+			terms.some(term => matchesTerm(item, term))
+		);
+	}, [zones, searchTerm, selectedAccount]);
 }
 
 
