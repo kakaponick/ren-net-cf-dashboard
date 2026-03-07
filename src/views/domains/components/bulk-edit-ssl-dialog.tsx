@@ -11,13 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
@@ -176,29 +170,37 @@ export function BulkEditSSLDialog({ selectedZones, onComplete }: BulkEditSSLDial
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ssl-mode" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 SSL/TLS Encryption Mode
               </Label>
-              <Select
-                value={sslMode}
-                onValueChange={(value) => setSSLMode(value as SSLMode)}
-                disabled={isProcessing}
-              >
-                <SelectTrigger id="ssl-mode" className="w-full">
-                  <SelectValue placeholder="Select SSL/TLS mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SSL_TLS_MODES.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value} className="cursor-pointer">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium">{mode.label}</span>
-                        <span className="text-xs text-muted-foreground">{mode.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2">
+                {SSL_TLS_MODES.map((mode) => {
+                  const isActive = sslMode === mode.value;
+                  return (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setSSLMode(mode.value)}
+                      className={cn(
+                        'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors cursor-pointer',
+                        'hover:bg-accent/50',
+                        isActive && 'border-primary bg-primary/10',
+                        !isActive && 'border-border',
+                        isProcessing && 'opacity-50 cursor-not-allowed'
+                      )}
+                    >
+                      <span className={cn('text-sm font-medium', isActive && 'text-primary')}>
+                        {mode.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {mode.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {Object.keys(currentModeSummary).length > 0 && (

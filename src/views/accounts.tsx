@@ -4,9 +4,11 @@ import { useAccountsView } from "@/hooks/use-accounts-view"
 import { AccountsHeader } from "@/components/accounts/accounts-header"
 import { AccountsTable } from "@/components/accounts/accounts-table"
 import { AddCredentialsDialog } from "@/components/accounts/add-credentials-dialog"
+import { ExportCredentialsDialog } from "@/components/accounts/export-credentials-dialog"
 import { EditAccountDialog } from "@/components/accounts/edit-account-dialog"
 import { DeleteAccountDialog } from "@/components/accounts/delete-account-dialog"
 import { PARSERS } from "@/lib/credential-parsers"
+import { getCategoryLabel } from "@/lib/utils"
 import { toast } from "sonner"
 
 function CredentialsContent() {
@@ -35,7 +37,9 @@ function CredentialsContent() {
         getRawAccountForEdit,
         deleteAccountId,
         setDeleteAccountId,
-        // Removed isImportDialogOpen from hook destructuring as we'll manage it locally or map it
+
+        // Raw data for proxy resolution
+        rawProxyAccounts,
 
         // Selection
         selectedAccountIds,
@@ -43,9 +47,15 @@ function CredentialsContent() {
         toggleAllSelection
     } = useAccountsView()
 
-    // Local state to manage dialog mode
+    // Add/Import dialog state
     const [dialogMode, setDialogMode] = useState<'single' | 'bulk'>('single')
     const [initialCategory, setInitialCategory] = useState<AccountCategory | undefined>()
+
+    // Export dialog state
+    const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+    const [exportLines, setExportLines] = useState<string[]>([])
+    const [exportCategoryLabel, setExportCategoryLabel] = useState("")
+    const [exportFormatHint, setExportFormatHint] = useState("")
 
     const handleAddClick = (category?: AccountCategory) => {
         setDialogMode('single')
@@ -60,11 +70,6 @@ function CredentialsContent() {
     }
 
     const handleExportClick = () => {
-        // Determine what to export based on current view/filter
-        // If category filter is 'all', we might want to ask user or just error, 
-        // as bulk export of different types in one file isn't supported by import yet strictly speaking 
-        // (though our parser could potentialy handle it if we auto-detect, but we don't have auto-detect yet)
-
         if (categoryFilter === 'all') {
             toast.error("Please select a specific category to export.")
             return
@@ -76,64 +81,32 @@ function CredentialsContent() {
             return
         }
 
-        // Get the raw accounts matching this category
-        // filteredAndSortedAccounts in useAccountsView returns generic objects, we might need raw ones?
-        // Actually, the generic objects have enough info for basic export usually, 
-        // BUT for things like Proxy/VPS, we mapped them to email/apiToken fields in the view hook.
-        // We should use the raw stores or recover the data. 
-        // Luckily useAccountsView provides rawAccounts access via getRawAccountForEdit or we can just filter the raw arrays from the store directly here if we had access.
-        // But useAccountsView exposes `accounts` which is the processed list. 
-
-        // Let's use the hook's raw data exposure which I recall adding/checking.
-        // Wait, I need to check if useAccountsView exports raw arrays.
-        // I checked it earlier, it exports: rawAccounts, rawProxyAccounts, rawSSHAccounts, rawVPSAccounts.
-
-        let dataToExport: any[] = []
-        switch (categoryFilter) {
-            case 'cloudflare':
-            case 'registrar':
-            case 'npm':
-                // @ts-ignore
-                dataToExport = accounts.filter(a => a.category === categoryFilter)
-                // Note: accounts in view hook is the FILTERED list. 
-                // If we want to export ALL accounts of a category, we should use raw lists.
-                // If we want to export VALID FILTERED list (search applied), we use accounts.
-                // Let's export what the user SEES (filtered).
-                // BUT 'accounts' in the hook is a normalized list where VPS/Proxy are mapped to email/token.
-                // We need to map them BACK or get the raw version.
-
-                // Better approach: Iterate the filtered `accounts` list, and find the raw version for each ID.
-                // useAccountsView provides `getRawAccountForEdit`.
-                break;
-            case 'proxy':
-            case 'ssh':
-            case 'vps':
-                // These are also in `accounts` list but mapped.
-                break;
-        }
-
-        const exportLines: string[] = []
+        const lines: string[] = []
 
         accounts.forEach(viewAccount => {
-            // Only export if it matches the category (redundant if filter is active but safe)
             if (viewAccount.category !== categoryFilter) return
 
             const rawAccount = getRawAccountForEdit(viewAccount)
-            if (rawAccount) {
-                // @ts-ignore - TS doesn't know rawAccount matches parser type perfectly, but it should
-                const line = parser.export(rawAccount)
-                exportLines.push(line)
-            }
+            if (!rawAccount) return
+
+            // Resolve linked proxy for registrar accounts
+            const resolvedProxy = (rawAccount as CloudflareAccount).proxyId
+                ? rawProxyAccounts.find(p => p.id === (rawAccount as CloudflareAccount).proxyId)
+                : undefined
+
+            const line = parser.export(rawAccount as any, resolvedProxy)
+            lines.push(line)
         })
 
-        if (exportLines.length === 0) {
+        if (lines.length === 0) {
             toast.info("No accounts to export.")
             return
         }
 
-        const exportText = exportLines.join('\n')
-        navigator.clipboard.writeText(exportText)
-        toast.success(`Exported ${exportLines.length} credentials to clipboard!`)
+        setExportLines(lines)
+        setExportCategoryLabel(getCategoryLabel(categoryFilter))
+        setExportFormatHint(parser.helpText)
+        setIsExportDialogOpen(true)
     }
 
     const handleEditClick = (account: CloudflareAccount | ProxyAccount | SSHAccount | NPMAccount | VPSAccount) => {
@@ -194,6 +167,14 @@ function CredentialsContent() {
                 }}
                 initialCategory={initialCategory}
                 initialMode={dialogMode}
+            />
+
+            <ExportCredentialsDialog
+                open={isExportDialogOpen}
+                onOpenChange={setIsExportDialogOpen}
+                exportLines={exportLines}
+                categoryLabel={exportCategoryLabel}
+                formatHint={exportFormatHint}
             />
 
             <EditAccountDialog

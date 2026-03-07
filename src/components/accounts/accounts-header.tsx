@@ -31,12 +31,11 @@ export function AccountsHeader({
           </Button>
         )}
         <Button variant="outline" size="sm" onClick={onExportClick}>
-          <Upload className="mr-2 h-4 w-4" /> {/* Oops export icon should match. Import/Export icons in original were weird: Import used Upload, Export used Download. */}
-          {/* I will keep original icons if possible but swapped logically? Upload -> Import, Download -> Export. Original code had: Export -> Download, Bulk Import -> Upload. That seems correct. */}
+          <Download className="mr-2 h-4 w-4" />
           Export
         </Button>
         <Button variant="outline" size="sm" onClick={onImportClick}>
-          <Download className="mr-2 h-4 w-4" /> {/* Wait, check original file content. Line 20 Export has Download. Line 24 Bulk Import has Upload. */}
+          <Upload className="mr-2 h-4 w-4" />
           Bulk Import
         </Button>
         <Button size="sm" onClick={onAddClick}>

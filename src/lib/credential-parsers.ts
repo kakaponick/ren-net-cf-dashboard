@@ -1,9 +1,17 @@
 import type { CloudflareAccount, ProxyAccount, VPSAccount, SSHAccount, NPMAccount, AccountCategory, RegistrarType } from '@/types/cloudflare'
 
+/** Resolved proxy data that callers can pass for richer export output. */
+export interface ResolvedProxyForExport {
+    host: string
+    port: number
+    username?: string
+    password?: string
+}
+
 export interface CredentialParser<T> {
     category: AccountCategory
     parse: (line: string, extraOptions?: any) => Partial<T> | null
-    export: (account: T) => string
+    export: (account: T, resolvedProxy?: ResolvedProxyForExport) => string
     helpText: string
     exampleText: string
 }
@@ -43,37 +51,35 @@ export const RegistrarParser: CredentialParser<CloudflareAccount> = {
         const email = parts[0]
         const apiToken = parts[1]
 
-        // Basic validation
         if (!email.includes('@') || !apiToken) return null
 
-        const result: Partial<CloudflareAccount> = {
+        return {
             email,
             apiToken,
             category: 'registrar',
             registrarName: options.registrarName,
-            username: email.split('@')[0].replaceAll('.', '') // Default username from email
+            username: email.split('@')[0].replaceAll('.', '')
         }
-
-        // Namecheap specific: Optional Proxy (3rd argument)
-        if (options.registrarName === 'namecheap' && parts.length >= 3) {
-            // We return the proxy string here, it needs to be processed by the hook/caller to find/create the proxy
-            // This is a bit of a leaky abstraction but necessary since we can't search the store here easily without passing it in
-            // A better approach might be to just return the data structure and let the hook handle the proxy lookup/creation
-            // For now, we'll store the raw proxy string in a temporary field if needed, or rely on the hook to re-parse the line parts 
-            // But to keep it clean, let's just return the core data and let the hook handle the proxy part if it detects it.
-            // Actually, let's keep it simple: The parser returns valid account data. 
-            // The hook is responsible for the complex "find or create proxy" logic using the raw line parts if needed.
-            // Or we can parse the proxy string here and return it as a structured object
-        }
-
-        return result
     },
-    export: (account) => `${account.email}  ${account.apiToken}`, // Proxies are linked via ID, not easily exported as string inline unless we fetching the proxy. The hook handles export logic more fully.
-    helpText: "Format: Email  API_Key  [Proxy (Host:Port:User:Pass)]",
+    export: (account, resolvedProxy) => {
+        let line = `${account.email}  ${account.apiToken}`
+        if (account.username) line += `  ${account.username}`
+        if (account.registrarName) line += `  ${account.registrarName}`
+        if (resolvedProxy) {
+            let proxyStr = `${resolvedProxy.host}:${resolvedProxy.port}`
+            if (resolvedProxy.username) {
+                proxyStr += `:${resolvedProxy.username}`
+                if (resolvedProxy.password) proxyStr += `:${resolvedProxy.password}`
+            }
+            line += `  ${proxyStr}`
+        }
+        return line
+    },
+    helpText: "Format: Email  API_Key  [Username]  [Registrar]  [Proxy]",
     exampleText: `# Example format (one account per line):
 user@example.com  api_key_1234567890
-admin@client.com  api_key_abcdef1234  127.0.0.1:1080
-support@company.com  api_key_xyz789  192.168.1.1:1080:username:password`
+admin@client.com  api_key_abcdef1234  admin  namecheap  127.0.0.1:1080
+support@company.com  api_key_xyz789  support  njalla`
 }
 
 
