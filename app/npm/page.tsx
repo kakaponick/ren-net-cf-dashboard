@@ -6,12 +6,11 @@ import { NPMAPIClient } from '@/lib/npm-api';
 import { useAccountStore } from '@/store/account-store';
 import { NginxLocationsTable } from '@/views/redirects/components/nginx-locations-table';
 import { parseNginxLocations } from '@/lib/nginx-parser';
-import { generateUniqueSlug } from '@/lib/slug-generator';
 import { AddRedirectDialog } from '@/components/redirects/add-redirect-dialog';
 import { extractNginxError, formatNginxError } from '@/lib/nginx-error';
-import { RefreshCw, ArrowRightLeft, Settings, ChevronDown } from 'lucide-react';
+import { RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
-import type { NPMRedirectListResponse } from '@/types/npm';
+import type { NPMBulkAddRedirectsResponse, NPMRedirectListResponse } from '@/types/npm';
 import type { CloudflareAccount } from '@/types/cloudflare';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -325,38 +324,12 @@ export default function NPMPage() {
         }
     };
 
-    const handleAddRedirects = async (domain: string, urls: string[]) => {
-        if (!npmCredentials) return;
+    const handleAddRedirects = async (domain: string, urls: string[]): Promise<NPMBulkAddRedirectsResponse> => {
+        if (!npmCredentials) {
+            throw new Error('NPM credentials are not configured');
+        }
 
         try {
-            const redirect = redirects.find(r => r.domain_names.includes(domain));
-            if (!redirect) {
-                toast.error('Could not find redirect configuration for domain');
-                return;
-            }
-
-            // Get all existing locations to check for duplicates
-            const existingLocations = parsedLocations.map(loc => loc.location);
-
-            // Generate unique slugs for each URL
-            const newLines: string[] = [];
-            const createdUrls: string[] = [];
-
-            for (const url of urls) {
-                const slug = generateUniqueSlug(existingLocations.concat(newLines.map(line => {
-                    const match = line.match(/location = (\/\S+)/);
-                    return match ? match[1] : '';
-                })));
-                const line = `location = /${slug} { return 301 ${url}; }`;
-                newLines.push(line);
-                createdUrls.push(`https://${domain}/${slug}`);
-            }
-
-            // Append new lines to advanced_config
-            const currentConfig = redirect.advanced_config || '';
-            const updatedConfig = currentConfig + '\n' + newLines.join('\n');
-
-            // Update via NPM API
             const client = new NPMAPIClient(
                 npmCredentials,
                 npmToken?.token,
@@ -365,35 +338,18 @@ export default function NPMPage() {
                 }
             );
 
-            await client.updateRedirect(redirect.id, {
-                domain_names: redirect.domain_names,
-                forward_scheme: redirect.forward_scheme,
-                forward_domain_name: redirect.forward_domain_name,
-                forward_http_code: redirect.forward_http_code,
-                certificate_id: redirect.certificate_id,
-                meta: {
-                    letsencrypt_agree: Boolean(redirect.meta.letsencrypt_agree),
-                    dns_challenge: Boolean(redirect.meta.dns_challenge),
-                },
-                advanced_config: updatedConfig,
-                block_exploits: Boolean(redirect.block_exploits),
-                preserve_path: Boolean(redirect.preserve_path),
-                http2_support: Boolean(redirect.http2_support),
-                hsts_enabled: Boolean(redirect.hsts_enabled),
-                hsts_subdomains: Boolean(redirect.hsts_subdomains),
-                ssl_forced: Boolean(redirect.ssl_forced),
-            });
+            const result = await client.bulkAddRedirects(domain, urls, 100);
 
-            // Copy created URLs to clipboard
-            if (createdUrls.length > 0) {
-                navigator.clipboard.writeText(createdUrls.join('\n'));
-                toast.success(`Added ${createdUrls.length} redirects and copied to clipboard`);
-            } else {
-                toast.success('Redirects added successfully');
+            if (result.createdUrls.length > 0) {
+                try {
+                    await navigator.clipboard.writeText(result.createdUrls.join('\n'));
+                } catch {
+                    toast.warning('Redirects created, but copying to clipboard failed');
+                }
             }
 
-            // Reload redirects to reflect changes
             await loadRedirects(true);
+            return result;
         } catch (error) {
             console.error('Failed to add redirects:', error);
             throw error; // Re-throw to let dialog handle error display

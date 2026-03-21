@@ -70,6 +70,191 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 		}));
 	};
 
+	const syncDomainStatusWithSteps = (domain: string) => {
+		updateQueue(prev => prev.map(item => {
+			if (item.domain !== domain) {
+				return item;
+			}
+
+			const steps = item.steps || [];
+			const nextStatus: DomainQueueItem['status'] =
+				steps.some(step => step.status === 'error')
+					? 'error'
+					: steps.some(step => step.status === 'processing')
+						? 'processing'
+						: steps.length > 0
+							? 'success'
+							: item.status;
+
+			return { ...item, status: nextStatus };
+		}));
+	};
+
+	const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+	const normalizeNameservers = (nameservers: string[]) =>
+		nameservers
+			.map(ns => ns.trim().toLowerCase())
+			.filter(Boolean)
+			.sort();
+
+	const nameserversMatch = (expected: string[], actual: string[]) => {
+		const normalizedExpected = normalizeNameservers(expected);
+		const normalizedActual = normalizeNameservers(actual);
+
+		return normalizedExpected.length === normalizedActual.length &&
+			normalizedExpected.every((nameserver, index) => nameserver === normalizedActual[index]);
+	};
+
+	const formatNameservers = (nameservers: string[]) =>
+		nameservers.length > 0 ? nameservers.join(', ') : '(none)';
+
+	const getNamecheapHeaders = (regAccount: CloudflareAccount) => {
+		if (!regAccount.proxyId) {
+			throw new Error(`No proxy assigned to Namecheap account ${regAccount.name || regAccount.email}`);
+		}
+
+		const proxy = proxyAccounts.find((p) => p.id === regAccount.proxyId);
+		if (!proxy) {
+			throw new Error(`Proxy (id: ${regAccount.proxyId}) not found for Namecheap account ${regAccount.name || regAccount.email}`);
+		}
+
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+			'x-account-id': regAccount.id,
+			'x-api-user': regAccount.username || regAccount.email.split('@')[0].replaceAll('.', ''),
+			'x-api-key': regAccount.apiToken,
+			'x-proxy-host': proxy.host,
+			'x-proxy-port': proxy.port?.toString() || '',
+		};
+
+		if (proxy.username) headers['x-proxy-username'] = proxy.username;
+		if (proxy.password) headers['x-proxy-password'] = proxy.password;
+
+		return headers;
+	};
+
+	const parseDomain = (domain: string) => {
+		const parts = domain.split('.');
+		if (parts.length < 2) {
+			throw new Error(`Invalid domain format: ${domain}`);
+		}
+
+		return {
+			sld: parts.slice(0, -1).join('.'),
+			tld: parts[parts.length - 1],
+		};
+	};
+
+	const fetchRegistrarNameservers = async (domain: string, regAccount: CloudflareAccount): Promise<string[]> => {
+		if (regAccount.registrarName === 'namecheap') {
+			const { sld, tld } = parseDomain(domain);
+			const response = await fetch(`/api/namecheap/nameservers?sld=${encodeURIComponent(sld)}&tld=${encodeURIComponent(tld)}`, {
+				method: 'GET',
+				headers: getNamecheapHeaders(regAccount),
+			});
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				throw new Error(data.error || 'Failed to fetch registrar nameservers');
+			}
+
+			return Array.isArray(data.data?.nameservers) ? data.data.nameservers : [];
+		}
+
+		if (regAccount.registrarName === 'njalla') {
+			const response = await fetch(`/api/njalla/nameservers?domain=${encodeURIComponent(domain)}`, {
+				method: 'GET',
+				headers: {
+					'x-api-key': regAccount.apiToken,
+				},
+			});
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				throw new Error(data.error || 'Failed to fetch registrar nameservers');
+			}
+
+			return Array.isArray(data.data?.nameservers) ? data.data.nameservers : [];
+		}
+
+		throw new Error(`Unsupported registrar: ${regAccount.registrarName || 'unknown'}`);
+	};
+
+	const setRegistrarNameservers = async (domain: string, nameservers: string[], regAccount: CloudflareAccount) => {
+		if (regAccount.registrarName === 'namecheap') {
+			const { sld, tld } = parseDomain(domain);
+			const response = await fetch('/api/namecheap/nameservers', {
+				method: 'POST',
+				headers: getNamecheapHeaders(regAccount),
+				body: JSON.stringify({ sld, tld, nameservers }),
+			});
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				throw new Error(data.error || 'Failed to set nameservers');
+			}
+
+			return;
+		}
+
+		if (regAccount.registrarName === 'njalla') {
+			const response = await fetch('/api/njalla/nameservers', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'x-api-key': regAccount.apiToken,
+				},
+				body: JSON.stringify({ domain, nameservers }),
+			});
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				throw new Error(data.error || 'Failed to set nameservers');
+			}
+
+			return;
+		}
+
+		throw new Error(`Unsupported registrar: ${regAccount.registrarName || 'unknown'}`);
+	};
+
+	const setRegistrarNameserversWithVerification = async (
+		domain: string,
+		expectedNameservers: string[],
+		regAccount: CloudflareAccount
+	) => {
+		await setRegistrarNameservers(domain, expectedNameservers, regAccount);
+
+		let lastSeenNameservers: string[] = [];
+		let lastVerificationError: Error | null = null;
+
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			try {
+				const currentNameservers = await fetchRegistrarNameservers(domain, regAccount);
+				lastSeenNameservers = currentNameservers;
+
+				if (nameserversMatch(expectedNameservers, currentNameservers)) {
+					return;
+				}
+			} catch (error) {
+				lastVerificationError = error instanceof Error ? error : new Error(String(error));
+			}
+
+			if (attempt < 3) {
+				await sleep(1500);
+			}
+		}
+
+		if (lastVerificationError && lastSeenNameservers.length === 0) {
+			throw new Error(`Nameserver verification failed: ${lastVerificationError.message}`);
+		}
+
+		throw new Error(
+			`Nameserver verification failed. Expected ${formatNameservers(expectedNameservers)} but registrar returned ${formatNameservers(lastSeenNameservers)}`
+		);
+	};
+
 	const refreshDNSRecords = async (zoneId: string, api: CloudflareAPI) => {
 		try {
 			const records = await api.getDNSRecords(zoneId);
@@ -141,51 +326,13 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 					setStepState(domain, nsStepName, 'processing');
 
 					try {
-						if (regAccount.registrarName === 'namecheap') {
-							const proxy = proxyAccounts.find((p) => p.id === regAccount.proxyId);
-							if (!proxy) throw new Error(`Proxy not found for Namecheap account ${regAccount.name || regAccount.email}`);
-
-							const parts = domain.split('.');
-							const tld = parts[parts.length - 1];
-							const sld = parts.slice(0, -1).join('.');
-
-							const headers: Record<string, string> = {
-								'Content-Type': 'application/json',
-								'x-account-id': regAccount.id,
-								'x-api-user': regAccount.username || regAccount.email.split('@')[0].replaceAll('.', ''),
-								'x-api-key': regAccount.apiToken,
-								'x-proxy-host': proxy.host,
-								'x-proxy-port': proxy.port?.toString() || '',
-							};
-							if (proxy.username) headers['x-proxy-username'] = proxy.username;
-							if (proxy.password) headers['x-proxy-password'] = proxy.password;
-
-							const resp = await fetch('/api/namecheap/nameservers', {
-								method: 'POST',
-								headers,
-								body: JSON.stringify({ sld, tld, nameservers: zone.name_servers }),
-							});
-							const data = await resp.json();
-							if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
-						} else if (regAccount.registrarName === 'njalla') {
-							const resp = await fetch('/api/njalla/nameservers', {
-								method: 'POST',
-								headers: {
-									'Content-Type': 'application/json',
-									'x-api-key': regAccount.apiToken,
-								},
-								body: JSON.stringify({ domain, nameservers: zone.name_servers }),
-							});
-							const data = await resp.json();
-							if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
-						}
-
+						await setRegistrarNameserversWithVerification(domain, zone.name_servers, regAccount);
 						setStepState(domain, nsStepName, 'success');
 					} catch (nsError) {
 						console.error(`Error setting nameservers for ${domain}:`, nsError);
 						const nsErrorMessage = nsError instanceof Error ? nsError.message : 'Unknown error';
 						setStepState(domain, nsStepName, 'error', nsErrorMessage);
-						// Non-fatal: continue to mark domain as success
+						// Continue remaining zone setup so the failure can be retried from the console.
 					}
 				}
 			}
@@ -380,17 +527,16 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 			}
 
 			// Mark domain as success
-			updateQueue(prev => prev.map(item =>
-				item.domain === domain
-					? { ...item, status: 'success' }
-					: item
-			));
+			syncDomainStatusWithSteps(domain);
+
+			const finalQueueItem = domainQueueRef.current.find(item => item.domain === domain);
+			const hasStepErrors = finalQueueItem?.steps?.some(step => step.status === 'error') ?? false;
 
 			if (zone?.id) {
 				syncDNSCache(zone.id, createdRecords);
 			}
 
-			return { success: true };
+			return { success: !hasStepErrors };
 
 		} catch (error) {
 			console.error(`Error creating domain ${domain}:`, error);
@@ -594,7 +740,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 
 				await refreshDNSRecords(queueItem.zoneId, api);
 				setStepState(domain, step.name, 'success');
-				setDomainStatus(domain, 'success');
+				syncDomainStatusWithSteps(domain);
 				return;
 			}
 
@@ -617,7 +763,7 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 
 				await refreshDNSRecords(queueItem.zoneId, api);
 				setStepState(domain, step.name, 'success');
-				setDomainStatus(domain, 'success');
+				syncDomainStatusWithSteps(domain);
 				return;
 			}
 
@@ -631,47 +777,9 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 				const regAccount = registrarAccounts.find((a) => a.id === registrarAccountId);
 				if (!regAccount) throw new Error('Registrar account not found.');
 
-				if (regAccount.registrarName === 'namecheap') {
-					const proxy = proxyAccounts.find((p) => p.id === regAccount.proxyId);
-					if (!proxy) throw new Error(`Proxy not found for Namecheap account ${regAccount.name || regAccount.email}`);
-
-					const parts = domain.split('.');
-					const tld = parts[parts.length - 1];
-					const sld = parts.slice(0, -1).join('.');
-
-					const headers: Record<string, string> = {
-						'Content-Type': 'application/json',
-						'x-account-id': regAccount.id,
-						'x-api-user': regAccount.username || regAccount.email.split('@')[0].replaceAll('.', ''),
-						'x-api-key': regAccount.apiToken,
-						'x-proxy-host': proxy.host,
-						'x-proxy-port': proxy.port?.toString() || '',
-					};
-					if (proxy.username) headers['x-proxy-username'] = proxy.username;
-					if (proxy.password) headers['x-proxy-password'] = proxy.password;
-
-					const resp = await fetch('/api/namecheap/nameservers', {
-						method: 'POST',
-						headers,
-						body: JSON.stringify({ sld, tld, nameservers: queueItem.nameservers }),
-					});
-					const data = await resp.json();
-					if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
-				} else if (regAccount.registrarName === 'njalla') {
-					const resp = await fetch('/api/njalla/nameservers', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'x-api-key': regAccount.apiToken,
-						},
-						body: JSON.stringify({ domain, nameservers: queueItem.nameservers }),
-					});
-					const data = await resp.json();
-					if (!resp.ok || !data.success) throw new Error(data.error || 'Failed to set nameservers');
-				}
-
+				await setRegistrarNameserversWithVerification(domain, queueItem.nameservers, regAccount);
 				setStepState(domain, step.name, 'success');
-				setDomainStatus(domain, 'success');
+				syncDomainStatusWithSteps(domain);
 				return;
 			}
 
@@ -681,12 +789,12 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 
 			await runSettingRetry(queueItem.zoneId, step.name);
 			setStepState(domain, step.name, 'success');
-			setDomainStatus(domain, 'success');
+			syncDomainStatusWithSteps(domain);
 		} catch (error) {
 			console.error(`Retry failed for ${domain} - ${step.name}:`, error);
 			const errorMessage = formatCloudflareError(error);
 			setStepState(domain, step.name, 'error', errorMessage);
-			setDomainStatus(domain, 'error');
+			syncDomainStatusWithSteps(domain);
 		}
 	};
 
@@ -709,4 +817,3 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 		domainQueue,
 	};
 }
-

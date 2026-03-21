@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2, Globe, Loader2, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Info, ChevronDown, MoreVertical, Trash2, Globe, Loader2, ShieldCheck, Server } from 'lucide-react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import {
 import { ARecordsCell, ProxiedCell, SSLTlsCell } from './dns-cell';
 import { DNSDrawer } from '@/components/dns-drawer';
 import { AIBotsProtectionDialog } from './ai-bots-protection-dialog';
+import { SetNameserversDialog } from './set-nameservers-dialog';
 import { useAccountStore } from '@/store/account-store';
 import { CloudflareAPI } from '@/lib/cloudflare-api';
 import { toast } from 'sonner';
@@ -61,6 +62,7 @@ export const DomainRow = memo(function DomainRow({
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [isCreatingCNAME, setIsCreatingCNAME] = useState(false);
 	const [isAIBotsDialogOpen, setIsAIBotsDialogOpen] = useState(false);
+	const [isSetNSDialogOpen, setIsSetNSDialogOpen] = useState(false);
 
 	const handleToggle = useCallback(() => onToggle(rowId), [onToggle, rowId]);
 	const handleRefreshDNS = useCallback(() => onRefreshDNS?.(item.zone.id, item.accountId), [onRefreshDNS, item.zone.id, item.accountId]);
@@ -353,6 +355,13 @@ export const DomainRow = memo(function DomainRow({
 								{isCreatingCNAME ? 'Creating www CNAME...' : 'Create www CNAME'}
 							</DropdownMenuItem>
 							<DropdownMenuItem
+								onClick={() => setIsSetNSDialogOpen(true)}
+								disabled={!hasNameservers}
+							>
+								<Server className="mr-2 h-4 w-4" />
+								Set Nameservers
+							</DropdownMenuItem>
+							<DropdownMenuItem
 								className="text-destructive"
 								onClick={() => setIsDeleteDialogOpen(true)}
 								disabled={isCreatingCNAME}
@@ -372,6 +381,12 @@ export const DomainRow = memo(function DomainRow({
 						selectedZones={[item]}
 						open={isAIBotsDialogOpen}
 						onOpenChange={setIsAIBotsDialogOpen}
+					/>
+					<SetNameserversDialog
+						open={isSetNSDialogOpen}
+						onOpenChange={setIsSetNSDialogOpen}
+						domain={item.zone.name}
+						nameservers={nameservers}
 					/>
 					<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
 						<AlertDialogContent>
