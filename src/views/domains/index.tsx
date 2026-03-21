@@ -29,6 +29,7 @@ import { BulkEditARecordDialog } from './components/bulk-edit-a-record-dialog';
 import { BulkDeleteDomainsDialog } from './components/bulk-delete-domains-dialog';
 import { BulkEditSSLDialog } from './components/bulk-edit-ssl-dialog';
 import { AIBotsProtectionDialog } from './components/ai-bots-protection-dialog';
+import { BulkSetNameserversDialog } from './components/bulk-set-nameservers-dialog';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
 import { cn, createRateLimiter, copyToClipboard } from '@/lib/utils';
@@ -503,6 +504,10 @@ export default function DomainsPage() {
                   onRefreshDNS={handleRefreshDNS}
                 />
                 <BulkEditSSLDialog
+                  selectedZones={selectedZones}
+                  onComplete={() => clear()}
+                />
+                <BulkSetNameserversDialog
                   selectedZones={selectedZones}
                   onComplete={() => clear()}
                 />
