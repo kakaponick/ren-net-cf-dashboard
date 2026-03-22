@@ -7,8 +7,9 @@ import { useAccountStore } from '@/store/account-store';
 import { NginxLocationsTable } from '@/views/redirects/components/nginx-locations-table';
 import { parseNginxLocations } from '@/lib/nginx-parser';
 import { AddRedirectDialog } from '@/components/redirects/add-redirect-dialog';
+import { ExportRedirectsDialog } from '@/components/redirects/export-redirects-dialog';
 import { extractNginxError, formatNginxError } from '@/lib/nginx-error';
-import { RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { RefreshCw, ArrowRightLeft, Download } from 'lucide-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import type { NPMBulkAddRedirectsResponse, NPMRedirectListResponse } from '@/types/npm';
 import type { CloudflareAccount } from '@/types/cloudflare';
@@ -25,6 +26,7 @@ export default function NPMPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [npmToken, setNpmToken] = useState<{ token: string; expires: string } | null>(null);
     const [selectedDomain, setSelectedDomain] = useState<string>('all');
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
     // Load accounts on mount
     useEffect(() => {
@@ -450,6 +452,14 @@ export default function NPMPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Button
+                            variant="outline"
+                            onClick={() => setExportDialogOpen(true)}
+                            disabled={parsedLocations.length === 0}
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export
+                        </Button>
                         <AddRedirectDialog
                             availableDomains={uniqueDomains}
                             initialDomain={selectedDomain !== 'all' ? selectedDomain : undefined}
@@ -503,6 +513,12 @@ export default function NPMPage() {
                     </div>
                 </Card>
             )}
+
+            <ExportRedirectsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                locations={parsedLocations}
+            />
         </div>
     );
 }
