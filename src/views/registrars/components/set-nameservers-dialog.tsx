@@ -27,8 +27,9 @@ export function SetNameserversDialog({
     const [nameserversInput, setNameserversInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Filter Namecheap and Njalla domains
-    const updatableDomains = selectedDomains.filter((d) => d.registrar === 'namecheap' || d.registrar === 'njalla');
+    const updatableDomains = selectedDomains.filter(
+        (d) => d.registrar === 'namecheap' || d.registrar === 'njalla' || d.registrar === 'dynadot'
+    );
     const isBulk = updatableDomains.length > 1;
 
     // Pre-fill with current nameservers when dialog opens

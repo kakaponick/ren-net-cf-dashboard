@@ -232,7 +232,9 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
             apiToken: formData.apiToken,
             category: formData.category,
             registrarName: formData.registrarName,
-            username: formData.category === 'registrar' ? formData.username : undefined,
+            username: formData.category === 'registrar' && formData.registrarName === 'namecheap'
+              ? formData.username
+              : undefined,
             proxyId: formData.proxyId,
           })
           toast.success('Account updated successfully')
@@ -299,8 +301,12 @@ export function useAccountForm(existingAccount?: CloudflareAccount | ProxyAccoun
             apiToken: formData.apiToken,
             category: formData.category,
             registrarName: formData.category === 'registrar' ? (formData.registrarName || "namecheap") : undefined,
-            username: formData.category === 'registrar' ? (formData.username?.replaceAll('.', '') || defaultUsername) : undefined,
-            proxyId: formData.proxyId,
+            username: formData.category === 'registrar' && (formData.registrarName || 'namecheap') === 'namecheap'
+              ? (formData.username?.replaceAll('.', '') || defaultUsername)
+              : undefined,
+            proxyId: formData.category === 'registrar' && (formData.registrarName || 'namecheap') === 'namecheap'
+              ? formData.proxyId
+              : undefined,
             createdAt: new Date(),
           }
           addAccount(newAccount)

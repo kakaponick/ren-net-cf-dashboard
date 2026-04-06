@@ -207,11 +207,17 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
               <SelectTrigger id="registrar-name" className="transition-colors focus:ring-2">
                 <SelectValue placeholder="Select registrar" />
               </SelectTrigger>
-              <SelectContent>
+                <SelectContent>
                 <SelectItem value="namecheap">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4" />
                     Namecheap
+                  </div>
+                </SelectItem>
+                <SelectItem value="dynadot">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Dynadot
                   </div>
                 </SelectItem>
                 <SelectItem value="njalla">
@@ -290,6 +296,14 @@ export function AccountForm({ formData, setFormData, isEditing = false }: Accoun
             <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-4">
               <p className="text-sm text-blue-900 dark:text-blue-100">
                 <strong>Njalla API Key:</strong> Njalla uses API keys for authentication. No username or proxy is needed.
+              </p>
+            </div>
+          )}
+
+          {formData.registrarName === 'dynadot' && (
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-4">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                <strong>Dynadot API Key:</strong> Dynadot uses API keys for this integration. No username or proxy is needed.
               </p>
             </div>
           )}

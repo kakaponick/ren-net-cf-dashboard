@@ -24,6 +24,13 @@ export function NameserversCell({
     onEdit,
 }: NameserversCellProps) {
     const [copied, setCopied] = useState(false);
+    const effectiveIsUsingOurDNS =
+        isUsingOurDNS ??
+        (domain.registrar === 'namecheap'
+            ? domain.ncDomain?.IsOurDNS ?? null
+            : domain.registrar === 'dynadot'
+                ? domain.dynadotDomain?.isUsingOurDNS ?? null
+                : null);
 
     const handleCopy = useCallback(async (ns: string[]) => {
         await copyToClipboard(
@@ -43,8 +50,7 @@ export function NameserversCell({
         onEdit(domain);
     }, [domain, onEdit]);
 
-    // Allow both Namecheap and Njalla domains
-    if (domain.registrar !== 'namecheap' && domain.registrar !== 'njalla') {
+    if (domain.registrar !== 'namecheap' && domain.registrar !== 'njalla' && domain.registrar !== 'dynadot') {
         return <div className="text-center text-muted-foreground">—</div>;
     }
 
@@ -58,7 +64,7 @@ export function NameserversCell({
     }
 
     // Show default DNS badge
-    if (isUsingOurDNS) {
+    if (effectiveIsUsingOurDNS) {
         return (
             <div className="flex items-center justify-center gap-2">
                 <Badge variant="secondary" className="text-xs">
@@ -88,10 +94,6 @@ export function NameserversCell({
 
     // Show custom nameservers
     if (nameservers && nameservers.length > 0) {
-        const displayText = nameservers.length <= 2
-            ? nameservers.join(', ')
-            : `${nameservers[0]}, ${nameservers[1]}...`;
-
         return (
             <div className="flex items-center justify-center gap-2">
                 <Popover>

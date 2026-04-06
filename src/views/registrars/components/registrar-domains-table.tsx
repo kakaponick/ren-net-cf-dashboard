@@ -75,6 +75,9 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 			}
 		}
 		// Njalla doesn't have privacy info, return neutral icon
+		if (domain.dynadotDomain) {
+			return <Shield className="h-4 w-4 opacity-50" />;
+		}
 		return <Shield className="h-4 w-4 opacity-50" />;
 	}, []);
 
@@ -257,10 +260,16 @@ export const RegistrarDomainsTable = memo(function RegistrarDomainsTable({
 								<TableCell className="text-center">
 									{nameserversCache[domain.name]
 										? (nameserversCache[domain.name].isUsingOurDNS
-											? (domain.registrar === 'namecheap' ? 'Namecheap' : 'Njalla')
+											? (domain.registrar === 'namecheap'
+												? 'Namecheap'
+												: domain.registrar === 'njalla'
+													? 'Njalla'
+													: 'Dynadot')
 											: 'External')
 										: (domain.registrar === 'namecheap' && domain.ncDomain
 											? (domain.ncDomain.IsOurDNS ? 'Namecheap' : 'External')
+											: domain.registrar === 'dynadot' && domain.dynadotDomain
+												? (domain.dynadotDomain.isUsingOurDNS ? 'Dynadot' : 'External')
 											: '—')}
 								</TableCell>
 							</ActivityBoundary>

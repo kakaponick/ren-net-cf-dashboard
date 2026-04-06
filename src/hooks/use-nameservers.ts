@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import type { NamecheapAccount } from '@/types/namecheap';
 import type { NjallaAccount } from '@/types/njalla';
+import type { DynadotAccount } from '@/types/dynadot';
 import type { ProxyAccount } from '@/types/cloudflare';
 import { processInParallel } from '@/lib/utils';
 
@@ -22,10 +23,42 @@ interface NameserversAccount {
 export function useNameservers(
     accounts: NamecheapAccount[],
     proxyAccounts: ProxyAccount[],
-    njallaAccounts: NjallaAccount[] = []
+    njallaAccounts: NjallaAccount[] = [],
+    dynadotAccounts: DynadotAccount[] = []
 ): UseNameserversReturn {
     const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
     const { setNameserversCache, getNameserversCache } = useCloudflareCache();
+    const dynadotQueueRef = useRef<Record<string, Promise<unknown>>>({});
+    const dynadotLastRequestAtRef = useRef<Record<string, number>>({});
+
+    const DYNADOT_MIN_INTERVAL_MS = 1000;
+
+    const sleep = useCallback((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)), []);
+
+    const runDynadotRequest = useCallback(async <T,>(
+        accountId: string,
+        task: () => Promise<T>
+    ): Promise<T> => {
+        const previous = dynadotQueueRef.current[accountId] ?? Promise.resolve();
+
+        const next = previous
+            .catch(() => undefined)
+            .then(async () => {
+                const lastRequestAt = dynadotLastRequestAtRef.current[accountId] ?? 0;
+                const elapsed = Date.now() - lastRequestAt;
+                const waitMs = Math.max(0, DYNADOT_MIN_INTERVAL_MS - elapsed);
+
+                if (waitMs > 0) {
+                    await sleep(waitMs);
+                }
+
+                dynadotLastRequestAtRef.current[accountId] = Date.now();
+                return task();
+            });
+
+        dynadotQueueRef.current[accountId] = next.catch(() => undefined);
+        return next;
+    }, [sleep]);
 
     /**
      * Parse domain into SLD and TLD
@@ -76,8 +109,9 @@ export function useNameservers(
 
         const namecheapAccount = accounts.find((a) => a.id === accountId);
         const njallaAccount = njallaAccounts.find((a) => a.id === accountId);
+        const dynadotAccount = dynadotAccounts.find((a) => a.id === accountId);
 
-        if (!namecheapAccount && !njallaAccount) {
+        if (!namecheapAccount && !njallaAccount && !dynadotAccount) {
             toast.error(`Account not found for domain ${domain}`);
             return null;
         }
@@ -133,6 +167,25 @@ export function useNameservers(
 
                 nameservers = data.data.nameservers;
                 isUsingOurDNS = data.data.isUsingOurDNS;
+            } else if (dynadotAccount) {
+                const response = await runDynadotRequest(dynadotAccount.id, () => fetch(
+                    `/api/dynadot/nameservers?domain=${encodeURIComponent(domain)}`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'x-api-key': dynadotAccount.apiKey
+                        }
+                    }
+                ));
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to fetch nameservers');
+                }
+
+                nameservers = data.data.nameservers;
+                isUsingOurDNS = data.data.isUsingOurDNS;
             }
 
             // Cache the result
@@ -146,7 +199,7 @@ export function useNameservers(
         } finally {
             setLoadingStates((prev) => ({ ...prev, [domain]: false }));
         }
-    }, [accounts, proxyAccounts, njallaAccounts, parseDomain, buildHeaders, getNameserversCache, setNameserversCache]);
+    }, [accounts, proxyAccounts, njallaAccounts, dynadotAccounts, parseDomain, buildHeaders, getNameserversCache, setNameserversCache, runDynadotRequest]);
 
     /**
      * Set nameservers for multiple domains
@@ -158,14 +211,16 @@ export function useNameservers(
     ): Promise<boolean> => {
         const namecheapAccount = accounts.find((a) => a.id === accountId);
         const njallaAccount = njallaAccounts.find((a) => a.id === accountId);
+        const dynadotAccount = dynadotAccounts.find((a) => a.id === accountId);
 
-        if (!namecheapAccount && !njallaAccount) {
+        if (!namecheapAccount && !njallaAccount && !dynadotAccount) {
             toast.error('Account not found');
             return false;
         }
 
         const headers: Record<string, string> = {};
         let isNamecheap = false;
+        let isDynadot = false;
 
         if (namecheapAccount) {
             if (!namecheapAccount.proxyId) {
@@ -183,6 +238,9 @@ export function useNameservers(
             isNamecheap = true;
         } else if (njallaAccount) {
             headers['x-api-key'] = njallaAccount.apiKey;
+        } else if (dynadotAccount) {
+            headers['x-api-key'] = dynadotAccount.apiKey;
+            isDynadot = true;
         }
 
         // Process each domain
@@ -212,8 +270,8 @@ export function useNameservers(
                             }),
                         });
                     } else {
-                        // Njalla
-                        response = await fetch('/api/njalla/nameservers', {
+                        const url = isDynadot ? '/api/dynadot/nameservers' : '/api/njalla/nameservers';
+                        const executeRequest = () => fetch(url, {
                             method: 'POST',
                             headers: {
                                 'x-api-key': headers['x-api-key'],
@@ -224,6 +282,10 @@ export function useNameservers(
                                 nameservers,
                             }),
                         });
+
+                        response = isDynadot && dynadotAccount
+                            ? await runDynadotRequest(dynadotAccount.id, executeRequest)
+                            : await executeRequest();
                     }
 
                     const data = await response.json();
@@ -233,7 +295,7 @@ export function useNameservers(
                     }
 
                     // Update cache
-                    setNameserversCache(domain, nameservers, false); // Custom NS means not using Namecheap DNS
+                    setNameserversCache(domain, nameservers, false);
 
                     return { domain, success: true };
                 } catch (error) {
@@ -270,7 +332,7 @@ export function useNameservers(
             });
             return true;
         }
-    }, [accounts, proxyAccounts, njallaAccounts, parseDomain, buildHeaders, setNameserversCache]);
+    }, [accounts, proxyAccounts, njallaAccounts, dynadotAccounts, parseDomain, buildHeaders, setNameserversCache, runDynadotRequest]);
 
     return {
         fetchNameservers,

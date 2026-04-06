@@ -111,13 +111,18 @@ export function useBulkImport() {
         // Handle Registrar Proxy Logic
         let proxyId = undefined
         if (importCategory === 'registrar' && importRegistrarName === 'namecheap') {
-          // Check for 3rd arg manually since it's outside the standard parser return for Account
           const parts = trimmedLine.split(/\s+/)
-          if (parts.length >= 3) {
-            proxyId = findOrCreateProxy(parts[2])
+          const explicitUsername = parts[2] && !parts[2].includes(':') ? parts[2] : undefined
+          const explicitProxy = parts.find((part, index) => index >= 2 && part.includes(':'))
+          if (explicitProxy) {
+            proxyId = findOrCreateProxy(explicitProxy)
           }
           if (!proxyId && defaultProxyId) {
             proxyId = defaultProxyId
+          }
+
+          if (explicitUsername) {
+            ;(parsedData as Partial<CloudflareAccount>).username = explicitUsername.replaceAll('.', '')
           }
         }
 
@@ -125,7 +130,9 @@ export function useBulkImport() {
           id: crypto.randomUUID(),
           createdAt: new Date(),
           ...parsedData as any, // Cast because parsedData is Partial<T>
-          proxyId: proxyId || (parsedData as any).proxyId
+          proxyId: importCategory === 'registrar' && importRegistrarName === 'namecheap'
+            ? (proxyId || (parsedData as any).proxyId)
+            : undefined
         }
 
         addAccount(newAccount)

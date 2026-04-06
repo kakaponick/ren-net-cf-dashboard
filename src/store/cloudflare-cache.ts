@@ -45,6 +45,12 @@ interface NjallaDomainData {
   domains: any[];
 }
 
+interface DynadotDomainData {
+  accountId: string;
+  accountName: string;
+  domains: any[];
+}
+
 interface NameserverData {
   domain: string;
   nameservers: string[];
@@ -80,6 +86,10 @@ interface CloudflareCacheState {
   njallaDomains: Record<string, NjallaDomainData>;
   njallaDomainsLastUpdated: Record<string, number>;
 
+  // Dynadot Domains cache (keyed by accountId)
+  dynadotDomains: Record<string, DynadotDomainData>;
+  dynadotDomainsLastUpdated: Record<string, number>;
+
   // Nameservers cache (keyed by domain name)
   nameservers: Record<string, NameserverData>;
   nameserversLastUpdated: Record<string, number>;
@@ -93,6 +103,7 @@ interface CloudflareCacheState {
     registrarData: Record<string, boolean>;
     namecheapDomains: Record<string, boolean>;
     njallaDomains: Record<string, boolean>;
+    dynadotDomains: Record<string, boolean>;
     nameservers: Record<string, boolean>;
   };
 
@@ -106,6 +117,7 @@ interface CloudflareCacheState {
   setRegistrarData: (accountId: string, registrarName: string, domains?: string[]) => void;
   setNamecheapDomains: (accountId: string, accountName: string, domains: any[]) => void;
   setNjallaDomains: (accountId: string, accountName: string, domains: any[]) => void;
+  setDynadotDomains: (accountId: string, accountName: string, domains: any[]) => void;
   setNameserversCache: (domain: string, nameservers: string[], isUsingOurDNS: boolean) => void;
 
   setLoading: (type: string, key: string, loading: boolean) => void;
@@ -129,6 +141,7 @@ interface CloudflareCacheState {
   getRegistrarData: (accountId: string) => RegistrarData | null;
   getNamecheapDomains: (accountId: string) => NamecheapDomainData | null;
   getNjallaDomains: (accountId: string) => NjallaDomainData | null;
+  getDynadotDomains: (accountId: string) => DynadotDomainData | null;
   getNameserversCache: (domain: string) => NameserverData | null;
 }
 
@@ -164,6 +177,9 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
       njallaDomains: {},
       njallaDomainsLastUpdated: {},
 
+      dynadotDomains: {},
+      dynadotDomainsLastUpdated: {},
+
       nameservers: {},
       nameserversLastUpdated: {},
 
@@ -175,6 +191,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         registrarData: {},
         namecheapDomains: {},
         njallaDomains: {},
+        dynadotDomains: {},
         nameservers: {},
       },
 
@@ -321,6 +338,19 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         }));
       },
 
+      setDynadotDomains: (accountId, accountName, domains) => {
+        set((state) => ({
+          dynadotDomains: {
+            ...state.dynadotDomains,
+            [accountId]: { accountId, accountName, domains }
+          },
+          dynadotDomainsLastUpdated: {
+            ...state.dynadotDomainsLastUpdated,
+            [accountId]: Date.now()
+          }
+        }));
+      },
+
       setNameserversCache: (domain, nameservers, isUsingOurDNS) => {
         set((state) => ({
           nameservers: {
@@ -362,6 +392,8 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         namecheapDomainsLastUpdated: {},
         njallaDomains: {},
         njallaDomainsLastUpdated: {},
+        dynadotDomains: {},
+        dynadotDomainsLastUpdated: {},
         nameservers: {},
         nameserversLastUpdated: {},
         isLoading: {
@@ -372,6 +404,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           registrarData: {},
           namecheapDomains: {},
           njallaDomains: {},
+          dynadotDomains: {},
           nameservers: {},
         }
       }),
@@ -468,6 +501,7 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
           case 'registrarData':
           case 'namecheapDomains':
           case 'njallaDomains':
+          case 'dynadotDomains':
           case 'nameservers':
             if (!key) return false;
             const lastUpdated = state[`${type}LastUpdated` as keyof typeof state] as Record<string, number> | undefined;
@@ -517,6 +551,10 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         return get().njallaDomains[accountId] || null;
       },
 
+      getDynadotDomains: (accountId) => {
+        return get().dynadotDomains[accountId] || null;
+      },
+
       getNameserversCache: (domain) => {
         return get().nameservers[domain] || null;
       },
@@ -538,6 +576,8 @@ export const useCloudflareCache = create<CloudflareCacheStateWithHydration>()(
         namecheapDomainsLastUpdated: state.namecheapDomainsLastUpdated,
         njallaDomains: state.njallaDomains,
         njallaDomainsLastUpdated: state.njallaDomainsLastUpdated,
+        dynadotDomains: state.dynadotDomains,
+        dynadotDomainsLastUpdated: state.dynadotDomainsLastUpdated,
         nameservers: state.nameservers,
         nameserversLastUpdated: state.nameserversLastUpdated,
       }),

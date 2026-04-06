@@ -1,6 +1,6 @@
 export type AccountCategory = "registrar" | "cloudflare" | "proxy" | "ssh" | "npm" | "vps"
 
-export type RegistrarType = "namecheap" | "njalla"
+export type RegistrarType = "namecheap" | "njalla" | "dynadot"
 
 export interface CloudflareAccount {
   id: string;

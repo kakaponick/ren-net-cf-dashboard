@@ -208,6 +208,12 @@ export function AddCredentialsDialog({
                                                         Namecheap
                                                     </div>
                                                 </SelectItem>
+                                                <SelectItem value="dynadot">
+                                                    <div className="flex items-center gap-2">
+                                                        <Globe className="h-4 w-4" />
+                                                        Dynadot
+                                                    </div>
+                                                </SelectItem>
                                                 <SelectItem value="njalla">
                                                     <div className="flex items-center gap-2">
                                                         <Globe className="h-4 w-4" />

@@ -1,7 +1,14 @@
 import type { NamecheapDomain } from './namecheap';
 import type { NjallaDomain } from './njalla';
+import type { DynadotDomain } from './dynadot';
+import {
+  isDynadotUsingOurDNS,
+  normalizeDynadotRenewOption,
+  normalizeDynadotStatus,
+  parseDynadotTimestamp,
+} from '@/lib/dynadot-utils';
 
-export type RegistrarType = 'namecheap' | 'njalla';
+export type RegistrarType = 'namecheap' | 'njalla' | 'dynadot';
 
 export interface UnifiedDomain {
   id: string; // Unique identifier combining registrar + domain name
@@ -15,6 +22,8 @@ export interface UnifiedDomain {
   ncDomain?: NamecheapDomain;
   // Njalla specific fields
   njallaDomain?: NjallaDomain;
+  // Dynadot specific fields
+  dynadotDomain?: DynadotDomain;
 }
 
 /**
@@ -50,5 +59,27 @@ export function toUnifiedDomainFromNjalla(domain: NjallaDomain, accountId: strin
     autorenew: domain.autorenew,
     accountId,
     njallaDomain: domain,
+  };
+}
+
+/**
+ * Converts a Dynadot domain to UnifiedDomain format
+ */
+export function toUnifiedDomainFromDynadot(domain: DynadotDomain, accountId: string): UnifiedDomain {
+  const normalizedDomain: DynadotDomain = {
+    ...domain,
+    isUsingOurDNS:
+      domain.isUsingOurDNS ?? isDynadotUsingOurDNS(domain.NameServerSettings),
+  };
+
+  return {
+    id: `dynadot-${domain.Name}`,
+    name: domain.Name,
+    registrar: 'dynadot',
+    status: normalizeDynadotStatus(normalizedDomain),
+    expiry: parseDynadotTimestamp(domain.Expiration),
+    autorenew: normalizeDynadotRenewOption(domain.RenewOption),
+    accountId,
+    dynadotDomain: normalizedDomain,
   };
 }

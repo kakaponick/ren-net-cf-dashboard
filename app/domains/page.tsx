@@ -37,6 +37,7 @@ export default function RegistrarsPage() {
     isRefreshing,
     namecheapAccounts,
     njallaAccounts,
+    dynadotAccounts,
     loadDomains,
     refreshAccount,
   } = useRegistrars();
@@ -52,7 +53,8 @@ export default function RegistrarsPage() {
   const { fetchNameservers, setNameservers, loadingStates: nsLoadingStates } = useNameservers(
     namecheapAccounts,
     proxyAccounts,
-    njallaAccounts
+    njallaAccounts,
+    dynadotAccounts
   );
   const { nameservers: nameserversCache } = useCloudflareCache();
 
@@ -63,8 +65,9 @@ export default function RegistrarsPage() {
     const emails: Record<string, string> = {};
     namecheapAccounts.forEach(acc => emails[acc.id] = acc.email);
     njallaAccounts.forEach(acc => emails[acc.id] = acc.email);
+    dynadotAccounts.forEach(acc => emails[acc.id] = acc.email);
     return emails;
-  }, [namecheapAccounts, njallaAccounts]);
+  }, [namecheapAccounts, njallaAccounts, dynadotAccounts]);
 
   const {
     searchTerm,
@@ -175,8 +178,8 @@ export default function RegistrarsPage() {
   };
 
   const handleRefreshNameservers = async () => {
-    // Fetch nameservers for all visible domains (Namecheap and Njalla)
-    const registrarsWithNameservers = ['namecheap', 'njalla'];
+    // Fetch nameservers for all visible registrar domains
+    const registrarsWithNameservers = ['namecheap', 'njalla', 'dynadot'];
     const domainsToUpdate = sortedDomains.filter(d => registrarsWithNameservers.includes(d.registrar));
 
     // Group domains by account
@@ -217,12 +220,30 @@ export default function RegistrarsPage() {
   };
 
   const handleSetNameservers = async (domainNames: string[], nameservers: string[]) => {
-    // Get account ID from first domain
-    const firstDomain = domains.find((d) => domainNames.includes(d.name));
-    if (!firstDomain?.accountId) {
+    const domainsByAccount = domainNames.reduce<Record<string, string[]>>((acc, domainName) => {
+      const domain = domains.find((item) => item.name === domainName);
+      if (!domain?.accountId) {
+        return acc;
+      }
+
+      if (!acc[domain.accountId]) {
+        acc[domain.accountId] = [];
+      }
+
+      acc[domain.accountId].push(domainName);
+      return acc;
+    }, {});
+
+    const accountIds = Object.keys(domainsByAccount);
+    if (accountIds.length === 0) {
       return false;
     }
-    return await setNameservers(domainNames, nameservers, firstDomain.accountId);
+
+    const results = await Promise.all(
+      accountIds.map((accountId) => setNameservers(domainsByAccount[accountId], nameservers, accountId))
+    );
+
+    return results.every(Boolean);
   };
 
   const handleEditNameservers = (domain: UnifiedDomain) => {
@@ -254,6 +275,7 @@ export default function RegistrarsPage() {
         isNameserversLoading={isNameserversLoading}
         namecheapAccounts={namecheapAccounts}
         njallaAccounts={njallaAccounts}
+        dynadotAccounts={dynadotAccounts}
         selectedAccount={selectedAccount}
         onAccountChange={handleAccountChange}
         selectedRegistrar={selectedRegistrar}

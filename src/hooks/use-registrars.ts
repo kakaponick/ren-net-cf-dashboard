@@ -4,8 +4,13 @@ import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import type { NamecheapDomain, NamecheapAccount } from '@/types/namecheap';
 import type { NjallaDomain, NjallaAccount } from '@/types/njalla';
+import type { DynadotDomain, DynadotAccount } from '@/types/dynadot';
 import type { UnifiedDomain } from '@/types/registrar';
-import { toUnifiedDomain, toUnifiedDomainFromNjalla } from '@/types/registrar';
+import {
+  toUnifiedDomain,
+  toUnifiedDomainFromDynadot,
+  toUnifiedDomainFromNjalla,
+} from '@/types/registrar';
 import type { ProxyAccount } from '@/types/cloudflare';
 import { processInParallel } from '@/lib/utils';
 
@@ -15,13 +20,14 @@ interface UseRegistrarsReturn {
   isRefreshing: boolean;
   namecheapAccounts: NamecheapAccount[];
   njallaAccounts: NjallaAccount[];
+  dynadotAccounts: DynadotAccount[];
   loadDomains: (force?: boolean) => Promise<void>;
   refreshAccount: (accountId: string) => Promise<void>;
 }
 
 interface FetchResult {
   accountId: string;
-  registrar: 'namecheap' | 'njalla';
+  registrar: 'namecheap' | 'njalla' | 'dynadot';
   domains: UnifiedDomain[];
   error?: string;
 }
@@ -32,7 +38,16 @@ export function useRegistrars(): UseRegistrarsReturn {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { accounts, proxyAccounts } = useAccountStore();
-  const { getNamecheapDomains, setNamecheapDomains, getNjallaDomains, setNjallaDomains, isCacheValid, _hasHydrated } =
+  const {
+    getNamecheapDomains,
+    setNamecheapDomains,
+    getNjallaDomains,
+    setNjallaDomains,
+    getDynadotDomains,
+    setDynadotDomains,
+    isCacheValid,
+    _hasHydrated,
+  } =
     useCloudflareCache();
 
   // Derive Namecheap accounts from the main account store
@@ -68,6 +83,18 @@ export function useRegistrars(): UseRegistrarsReturn {
       } as NjallaAccount));
   }, [accounts]);
 
+  const dynadotAccounts = useMemo(() => {
+    return accounts
+      .filter((account) => account.category === 'registrar' && account.registrarName === 'dynadot')
+      .map((account) => ({
+        id: account.id,
+        name: account.name || account.email || 'Unnamed Account',
+        email: account.email,
+        apiKey: account.apiToken,
+        createdAt: account.createdAt,
+      } as DynadotAccount));
+  }, [accounts]);
+
   // Load cached domains on mount or when hydration completes
   useEffect(() => {
     if (!_hasHydrated) return;
@@ -99,10 +126,32 @@ export function useRegistrars(): UseRegistrarsReturn {
       }
     }
 
+    for (const account of dynadotAccounts) {
+      if (isCacheValid('dynadotDomains', account.id)) {
+        const data = getDynadotDomains(account.id);
+        if (data?.domains && Array.isArray(data.domains)) {
+          const unifiedDomains = data.domains.map((d) =>
+            toUnifiedDomainFromDynadot({ ...d, accountId: account.id }, account.id)
+          );
+          cachedDomains.push(...unifiedDomains);
+          hasCache = true;
+        }
+      }
+    }
+
     if (hasCache) {
       setDomains(cachedDomains);
     }
-  }, [namecheapAccounts, njallaAccounts, getNamecheapDomains, getNjallaDomains, isCacheValid, _hasHydrated]);
+  }, [
+    namecheapAccounts,
+    njallaAccounts,
+    dynadotAccounts,
+    getNamecheapDomains,
+    getNjallaDomains,
+    getDynadotDomains,
+    isCacheValid,
+    _hasHydrated,
+  ]);
 
   /**
    * Fetches domains for a single Namecheap account.
@@ -280,9 +329,78 @@ export function useRegistrars(): UseRegistrarsReturn {
     [setNjallaDomains]
   );
 
+  /**
+   * Fetches domains for a single Dynadot account.
+   */
+  const fetchDynadotAccountDomains = useCallback(
+    async (account: DynadotAccount): Promise<FetchResult> => {
+      try {
+        const response = await fetch('/api/dynadot/domains', {
+          method: 'GET',
+          headers: {
+            'x-account-id': account.id,
+            'x-account-email': account.email,
+            'x-account-name': account.name || account.email,
+            'x-api-key': account.apiKey,
+          },
+        });
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          console.error(`JSON Parse error for ${account.name}`, jsonError);
+          return {
+            accountId: account.id,
+            registrar: 'dynadot',
+            domains: [],
+            error: `Invalid JSON response for ${account.name}`,
+          };
+        }
+
+        if (!response.ok) {
+          return {
+            accountId: account.id,
+            registrar: 'dynadot',
+            domains: [],
+            error: data.error || `Failed to load domains for ${account.name}`,
+          };
+        }
+
+        if (data.success && data.data && Array.isArray(data.data.domains)) {
+          setDynadotDomains(account.id, account.name || account.email, data.data.domains);
+          const unifiedDomains = data.data.domains.map((d: DynadotDomain) =>
+            toUnifiedDomainFromDynadot({ ...d, accountId: account.id }, account.id)
+          );
+          return {
+            accountId: account.id,
+            registrar: 'dynadot',
+            domains: unifiedDomains,
+          };
+        }
+
+        return {
+          accountId: account.id,
+          registrar: 'dynadot',
+          domains: [],
+        };
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown network error';
+        console.error(`Network error for ${account.name}:`, error);
+        return {
+          accountId: account.id,
+          registrar: 'dynadot',
+          domains: [],
+          error: errMsg,
+        };
+      }
+    },
+    [setDynadotDomains]
+  );
+
   const loadDomains = useCallback(
     async (force = false) => {
-      if (namecheapAccounts.length === 0 && njallaAccounts.length === 0) {
+      if (namecheapAccounts.length === 0 && njallaAccounts.length === 0 && dynadotAccounts.length === 0) {
         setDomains([]);
         return;
       }
@@ -301,7 +419,12 @@ export function useRegistrars(): UseRegistrarsReturn {
           fetchNjallaAccountDomains,
           3 // Limit concurrency
         );
-        const results = [...namecheapResults, ...njallaResults];
+        const dynadotResults = await processInParallel(
+          dynadotAccounts,
+          fetchDynadotAccountDomains,
+          3 // Limit concurrency
+        );
+        const results = [...namecheapResults, ...njallaResults, ...dynadotResults];
 
         const allDomains: UnifiedDomain[] = [];
         const errors: string[] = [];
@@ -332,15 +455,24 @@ export function useRegistrars(): UseRegistrarsReturn {
         setLoadingState(false);
       }
     },
-    [namecheapAccounts, njallaAccounts, fetchNamecheapAccountDomains, fetchNjallaAccountDomains, domains.length]
+    [
+      namecheapAccounts,
+      njallaAccounts,
+      dynadotAccounts,
+      fetchNamecheapAccountDomains,
+      fetchNjallaAccountDomains,
+      fetchDynadotAccountDomains,
+      domains.length,
+    ]
   );
 
   const refreshAccount = useCallback(
     async (accountId: string) => {
       const namecheapAccount = namecheapAccounts.find((a) => a.id === accountId);
       const njallaAccount = njallaAccounts.find((a) => a.id === accountId);
+      const dynadotAccount = dynadotAccounts.find((a) => a.id === accountId);
 
-      if (!namecheapAccount && !njallaAccount) return;
+      if (!namecheapAccount && !njallaAccount && !dynadotAccount) return;
 
       setIsRefreshing(true);
       try {
@@ -348,6 +480,8 @@ export function useRegistrars(): UseRegistrarsReturn {
 
         if (namecheapAccount) {
           result = await fetchNamecheapAccountDomains(namecheapAccount);
+        } else if (dynadotAccount) {
+          result = await fetchDynadotAccountDomains(dynadotAccount);
         } else {
           result = await fetchNjallaAccountDomains(njallaAccount!);
         }
@@ -359,10 +493,10 @@ export function useRegistrars(): UseRegistrarsReturn {
             const filtered = prev.filter((d) => d.accountId !== accountId);
             return [...filtered, ...result.domains];
           });
-          toast.success(`Loaded ${result.domains.length} domains for ${namecheapAccount?.name || njallaAccount?.name}`);
+          toast.success(`Loaded ${result.domains.length} domains for ${namecheapAccount?.name || njallaAccount?.name || dynadotAccount?.name}`);
         } else {
           setDomains((prev) => prev.filter((d) => d.accountId !== accountId));
-          toast.info(`No domains found for ${namecheapAccount?.name || njallaAccount?.name}`);
+          toast.info(`No domains found for ${namecheapAccount?.name || njallaAccount?.name || dynadotAccount?.name}`);
         }
       } catch (error) {
         console.error('Error refreshing account:', error);
@@ -371,7 +505,14 @@ export function useRegistrars(): UseRegistrarsReturn {
         setIsRefreshing(false);
       }
     },
-    [namecheapAccounts, njallaAccounts, fetchNamecheapAccountDomains, fetchNjallaAccountDomains]
+    [
+      namecheapAccounts,
+      njallaAccounts,
+      dynadotAccounts,
+      fetchNamecheapAccountDomains,
+      fetchNjallaAccountDomains,
+      fetchDynadotAccountDomains,
+    ]
   );
 
   return {
@@ -380,6 +521,7 @@ export function useRegistrars(): UseRegistrarsReturn {
     isRefreshing,
     namecheapAccounts,
     njallaAccounts,
+    dynadotAccounts,
     loadDomains,
     refreshAccount,
   };

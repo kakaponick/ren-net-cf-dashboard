@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import type { NamecheapAccount } from '@/types/namecheap';
 import type { NjallaAccount } from '@/types/njalla';
+import type { DynadotAccount } from '@/types/dynadot';
 import type { RegistrarType } from '@/types/registrar';
 import { ColumnVisibilityMenu, type ColumnVisibilityItem } from '@/components/table/column-visibility-menu';
 
@@ -34,6 +35,7 @@ interface RegistrarPageHeaderProps {
 	isNameserversLoading?: boolean;
 	namecheapAccounts: NamecheapAccount[];
 	njallaAccounts: NjallaAccount[];
+	dynadotAccounts: DynadotAccount[];
 	selectedAccount: string;
 	onAccountChange: (value: string) => void;
 	selectedRegistrar: RegistrarType | 'all';
@@ -54,6 +56,7 @@ export function RegistrarPageHeader({
 	isNameserversLoading = false,
 	namecheapAccounts,
 	njallaAccounts,
+	dynadotAccounts,
 	selectedAccount,
 	onAccountChange,
 	selectedRegistrar,
@@ -70,8 +73,12 @@ export function RegistrarPageHeader({
 		selectedRegistrar === 'all' || selectedRegistrar === 'njalla'
 			? njallaAccounts
 			: [];
+	const filteredDynadotAccounts =
+		selectedRegistrar === 'all' || selectedRegistrar === 'dynadot'
+			? dynadotAccounts
+			: [];
 
-	const allAccounts = [...filteredNamecheapAccounts, ...filteredNjallaAccounts];
+	const allAccounts = [...filteredNamecheapAccounts, ...filteredNjallaAccounts, ...filteredDynadotAccounts];
 	const totalDomains = Object.values(domainCounts).reduce((a, b) => a + b, 0);
 
 	// Calculate total domains for filtered accounts
@@ -80,6 +87,10 @@ export function RegistrarPageHeader({
 		0
 	);
 	const njallaTotalDomains = filteredNjallaAccounts.reduce(
+		(total, account) => total + (domainCounts[account.id] || 0),
+		0
+	);
+	const dynadotTotalDomains = filteredDynadotAccounts.reduce(
 		(total, account) => total + (domainCounts[account.id] || 0),
 		0
 	);
@@ -139,6 +150,7 @@ export function RegistrarPageHeader({
 							<SelectItem value="all">All Registrars</SelectItem>
 							<SelectItem value="namecheap">Namecheap</SelectItem>
 							<SelectItem value="njalla">Njalla</SelectItem>
+							<SelectItem value="dynadot">Dynadot</SelectItem>
 						</SelectContent>
 					</Select>
 
@@ -175,6 +187,22 @@ export function RegistrarPageHeader({
 										Njalla <span className="text-muted-foreground/60">({njallaTotalDomains})</span>
 									</div>
 									{filteredNjallaAccounts.map((account) => (
+										<SelectItem key={account.id} value={account.id} className="pl-4">
+											{account.name || account.email}
+											<span className="text-muted-foreground ml-2">
+												({domainCounts[account.id] || 0})
+											</span>
+										</SelectItem>
+									))}
+								</>
+							)}
+
+							{filteredDynadotAccounts.length > 0 && (
+								<>
+									<div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+										Dynadot <span className="text-muted-foreground/60">({dynadotTotalDomains})</span>
+									</div>
+									{filteredDynadotAccounts.map((account) => (
 										<SelectItem key={account.id} value={account.id} className="pl-4">
 											{account.name || account.email}
 											<span className="text-muted-foreground ml-2">

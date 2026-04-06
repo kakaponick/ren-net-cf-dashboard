@@ -58,14 +58,15 @@ export const RegistrarParser: CredentialParser<CloudflareAccount> = {
             apiToken,
             category: 'registrar',
             registrarName: options.registrarName,
-            username: email.split('@')[0].replaceAll('.', '')
+            username: options.registrarName === 'namecheap'
+                ? email.split('@')[0].replaceAll('.', '')
+                : undefined
         }
     },
     export: (account, resolvedProxy) => {
         let line = `${account.email}  ${account.apiToken}`
-        if (account.username) line += `  ${account.username}`
-        if (account.registrarName) line += `  ${account.registrarName}`
-        if (resolvedProxy) {
+        if (account.registrarName === 'namecheap' && account.username) line += `  ${account.username}`
+        if (account.registrarName === 'namecheap' && resolvedProxy) {
             let proxyStr = `${resolvedProxy.host}:${resolvedProxy.port}`
             if (resolvedProxy.username) {
                 proxyStr += `:${resolvedProxy.username}`
@@ -75,11 +76,11 @@ export const RegistrarParser: CredentialParser<CloudflareAccount> = {
         }
         return line
     },
-    helpText: "Format: Email  API_Key  [Username]  [Registrar]  [Proxy]",
+    helpText: "Format: Email  API_Key  [Namecheap username]  [Namecheap proxy]",
     exampleText: `# Example format (one account per line):
 user@example.com  api_key_1234567890
-admin@client.com  api_key_abcdef1234  admin  namecheap  127.0.0.1:1080
-support@company.com  api_key_xyz789  support  njalla`
+admin@client.com  api_key_abcdef1234  admin  127.0.0.1:1080
+support@company.com  api_key_xyz789`
 }
 
 
@@ -214,7 +215,7 @@ Web-01   192.168.1.50  ubuntu`
 
 
 // --- NPM Parser ---
-export const NPMParser: CredentialParser<NPMAccount> = {
+export const NPMParser: CredentialParser<CloudflareAccount> = {
     category: 'npm',
     parse: (line: string) => {
         // NPM is complex (CloudflareAccount underneath). 
