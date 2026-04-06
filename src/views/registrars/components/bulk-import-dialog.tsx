@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, Loader2, Cloud } from 'lucide-react';
 import {
@@ -10,21 +10,15 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useAccountStore } from '@/store/account-store';
 import { useBulkDomainCreation } from '@/hooks/use-bulk-domain-creation';
+import { useCloudflareDestinationAccount } from '@/hooks/use-cloudflare-destination-account';
 import { toast } from 'sonner';
 import type { UnifiedDomain } from '@/types/registrar';
-import type { CloudflareAccount } from '@/types/cloudflare';
+import { AccountSelectors } from '@/views/domains/components/add-domain-dialog/AccountSelectors';
 
 interface BulkImportDialogProps {
 	selectedDomains: UnifiedDomain[];
@@ -39,8 +33,19 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 
 	const { accounts: allAccounts } = useAccountStore();
 	const accounts = allAccounts.filter(account => account.category === 'cloudflare');
-
-	const selectedAccount = accounts.find(account => account.id === selectedAccountId);
+	const {
+		accountsToUse,
+		selectedAccount,
+		cloudflareAccounts,
+		selectedCloudflareAccountId,
+		setSelectedCloudflareAccountId,
+		isLoadingAccounts,
+		hasAvailableCloudflareAccounts,
+		destinationAccountMessage,
+	} = useCloudflareDestinationAccount({
+		selectedAccountId,
+		accounts,
+	});
 
 	const {
 		createDomains,
@@ -49,8 +54,8 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 		domainQueue,
 		resetQueue,
 	} = useBulkDomainCreation({
-		account: selectedAccount!,
-		cloudflareAccountId: selectedAccount?.id || '',
+		account: selectedAccount || accountsToUse[0] || accounts[0],
+		cloudflareAccountId: selectedCloudflareAccountId,
 		onSuccess: () => {
 			toast.success('Bulk import completed!');
 			setOpen(false);
@@ -61,9 +66,35 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 
 	const domainNames = selectedDomains.map(domain => domain.name);
 
+	useEffect(() => {
+		if (open && accountsToUse.length > 0 && !selectedAccountId) {
+			setSelectedAccountId(accountsToUse[0].id);
+		}
+	}, [open, accountsToUse, selectedAccountId]);
+
 	const handleImport = useCallback(async () => {
+		if (!selectedAccountId) {
+			toast.error('Please select a Cloudflare API credential');
+			return;
+		}
+
+		if (isLoadingAccounts) {
+			toast.error('Cloudflare accounts are still loading for this credential');
+			return;
+		}
+
+		if (!hasAvailableCloudflareAccounts) {
+			toast.error(destinationAccountMessage);
+			return;
+		}
+
+		if (!selectedCloudflareAccountId) {
+			toast.error('Please select a destination Cloudflare account');
+			return;
+		}
+
 		if (!selectedAccount || !rootIPAddress.trim()) {
-			toast.error('Please select an account and provide a root IP address');
+			toast.error('Please provide a root IP address before starting the import');
 			return;
 		}
 
@@ -73,12 +104,26 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 			console.error('Bulk import failed:', error);
 			toast.error('Failed to start bulk import');
 		}
-	}, [selectedAccount, rootIPAddress, proxied, domainNames, createDomains]);
+	}, [
+		selectedAccountId,
+		isLoadingAccounts,
+		hasAvailableCloudflareAccounts,
+		destinationAccountMessage,
+		selectedCloudflareAccountId,
+		selectedAccount,
+		rootIPAddress,
+		proxied,
+		domainNames,
+		createDomains,
+	]);
 
 	const handleOpenChange = useCallback((isOpen: boolean) => {
 		setOpen(isOpen);
 		if (!isOpen) {
 			resetQueue();
+			setSelectedAccountId('');
+			setRootIPAddress('');
+			setProxied(true);
 		}
 	}, [resetQueue]);
 
@@ -94,7 +139,7 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 					size="sm"
 					variant="default"
 					className="gap-2"
-					disabled={selectedDomains.length === 0}
+					disabled={selectedDomains.length === 0 || accounts.length === 0}
 				>
 					<Upload className="h-3.5 w-3.5" />
 					Import to Cloudflare
@@ -113,22 +158,17 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 				</DialogHeader>
 
 				<div className="space-y-4">
-					{/* Cloudflare Account Selection */}
-					<div className="space-y-2">
-						<Label htmlFor="cloudflare-account">Cloudflare Account</Label>
-						<Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-							<SelectTrigger id="cloudflare-account">
-								<SelectValue placeholder="Select Cloudflare account" />
-							</SelectTrigger>
-							<SelectContent>
-								{accounts.map((account) => (
-									<SelectItem key={account.id} value={account.id}>
-										{account.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
+					<AccountSelectors
+						accounts={accountsToUse}
+						cloudflareAccounts={cloudflareAccounts}
+						selectedAccountId={selectedAccountId}
+						selectedCloudflareAccountId={selectedCloudflareAccountId}
+						isLoadingAccounts={isLoadingAccounts}
+						onAccountChange={setSelectedAccountId}
+						onCloudflareAccountChange={setSelectedCloudflareAccountId}
+						disabled={isLoading}
+						destinationAccountMessage={destinationAccountMessage}
+					/>
 
 					{/* Root IP Address */}
 					<div className="space-y-2">
@@ -209,7 +249,12 @@ export function BulkImportDialog({ selectedDomains, onComplete }: BulkImportDial
 					</Button>
 					<Button
 						onClick={handleImport}
-						disabled={!selectedAccount || !rootIPAddress.trim() || isLoading}
+						disabled={
+							!selectedAccountId ||
+							!selectedCloudflareAccountId ||
+							!rootIPAddress.trim() ||
+							isLoading
+						}
 						className="gap-2"
 					>
 						{isLoading ? (

@@ -1,10 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import type { NamecheapAccount } from '@/types/namecheap';
 import type { NjallaAccount } from '@/types/njalla';
 import type { DynadotAccount } from '@/types/dynadot';
 import type { ProxyAccount } from '@/types/cloudflare';
+import { runDynadotRateLimitedRequest } from '@/lib/dynadot-rate-limit';
 import { processInParallel } from '@/lib/utils';
 
 interface UseNameserversReturn {
@@ -28,37 +29,6 @@ export function useNameservers(
 ): UseNameserversReturn {
     const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
     const { setNameserversCache, getNameserversCache } = useCloudflareCache();
-    const dynadotQueueRef = useRef<Record<string, Promise<unknown>>>({});
-    const dynadotLastRequestAtRef = useRef<Record<string, number>>({});
-
-    const DYNADOT_MIN_INTERVAL_MS = 1000;
-
-    const sleep = useCallback((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)), []);
-
-    const runDynadotRequest = useCallback(async <T,>(
-        accountId: string,
-        task: () => Promise<T>
-    ): Promise<T> => {
-        const previous = dynadotQueueRef.current[accountId] ?? Promise.resolve();
-
-        const next = previous
-            .catch(() => undefined)
-            .then(async () => {
-                const lastRequestAt = dynadotLastRequestAtRef.current[accountId] ?? 0;
-                const elapsed = Date.now() - lastRequestAt;
-                const waitMs = Math.max(0, DYNADOT_MIN_INTERVAL_MS - elapsed);
-
-                if (waitMs > 0) {
-                    await sleep(waitMs);
-                }
-
-                dynadotLastRequestAtRef.current[accountId] = Date.now();
-                return task();
-            });
-
-        dynadotQueueRef.current[accountId] = next.catch(() => undefined);
-        return next;
-    }, [sleep]);
 
     /**
      * Parse domain into SLD and TLD
@@ -168,7 +138,7 @@ export function useNameservers(
                 nameservers = data.data.nameservers;
                 isUsingOurDNS = data.data.isUsingOurDNS;
             } else if (dynadotAccount) {
-                const response = await runDynadotRequest(dynadotAccount.id, () => fetch(
+                const response = await runDynadotRateLimitedRequest(dynadotAccount.id, () => fetch(
                     `/api/dynadot/nameservers?domain=${encodeURIComponent(domain)}`,
                     {
                         method: 'GET',
@@ -199,7 +169,7 @@ export function useNameservers(
         } finally {
             setLoadingStates((prev) => ({ ...prev, [domain]: false }));
         }
-    }, [accounts, proxyAccounts, njallaAccounts, dynadotAccounts, parseDomain, buildHeaders, getNameserversCache, setNameserversCache, runDynadotRequest]);
+    }, [accounts, proxyAccounts, njallaAccounts, dynadotAccounts, parseDomain, buildHeaders, getNameserversCache, setNameserversCache]);
 
     /**
      * Set nameservers for multiple domains
@@ -284,7 +254,7 @@ export function useNameservers(
                         });
 
                         response = isDynadot && dynadotAccount
-                            ? await runDynadotRequest(dynadotAccount.id, executeRequest)
+                            ? await runDynadotRateLimitedRequest(dynadotAccount.id, executeRequest)
                             : await executeRequest();
                     }
 
@@ -332,7 +302,7 @@ export function useNameservers(
             });
             return true;
         }
-    }, [accounts, proxyAccounts, njallaAccounts, dynadotAccounts, parseDomain, buildHeaders, setNameserversCache, runDynadotRequest]);
+    }, [accounts, proxyAccounts, njallaAccounts, dynadotAccounts, parseDomain, buildHeaders, setNameserversCache]);
 
     return {
         fetchNameservers,

@@ -14,7 +14,7 @@ import { ConfigurationConsole } from '@/components/configuration-console';
 import { toast } from 'sonner';
 import type { CloudflareAccount } from '@/types/cloudflare';
 import { validateIPAddress, parseBulkDomains } from '@/lib/utils';
-import { useCloudflareAccounts } from '@/hooks/use-cloudflare-accounts';
+import { useCloudflareDestinationAccount } from '@/hooks/use-cloudflare-destination-account';
 import { useBulkDomainCreation } from '@/hooks/use-bulk-domain-creation';
 import { useAccountStore } from '@/store/account-store';
 import { BulkDomainInputForm } from './BulkDomainInputForm';
@@ -32,7 +32,6 @@ export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccou
 	const [isOpen, setIsOpen] = useState(false);
 	const [domains, setDomains] = useState('');
 	const [selectedAccountId, setSelectedAccountId] = useState('');
-	const [selectedCloudflareAccountId, setSelectedCloudflareAccountId] = useState('');
 	const [selectedRegistrarAccountId, setSelectedRegistrarAccountId] = useState('');
 	const [rootIPAddress, setRootIPAddress] = useState('');
 	const [proxied, setProxied] = useState(true);
@@ -42,20 +41,31 @@ export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccou
 	const proxyAccounts = useAccountStore((s) => s.proxyAccounts);
 	const registrarAccounts = useMemo(() =>
 		allAccounts
-			.filter((a) => a.category === 'registrar' && (a.registrarName === 'namecheap' || a.registrarName === 'njalla'))
+			.filter((a) => a.category === 'registrar' && (
+				a.registrarName === 'namecheap' ||
+				a.registrarName === 'njalla' ||
+				a.registrarName === 'dynadot'
+			))
 			.map((a) => ({
 				id: a.id,
 				name: a.name || a.email || 'Unnamed',
-				registrar: a.registrarName as 'namecheap' | 'njalla',
+				registrar: a.registrarName as 'namecheap' | 'njalla' | 'dynadot',
 			})),
 		[allAccounts]);
 
-	const { accountsToUse, cloudflareAccounts, isLoadingAccounts } = useCloudflareAccounts({
+	const {
+		accountsToUse,
+		selectedAccount,
+		cloudflareAccounts,
+		selectedCloudflareAccountId,
+		setSelectedCloudflareAccountId,
+		isLoadingAccounts,
+		hasAvailableCloudflareAccounts,
+		destinationAccountMessage,
+	} = useCloudflareDestinationAccount({
 		selectedAccountId,
 		accounts,
 	});
-
-	const selectedAccount = accountsToUse.find(acc => acc.id === selectedAccountId);
 	const hasValidAccount = selectedAccount && selectedCloudflareAccountId;
 
 	const bulkDomainCreation = useBulkDomainCreation({
@@ -85,26 +95,6 @@ export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccou
 		}
 	}, [isOpen, accountsToUse, selectedAccountId, initialAccountId]);
 
-	// Reset Cloudflare account selection when API account changes
-	useEffect(() => {
-		if (selectedAccountId) {
-			setSelectedCloudflareAccountId('');
-		}
-	}, [selectedAccountId]);
-
-	// Auto-select first Cloudflare account if only one exists (after loading completes)
-	useEffect(() => {
-		if (!selectedAccountId || isLoadingAccounts) {
-			return;
-		}
-
-		if (cloudflareAccounts.length === 1 && !selectedCloudflareAccountId) {
-			setSelectedCloudflareAccountId(cloudflareAccounts[0].id);
-		} else if (cloudflareAccounts.length === 0 && selectedCloudflareAccountId) {
-			setSelectedCloudflareAccountId('');
-		}
-	}, [cloudflareAccounts, selectedCloudflareAccountId, selectedAccountId, isLoadingAccounts]);
-
 	const handleCreateDomains = async () => {
 		if (!domains.trim()) {
 			toast.error('Please enter domain names');
@@ -113,9 +103,13 @@ export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccou
 
 		if (!hasValidAccount) {
 			if (!selectedAccountId) {
-				toast.error('Please select an account');
+				toast.error('Please select a Cloudflare API credential');
+			} else if (isLoadingAccounts) {
+				toast.error('Cloudflare accounts are still loading for this credential');
+			} else if (!hasAvailableCloudflareAccounts) {
+				toast.error(destinationAccountMessage);
 			} else if (!selectedCloudflareAccountId) {
-				toast.error('Please select a Cloudflare account');
+				toast.error('Please select a destination Cloudflare account');
 			} else {
 				toast.error('Selected account not found');
 			}
@@ -144,7 +138,6 @@ export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccou
 		setIsOpen(false);
 		setDomains('');
 		setSelectedAccountId('');
-		setSelectedCloudflareAccountId('');
 		setSelectedRegistrarAccountId('');
 		setRootIPAddress('');
 		setProxied(true);
@@ -207,6 +200,7 @@ export function AddDomainDialog({ title, accounts, onDomainCreated, initialAccou
 						onAccountChange={setSelectedAccountId}
 						onCloudflareAccountChange={setSelectedCloudflareAccountId}
 						disabled={isProcessing}
+						destinationAccountMessage={destinationAccountMessage}
 						registrarAccounts={registrarAccounts}
 						selectedRegistrarAccountId={selectedRegistrarAccountId}
 						onRegistrarAccountChange={setSelectedRegistrarAccountId}

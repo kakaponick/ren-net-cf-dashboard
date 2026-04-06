@@ -29,7 +29,7 @@ interface CloudflareAccountOption {
 export interface RegistrarAccountOption {
 	id: string;
 	name: string;
-	registrar: 'namecheap' | 'njalla';
+	registrar: 'namecheap' | 'njalla' | 'dynadot';
 }
 
 interface AccountSelectorsProps {
@@ -41,6 +41,7 @@ interface AccountSelectorsProps {
 	onAccountChange: (accountId: string) => void;
 	onCloudflareAccountChange: (accountId: string) => void;
 	disabled?: boolean;
+	destinationAccountMessage?: string;
 	// Registrar (optional)
 	registrarAccounts?: RegistrarAccountOption[];
 	selectedRegistrarAccountId?: string;
@@ -106,9 +107,24 @@ function NjallaLogo({ className }: { className?: string }) {
 	);
 }
 
-function RegistrarIcon({ registrar, className }: { registrar: 'namecheap' | 'njalla'; className?: string }) {
+function DynadotLogo({ className }: { className?: string }) {
+	return (
+		<img
+			src="https://www.dynadot.com/favicon.ico"
+			alt="Dynadot"
+			className={cn('rounded-sm object-contain', className)}
+			loading="lazy"
+			referrerPolicy="no-referrer"
+		/>
+	);
+}
+
+function RegistrarIcon({ registrar, className }: { registrar: 'namecheap' | 'njalla' | 'dynadot'; className?: string }) {
 	if (registrar === 'namecheap') {
 		return <NamecheapLogo className={className} />;
+	}
+	if (registrar === 'dynadot') {
+		return <DynadotLogo className={className} />;
 	}
 	return <NjallaLogo className={className} />;
 }
@@ -122,6 +138,7 @@ export function AccountSelectors({
 	onAccountChange,
 	onCloudflareAccountChange,
 	disabled,
+	destinationAccountMessage,
 	registrarAccounts = [],
 	selectedRegistrarAccountId = '',
 	onRegistrarAccountChange,
@@ -143,10 +160,10 @@ export function AccountSelectors({
 	return (
 		<>
 			<div className="space-y-2">
-				<Label htmlFor="account-select">API Account</Label>
+				<Label htmlFor="account-select">Cloudflare API Credential</Label>
 				<Select value={selectedAccountId} onValueChange={onAccountChange} disabled={disabled}>
 					<SelectTrigger id="account-select">
-						<SelectValue placeholder="Select an API account" />
+						<SelectValue placeholder="Select a saved Cloudflare credential" />
 					</SelectTrigger>
 					<SelectContent>
 						{accounts.map((account) => (
@@ -159,12 +176,12 @@ export function AccountSelectors({
 			</div>
 
 			{selectedAccountId && (
-				<div className="space-y-2 hidden">
-					<Label htmlFor="cloudflare-account-select">Cloudflare Account</Label>
+				<div className="space-y-2">
+					<Label htmlFor="cloudflare-account-select">Destination Cloudflare Account</Label>
 					<Select
 						value={selectedCloudflareAccountId}
 						onValueChange={onCloudflareAccountChange}
-						disabled={isLoadingAccounts || disabled}
+						disabled={isLoadingAccounts || disabled || cloudflareAccounts.length === 0}
 					>
 						<SelectTrigger id="cloudflare-account-select">
 							<SelectValue
@@ -172,8 +189,8 @@ export function AccountSelectors({
 									isLoadingAccounts
 										? 'Loading accounts...'
 										: cloudflareAccounts.length === 0
-											? 'No accounts found'
-											: 'Select a Cloudflare account'
+											? 'No accounts found for this credential'
+											: 'Select destination Cloudflare account'
 								}
 							/>
 						</SelectTrigger>
@@ -185,6 +202,14 @@ export function AccountSelectors({
 							))}
 						</SelectContent>
 					</Select>
+					<p className={cn(
+						'text-sm',
+						!isLoadingAccounts && cloudflareAccounts.length === 0
+							? 'text-destructive'
+							: 'text-muted-foreground'
+					)}>
+						{destinationAccountMessage}
+					</p>
 				</div>
 			)}
 

@@ -4,6 +4,7 @@ import { useAccountStore } from '@/store/account-store';
 import { useCloudflareCache } from '@/store/cloudflare-cache';
 import { toast } from 'sonner';
 import { formatCloudflareError } from '@/lib/utils';
+import { runDynadotRateLimitedRequest } from '@/lib/dynadot-rate-limit';
 import type { DomainQueueItem, ConfigurationStep } from '@/components/configuration-console';
 import type { CloudflareAccount, DNSRecord, ProxyAccount } from '@/types/cloudflare';
 
@@ -178,6 +179,25 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 			return Array.isArray(data.data?.nameservers) ? data.data.nameservers : [];
 		}
 
+		if (regAccount.registrarName === 'dynadot') {
+			const response = await runDynadotRateLimitedRequest(regAccount.id, () => fetch(
+				`/api/dynadot/nameservers?domain=${encodeURIComponent(domain)}`,
+				{
+					method: 'GET',
+					headers: {
+						'x-api-key': regAccount.apiToken,
+					},
+				}
+			));
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				throw new Error(data.error || 'Failed to fetch registrar nameservers');
+			}
+
+			return Array.isArray(data.data?.nameservers) ? data.data.nameservers : [];
+		}
+
 		throw new Error(`Unsupported registrar: ${regAccount.registrarName || 'unknown'}`);
 	};
 
@@ -207,6 +227,24 @@ export function useBulkDomainCreation({ account, cloudflareAccountId, onSuccess,
 				},
 				body: JSON.stringify({ domain, nameservers }),
 			});
+			const data = await response.json();
+
+			if (!response.ok || !data.success) {
+				throw new Error(data.error || 'Failed to set nameservers');
+			}
+
+			return;
+		}
+
+		if (regAccount.registrarName === 'dynadot') {
+			const response = await runDynadotRateLimitedRequest(regAccount.id, () => fetch('/api/dynadot/nameservers', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'x-api-key': regAccount.apiToken,
+				},
+				body: JSON.stringify({ domain, nameservers }),
+			}));
 			const data = await response.json();
 
 			if (!response.ok || !data.success) {
